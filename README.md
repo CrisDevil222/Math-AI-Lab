@@ -37,5 +37,3 @@ Math AI Lab là một ứng dụng hỗ trợ khảo sát toán học mạnh m�
 - `android/`: Native Android project do Capacitor quản lý.
 - `assets/`: Các tài nguyên Icon và Splash Screen gốc.
 
-## Ghi công
-Dựa trên mã nguồn Math AI Lab (KHKT 2026) của raidenbmei: https://github.com/raidenbmei/HinhHoc3D-2D. Bản Android do CrisDevil222 thực hiện.
