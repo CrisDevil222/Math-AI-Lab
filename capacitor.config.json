@@ -1,0 +1,11 @@
+{
+  "appId": "com.mathailab.app",
+  "appName": "Math AI Lab",
+  "webDir": "www",
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "backgroundColor": "#0b1120"
+    }
+  }
+}

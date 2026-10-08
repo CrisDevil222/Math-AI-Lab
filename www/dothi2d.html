@@ -1,0 +1,1872 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1700, user-scalable=no, viewport-fit=cover">
+    <title>Vẽ Đồ Thị Hàm Số 2D Tương Tác</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- KaTeX CSS & JS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            background-color: #0b1120;
+            color: #f8fafc;
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.88);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .plot-label {
+            position: absolute;
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 5px;
+            background: rgba(15, 23, 42, 0.9);
+            border: 1.5px solid #38bdf8;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+            pointer-events: none;
+            transform: translate(-50%, -120%);
+            white-space: nowrap;
+            user-select: none;
+            z-index: 10;
+        }
+
+        .katex-display {
+            margin: 0.35em 0 !important;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scrollbar-width: none !important;
+            -ms-overflow-style: none !important;
+        }
+        .katex-display::-webkit-scrollbar {
+            display: none !important;
+            height: 0px !important;
+            width: 0px !important;
+        }
+
+        .katex {
+            font-size: 1.05em;
+            color: #e2e8f0;
+            white-space: normal !important;
+        }
+
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.5);
+            border-radius: 2px;
+        }
+    </style>
+    <style>
+        /* Tùy chỉnh kích thước khung chat chatbot */
+        #formulaChatPanel {
+            width: 560px !important;
+            max-width: calc(100vw - 40px) !important;
+            height: 480px !important;
+            max-height: calc(100dvh - 300px) !important;
+        }
+        #formulaChatPanel h2 {
+            font-size: 17px !important;
+        }
+        #formulaChatPanel button i.fa-xmark {
+            font-size: 20px !important;
+        }
+        #formulaChatPanel > div:first-child button {
+            width: 36px !important;
+            height: 36px !important;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #formulaChatMessages {
+            font-size: 16px !important;
+            line-height: 1.6 !important;
+            overflow-y: auto !important;
+        }
+        #formulaChatMessages > div {
+            font-size: 16px !important;
+        }
+        #formulaChatInput {
+            height: 48px !important;
+            font-size: 16px !important;
+        }
+        #btnSubmitFormulaChat {
+            width: 48px !important;
+            height: 48px !important;
+            font-size: 18px !important;
+        }
+    </style>
+    <script src="config.js"></script>
+</head>
+<body class="w-screen relative select-none" style="height: 100vh; height: 100dvh;">
+
+    <!-- 2D Canvas Container -->
+    <div id="canvas-container" class="w-full h-full absolute top-0 left-0 cursor-crosshair" style="touch-action: none;">
+        <canvas id="graphCanvas" class="w-full h-full block" style="touch-action: none;"></canvas>
+    </div>
+
+    <!-- Container nhãn điểm động -->
+    <div id="labels-container" class="absolute top-0 left-0 w-full h-full pointer-events-none"></div>
+
+    <!-- Header Overlay -->
+    <header class="absolute top-4 left-4 z-20">
+        <div class="glass-panel px-4 py-3 rounded-2xl flex items-center space-x-3 shadow-xl">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-cyan-500/30">
+                <i class="fa-solid fa-chart-line"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-base text-slate-100 tracking-wide leading-tight">Khảo Sát Đồ Thị 2D</h1>
+                <p class="text-xs text-cyan-400 font-medium">Hỗ Trợ Tiệm Cận, Đạo Hàm y', y'' & Tiếp Tuyến</p>
+            </div>
+        </div>
+    </header>
+
+    <!-- Nút chuyển về Hình Học 3D -->
+    <div class="absolute top-[4.75rem] left-4 z-20 pointer-events-auto">
+        <a href="ungdunghinhoc3d.html" 
+           title="Mở giao diện vẽ Hình Học Không Gian 3D"
+           class="glass-panel px-3.5 py-2 rounded-xl flex items-center gap-2 border border-cyan-500/40 text-cyan-300 text-xs font-semibold hover:bg-cyan-500/10 hover:border-cyan-400 transition-all shadow-lg group">
+            <i class="fa-solid fa-cube text-sm text-cyan-400 group-hover:scale-110 transition-transform"></i>
+            <span>Về Hình Học 3D</span>
+            <i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-slate-400 group-hover:text-cyan-300"></i>
+        </a>
+    </div>
+
+    <!-- Author Badge -->
+    <div class="absolute bottom-24 left-4 z-20 pointer-events-auto">
+        <div class="glass-panel px-3 py-2 rounded-xl flex items-center space-x-2.5 shadow-lg border border-slate-700/60">
+            <div class="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xs font-bold">
+                <i class="fa-solid fa-square-root-variable"></i>
+            </div>
+            <div class="text-xs">
+                <span class="text-slate-400 font-medium">Thực hiện: </span>
+                <span class="font-bold text-cyan-300">Tên Của Bạn</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chú thích đạo hàm khi đang bật -->
+    <div id="derivativeLegend" class="hidden absolute bottom-4 left-4 z-20 glass-panel px-3 py-2 rounded-xl border border-slate-700 text-[11px] flex items-center gap-3">
+        <div class="flex items-center gap-1.5 text-amber-300 font-mono font-bold">
+            <span class="inline-block w-4 h-0.5 border-b-2 border-amber-400 border-dashed"></span>
+            <span>y' (Đạo hàm bậc 1)</span>
+        </div>
+        <div class="flex items-center gap-1.5 text-fuchsia-300 font-mono font-bold">
+            <span class="inline-block w-4 h-0.5 border-b-2 border-fuchsia-400 border-dotted"></span>
+            <span>y'' (Đạo hàm bậc 2)</span>
+        </div>
+    </div>
+
+    <!-- Nút mở Chatbot -->
+    <button id="chatToggleBtn" onclick="toggleFormulaChat()"
+            class="absolute top-[7.75rem] left-4 z-30 glass-panel w-11 h-11 rounded-2xl border border-emerald-500/40 text-emerald-300 shadow-xl flex items-center justify-center hover:bg-emerald-500/10 transition-all pointer-events-auto">
+        <i class="fa-solid fa-calculator text-base"></i>
+    </button>
+
+    <div id="formulaChatPanel" class="hidden absolute top-[7.75rem] left-[4.75rem] z-30 w-80 sm:w-96 max-h-[72vh] glass-panel rounded-2xl border border-emerald-500/30 shadow-2xl flex flex-col pointer-events-auto">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-slate-700/50">
+            <h2 class="text-xs font-bold text-emerald-300 uppercase tracking-wider flex items-center gap-2">
+                <i class="fa-solid fa-square-root-variable"></i> Khảo Sát & Công Thức
+            </h2>
+            <button onclick="toggleFormulaChat()" class="text-slate-500 hover:text-slate-300 transition-colors">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div id="formulaChatMessages" class="flex-1 min-h-[220px] max-h-[28rem] overflow-y-auto px-3 py-3 space-y-2 text-xs">
+            <div class="text-slate-400 bg-slate-800/50 border border-slate-700/40 rounded-xl px-3 py-2 leading-relaxed">
+                Chào bạn! Hãy hỏi mình về khảo sát hàm số, khoảng xác định, cực trị, tiệm cận, đạo hàm $y', y''$ hoặc tiếp tuyến nhé!
+            </div>
+        </div>
+        <div class="p-3 border-t border-slate-700/50 flex gap-2">
+            <input type="text" id="formulaChatInput" placeholder="VD: Tìm cực trị, phương trình tiệm cận..."
+                   onkeydown="if(event.key === 'Enter') sendFormulaChat()"
+                   class="flex-1 bg-slate-900/80 border border-slate-700 text-white placeholder-slate-500 text-xs px-3 py-2 rounded-xl outline-none focus:border-emerald-500 transition-colors">
+            <button id="btnSubmitFormulaChat" onclick="sendFormulaChat()"
+                    class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3 py-2 rounded-xl transition-all shadow-md flex items-center justify-center">
+                <i class="fa-solid fa-paper-plane"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="absolute top-4 left-1/2 -translate-x-1/2 z-20">
+        <div class="glass-panel p-1.5 rounded-2xl flex items-center space-x-1 shadow-2xl border border-slate-700/60 overflow-x-auto max-w-[94vw]">
+            <button onclick="setToolMode('pan')" id="tool-pan" class="tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 transition-all whitespace-nowrap">
+                <i class="fa-solid fa-hand"></i>
+                <span>Di Chuyển (Pan)</span>
+            </button>
+            <button onclick="setToolMode('add_point')" id="tool-add_point" class="tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800 transition-all whitespace-nowrap">
+                <i class="fa-solid fa-location-dot text-emerald-400"></i>
+                <span>Chấm Điểm</span>
+            </button>
+            <button onclick="setToolMode('tangent')" id="tool-tangent" class="tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800 transition-all whitespace-nowrap" title="Bấm vào đồ thị để vẽ tiếp tuyến">
+                <i class="fa-solid fa-ruler-combined text-amber-400"></i>
+                <span>Tiếp Tuyến</span>
+            </button>
+            <button onclick="setToolMode('delete')" id="tool-delete" class="tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800 transition-all whitespace-nowrap">
+                <i class="fa-solid fa-trash-can text-rose-400"></i>
+                <span>Xóa Điểm</span>
+            </button>
+            <div class="w-px h-6 bg-slate-700 mx-1"></div>
+            <button onclick="zoomView(1.2)" class="tool-btn p-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800" title="Phóng to">
+                <i class="fa-solid fa-magnifying-glass-plus text-cyan-300"></i>
+            </button>
+            <button onclick="zoomView(0.8)" class="tool-btn p-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800" title="Thu nhỏ">
+                <i class="fa-solid fa-magnifying-glass-minus text-cyan-300"></i>
+            </button>
+            <button onclick="resetView()" class="tool-btn p-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800" title="Gốc tọa độ (0,0)">
+                <i class="fa-solid fa-arrows-to-dot text-amber-300"></i>
+            </button>
+            <div class="w-px h-6 bg-slate-700 mx-1"></div>
+            <button onclick="undoLastAction()" id="btnUndo" disabled class="tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-800 transition-all whitespace-nowrap">
+                <i class="fa-solid fa-rotate-left text-sky-400"></i>
+                <span>Hoàn Tác</span>
+            </button>
+            <button onclick="clearAllData()" class="tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:bg-slate-800 transition-all whitespace-nowrap">
+                <i class="fa-solid fa-eraser"></i>
+                <span>Xóa Hết</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Quick Instruction Tooltip -->
+    <div class="absolute top-20 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
+        <div id="mode-instruction" class="glass-panel px-4 py-1.5 rounded-full text-xs text-cyan-300 font-medium shadow-md border border-cyan-500/30 animate-pulse">
+            Chế độ: Di chuyển hệ trục Oxy (Vuốt để kéo, chụm 2 ngón để zoom)
+        </div>
+    </div>
+
+    <!-- Right Sidebar -->
+    <aside class="absolute top-4 right-4 bottom-24 w-80 sm:w-88 z-20 flex flex-col gap-4 pointer-events-none">
+        <div class="glass-panel rounded-2xl p-4 sm:p-5 shadow-2xl flex-1 flex flex-col pointer-events-auto overflow-y-auto">
+            
+            <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2.5 flex items-center gap-2">
+                <i class="fa-solid fa-wand-magic-sparkles text-cyan-400"></i> Đồ Thị Mẫu Phổ Biến
+            </h2>
+
+            <div class="grid grid-cols-2 gap-2 mb-3">
+                <button onclick="loadPreset('sin_interval')" class="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-semibold transition-all">
+                    y = sin(x) [-π, π]
+                </button>
+                <button onclick="loadPreset('cos_interval')" class="p-2.5 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/40 text-teal-300 text-xs font-semibold transition-all">
+                    y = cos(x) [0, 2π]
+                </button>
+                <button onclick="loadPreset('cubic')" class="p-2.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 text-xs font-semibold transition-all">
+                    y = x³ - 3x + 1
+                </button>
+                <button onclick="loadPreset('rational')" class="p-2.5 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/40 text-purple-300 text-xs font-semibold transition-all">
+                    y = (2x - 1)/(x + 1)
+                </button>
+            </div>
+
+            <!-- Tọa độ con trỏ chuột -->
+            <div class="mb-4 p-2.5 rounded-xl bg-slate-800/40 border border-slate-700/50 flex items-center justify-between text-xs">
+                <span class="text-slate-400 font-medium"><i class="fa-solid fa-crosshairs text-cyan-400 mr-1"></i> Tọa độ:</span>
+                <span id="coordDisplay" class="font-mono text-cyan-300 font-bold">(0.00, 0.00)</span>
+            </div>
+
+            <hr class="border-slate-700/50 mb-3">
+
+            <!-- Danh sách hàm số đang vẽ -->
+            <div class="flex items-center justify-between mb-2">
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-bezier-curve text-cyan-400"></i> Hàm Số Hiện Tại
+                </h2>
+                <button onclick="promptAddFunction()" class="text-xs text-cyan-400 hover:text-cyan-300 font-semibold flex items-center gap-1">
+                    <i class="fa-solid fa-plus"></i> Thêm hàm
+                </button>
+            </div>
+
+            <div id="functionsList" class="space-y-2 mb-4 max-h-[170px] overflow-y-auto pr-1"></div>
+
+            <hr class="border-slate-700/50 mb-3">
+
+            <!-- Danh sách điểm đánh dấu -->
+            <div class="flex items-center justify-between mb-2">
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-location-dot text-emerald-400"></i> Điểm Đánh Dấu
+                </h2>
+                <button onclick="autoFindKeyPoints()" class="text-xs text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1" title="Tự động tìm Cực trị & Giao điểm">
+                    <i class="fa-solid fa-bolt"></i> Tự tìm cực trị
+                </button>
+            </div>
+
+            <div id="pointsList" class="flex-1 min-h-[90px] max-h-[130px] overflow-y-auto space-y-1.5 pr-1 mb-4">
+                <div class="text-center text-xs text-slate-500 py-4">Chưa có điểm nào.</div>
+            </div>
+
+            <div class="mt-auto pt-2">
+                <button onclick="resetView()" class="w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-300 font-medium transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-compress text-cyan-400"></i> Đặt Lại Tỉ Lệ Chuẩn (0,0)
+                </button>
+            </div>
+
+        </div>
+    </aside>
+
+    <!-- Ô NHẬP LỆNH VẼ ĐỒ THỊ BẰNG AI & CÔNG THỨC TOÁN -->
+    <div class="fixed bottom-4 left-1/2 -translate-x-1/2 w-[92%] max-w-3xl z-30 glass-panel p-3 rounded-2xl border border-slate-700/80 shadow-2xl flex flex-col gap-2">
+        <div class="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs border-b border-slate-700/50">
+            <span class="text-[11px] text-slate-400 font-medium whitespace-nowrap mr-1"><i class="fa-solid fa-superscript text-cyan-400"></i> Ký hiệu:</span>
+            <button type="button" onclick="insertSymbol('x^2')" class="px-2 py-0.5 rounded-lg bg-cyan-950/70 hover:bg-cyan-900 text-cyan-300 font-bold border border-cyan-700/60 shadow-sm">x²</button>
+            <button type="button" onclick="insertSymbol('x^3')" class="px-2 py-0.5 rounded-lg bg-cyan-950/70 hover:bg-cyan-900 text-cyan-300 font-bold border border-cyan-700/60 shadow-sm">x³</button>
+            <button type="button" onclick="insertSymbol('pi')" class="px-2.5 py-0.5 rounded-lg bg-amber-950/70 hover:bg-amber-900 text-amber-300 font-bold border border-amber-600/70 shadow-sm" title="Số Pi (π)">π</button>
+            <button type="button" onclick="insertSymbol(' trên [-pi, pi]')" class="px-2 py-0.5 rounded-lg bg-teal-950/70 hover:bg-teal-900 text-teal-300 font-bold border border-teal-700/60" title="Khoảng lượng giác">trên [-π, π]</button>
+            <button type="button" onclick="insertSymbol('sin(x)')" class="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 font-bold border border-slate-700">sin</button>
+            <button type="button" onclick="insertSymbol('cos(x)')" class="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 font-bold border border-slate-700">cos</button>
+            <button type="button" onclick="insertSymbol('tan(x)')" class="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 font-bold border border-slate-700">tan</button>
+            <button type="button" onclick="insertSymbol('sqrt(')" class="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 font-bold border border-slate-700">√x</button>
+            <button type="button" onclick="insertSymbol('abs(')" class="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 font-bold border border-slate-700">|x|</button>
+            <button type="button" onclick="insertSymbol('/')" class="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold border border-slate-700">/</button>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-2">
+            <input type="text" id="aiCommandInput" placeholder="Nhập hàm số (VD: y = (2x - 1)/(x + 1), y = x^3 - 3x + 1, y = sin(x)...)" 
+                   onkeydown="if(event.key === 'Enter') handleCommandSubmit()"
+                   class="flex-1 bg-slate-900/80 border border-slate-700 text-white placeholder-slate-500 text-xs px-3 py-2 rounded-xl outline-none focus:border-cyan-500 transition-colors">
+            
+            <button id="btnSubmitPlot" onclick="handleCommandSubmit()" 
+                    class="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 whitespace-nowrap">
+                <i class="fa-solid fa-pen-nib"></i>
+                <span>Vẽ Đồ Thị</span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // MODAL SYSTEM
+        let currentModal = null;
+        const modalQueue = [];
+
+        function processModalQueue() {
+            if (currentModal || modalQueue.length === 0) return;
+            const nextModal = modalQueue.shift();
+            currentModal = nextModal;
+            document.body.appendChild(nextModal.el);
+            if (nextModal.input) {
+                setTimeout(() => nextModal.input.focus(), 50);
+            }
+        }
+
+        function createModalDOM(title, message, type, defaultValue, placeholder) {
+            const overlay = document.createElement('div');
+            overlay.className = 'fixed inset-0 flex justify-center items-start z-[99999] pt-[10dvh] px-4 overflow-y-auto';
+            overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:99999;display:flex;justify-content:center;align-items:flex-start;padding-top:10vh;backdrop-filter:blur(2px);';
+            
+            const box = document.createElement('div');
+            box.style.cssText = 'background:#1e293b;border:1px solid #0d9488;border-radius:12px;width:100%;max-width:560px;color:#f8fafc;padding:20px;box-shadow:0 10px 25px rgba(0,0,0,0.5);display:flex;flex-direction:column;gap:16px;max-height:80dvh;overflow-y:auto;';
+            
+            if (title) {
+                const titleEl = document.createElement('h3');
+                titleEl.style.cssText = 'margin:0;font-size:20px;font-weight:bold;color:#2dd4bf;';
+                titleEl.textContent = title;
+                box.appendChild(titleEl);
+            }
+            
+            const msgEl = document.createElement('div');
+            msgEl.style.cssText = 'font-size:18px;white-space:pre-wrap;';
+            msgEl.textContent = message;
+            box.appendChild(msgEl);
+            
+            let inputEl = null;
+            if (type === 'prompt') {
+                inputEl = document.createElement('input');
+                inputEl.type = 'text';
+                inputEl.value = defaultValue || '';
+                inputEl.placeholder = placeholder || '';
+                inputEl.style.cssText = 'width:100%;height:52px;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:0 16px;color:#f8fafc;font-size:18px;outline:none;';
+                inputEl.onfocus = () => { inputEl.style.borderColor = '#0d9488'; };
+                inputEl.onblur = () => { inputEl.style.borderColor = '#334155'; };
+                box.appendChild(inputEl);
+            }
+            
+            const btnContainer = document.createElement('div');
+            btnContainer.style.cssText = 'display:flex;justify-content:flex-end;gap:12px;margin-top:8px;';
+            
+            let resolvePromise = null;
+            const promise = new Promise(resolve => { resolvePromise = resolve; });
+            
+            const closeModal = (result) => {
+                overlay.remove();
+                currentModal = null;
+                resolvePromise(result);
+                setTimeout(processModalQueue, 50);
+            };
+            
+            if (type === 'alert') {
+                const okBtn = document.createElement('button');
+                okBtn.textContent = 'Đóng';
+                okBtn.style.cssText = 'min-height:48px;padding:0 24px;background:#0d9488;color:#fff;border:none;border-radius:8px;font-size:18px;font-weight:bold;cursor:pointer;';
+                okBtn.onclick = () => closeModal(true);
+                btnContainer.appendChild(okBtn);
+            } else {
+                const cancelBtn = document.createElement('button');
+                cancelBtn.textContent = 'Hủy';
+                cancelBtn.style.cssText = 'min-height:48px;padding:0 24px;background:transparent;color:#94a3b8;border:1px solid #475569;border-radius:8px;font-size:18px;font-weight:bold;cursor:pointer;';
+                cancelBtn.onclick = () => closeModal(type === 'prompt' ? null : false);
+                
+                const okBtn = document.createElement('button');
+                okBtn.textContent = type === 'prompt' ? 'OK' : 'Đồng ý';
+                okBtn.style.cssText = 'min-height:48px;padding:0 24px;background:#0d9488;color:#fff;border:none;border-radius:8px;font-size:18px;font-weight:bold;cursor:pointer;';
+                okBtn.onclick = () => closeModal(type === 'prompt' ? inputEl.value : true);
+                
+                btnContainer.appendChild(cancelBtn);
+                btnContainer.appendChild(okBtn);
+            }
+            
+            box.appendChild(btnContainer);
+            overlay.appendChild(box);
+            
+            overlay.onpointerdown = (e) => {
+                if (e.target === overlay) {
+                    closeModal(type === 'prompt' ? null : (type === 'alert' ? true : false));
+                }
+            };
+            
+            const handleKeyDown = (e) => {
+                if (e.key === 'Escape') {
+                    closeModal(type === 'prompt' ? null : (type === 'alert' ? true : false));
+                } else if (e.key === 'Enter' && type === 'prompt') {
+                    closeModal(inputEl.value);
+                }
+            };
+            overlay.addEventListener('keydown', handleKeyDown);
+            
+            modalQueue.push({ el: overlay, input: inputEl });
+            processModalQueue();
+            
+            return promise;
+        }
+
+        window.appAlert = function(message, opts = {}) { return createModalDOM(opts.title || 'Thông báo', message, 'alert'); };
+        window.appConfirm = function(message, opts = {}) { return createModalDOM(opts.title || 'Xác nhận', message, 'confirm'); };
+        window.appPrompt = function(message, defaultValue = '', opts = {}) { return createModalDOM(opts.title || 'Nhập liệu', message, 'prompt', defaultValue, opts.placeholder); };
+
+        const canvas = document.getElementById('graphCanvas');
+        const ctx = canvas.getContext('2d');
+        const labelsContainer = document.getElementById('labels-container');
+
+        let currentTool = 'pan';
+        let isDragging = false;
+        let lastMousePos = { x: 0, y: 0 };
+
+        let view = {
+            originX: 0,
+            originY: 0,
+            scale: 45,
+            minScale: 5,
+            maxScale: 350
+        };
+
+        const functionColors = ['#38bdf8', '#fb7185', '#a855f7', '#facc15', '#34d399', '#fb923c'];
+        let functionsData = [];
+        let pointsData = [];
+        let specialLines = [];
+
+        let undoStack = [];
+        const MAX_UNDO = 15;
+
+        const GROQ_API_KEY_DRAW = window.APP_CONFIG && window.APP_CONFIG.GROQ_KEY_DRAW;
+        const GROQ_API_KEY_CHAT = window.APP_CONFIG && window.APP_CONFIG.GROQ_KEY_CHAT;
+        let formulaChatHistory = [];
+
+        function insertSymbol(sym) {
+            const input = document.getElementById('aiCommandInput');
+            const start = input.selectionStart || input.value.length;
+            const end = input.selectionEnd || input.value.length;
+            const val = input.value;
+            input.value = val.substring(0, start) + sym + val.substring(end);
+            input.focus();
+            input.selectionStart = input.selectionEnd = start + sym.length;
+        }
+
+        // ==========================================
+        // GỌI GROQ RETRY & XỬ LÝ LỖI AN TOÀN
+        // ==========================================
+        async function callGroqWithRetry(apiKey, messages, options = {}, maxRetries = 1) {
+            const { jsonMode = false, temperature = 0.2 } = options;
+            const url = "https://api.groq.com/openai/v1/chat/completions";
+            let lastErr = null;
+            for (let attempt = 0; attempt <= maxRetries; attempt++) {
+                try {
+                    const response = await fetch(url, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": `Bearer ${apiKey}`,
+                        },
+                        body: JSON.stringify({
+                            model: "openai/gpt-oss-120b",
+                            messages,
+                            temperature,
+                            ...(jsonMode ? { response_format: { type: "json_object" } } : {})
+                        })
+                    });
+                    const data = await response.json();
+                    const errMsg = (data.error && data.error.message) || "";
+                    const isRateLimited = data.error && response.status === 429;
+                    const isOverloaded = data.error && !isRateLimited && (
+                        response.status === 503 ||
+                        /overloaded|unavailable/i.test(errMsg)
+                    );
+
+                    if (isRateLimited) {
+                        const retryAfterHeader = response.headers.get('retry-after');
+                        const retryMatch = errMsg.match(/try again in ([\d.]+)s/i);
+                        const waitSec = retryAfterHeader ? parseFloat(retryAfterHeader) : (retryMatch ? parseFloat(retryMatch[1]) : 20);
+                        if (attempt === 0) {
+                            lastErr = new Error(`Vượt giới hạn request. Đang chờ ${Math.ceil(waitSec)} giây...`);
+                            await new Promise(r => setTimeout(r, (waitSec + 1) * 1000));
+                            continue;
+                        }
+                        throw new Error(`Đã vượt giới hạn request. Vui lòng đợi ${Math.ceil(waitSec)} giây.`);
+                    }
+
+                    if (isOverloaded && attempt < maxRetries) {
+                        lastErr = new Error(errMsg || "Quá tải");
+                        await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+                        continue;
+                    }
+                    if (data.error) {
+                        throw new Error(errMsg || "Lỗi API");
+                    }
+                    return data;
+                } catch (err) {
+                    lastErr = err;
+                    if (attempt < maxRetries) {
+                        await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+                        continue;
+                    }
+                }
+            }
+            throw lastErr || new Error("Không thể kết nối tới AI.");
+        }
+
+        // ==========================================
+        // TÍNH TOÁN & CHUYỂN ĐỔI CHUỖI TOÁN HỌC
+        // ==========================================
+        function evaluateConstantExpression(str) {
+            if (!str) return NaN;
+            let s = str.trim().toLowerCase();
+            s = s.replace(/π/g, 'pi');
+            s = s.replace(/(^|[^a-zA-Z0-9_])-pi/g, '$1(-1*Math.PI)');
+            s = s.replace(/(\d+)\s*\*?\s*pi/g, '($1*Math.PI)');
+            s = s.replace(/\bpi\b/g, 'Math.PI');
+            s = s.replace(/\be\b/g, 'Math.E');
+            try {
+                const res = Function(`"use strict"; return (${s});`)();
+                return typeof res === 'number' && isFinite(res) ? res : NaN;
+            } catch (e) {
+                return parseFloat(str);
+            }
+        }
+
+        function extractIntervalAndCleanExpr(inputStr) {
+            let s = inputStr.trim();
+            let domain = { min: -Infinity, max: Infinity, text: "" };
+
+            const normalizedInput = s.replace(/π/g, 'pi');
+
+            const bracketMatch = normalizedInput.match(/(?:trên|trong|thuộc|với|tại)?\s*[\[\(]\s*([+-]?(?:\d+(?:\.\d+)?|\d*\*?pi|pi)(?:\/\d+)?)\s*[,;]\s*([+-]?(?:\d+(?:\.\d+)?|\d*\*?pi|pi)(?:\/\d+)?)\s*[\]\)]/i);
+            if (bracketMatch) {
+                const a = evaluateConstantExpression(bracketMatch[1]);
+                const b = evaluateConstantExpression(bracketMatch[2]);
+                if (!isNaN(a) && !isNaN(b)) {
+                    domain.min = Math.min(a, b);
+                    domain.max = Math.max(a, b);
+                    domain.text = `[${bracketMatch[1].replace(/Math\.PI/g,'π').replace(/pi/g,'π')}, ${bracketMatch[2].replace(/Math\.PI/g,'π').replace(/pi/g,'π')}]`;
+                    s = s.replace(new RegExp(bracketMatch[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'), '').trim();
+                }
+            }
+
+            const fromToMatch = normalizedInput.match(/(?:từ|khoảng)\s*([+-]?(?:\d+(?:\.\d+)?|\d*\*?pi|pi)(?:\/\d+)?)\s*(?:đến|tới|-)\s*([+-]?(?:\d+(?:\.\d+)?|\d*\*?pi|pi)(?:\/\d+)?)/i);
+            if (fromToMatch && !bracketMatch) {
+                const a = evaluateConstantExpression(fromToMatch[1]);
+                const b = evaluateConstantExpression(fromToMatch[2]);
+                if (!isNaN(a) && !isNaN(b)) {
+                    domain.min = Math.min(a, b);
+                    domain.max = Math.max(a, b);
+                    domain.text = `[${fromToMatch[1].replace(/pi/g,'π')}, ${fromToMatch[2].replace(/pi/g,'π')}]`;
+                    s = s.replace(new RegExp(fromToMatch[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'), '').trim();
+                }
+            }
+
+            const ineqMatch = normalizedInput.match(/([+-]?(?:\d+(?:\.\d+)?|\d*\*?pi|pi)(?:\/\d+)?)\s*<=\s*x\s*<=\s*([+-]?(?:\d+(?:\.\d+)?|\d*\*?pi|pi)(?:\/\d+)?)/i);
+            if (ineqMatch && !bracketMatch && !fromToMatch) {
+                const a = evaluateConstantExpression(ineqMatch[1]);
+                const b = evaluateConstantExpression(ineqMatch[2]);
+                if (!isNaN(a) && !isNaN(b)) {
+                    domain.min = Math.min(a, b);
+                    domain.max = Math.max(a, b);
+                    domain.text = `[${ineqMatch[1].replace(/pi/g,'π')}, ${ineqMatch[2].replace(/pi/g,'π')}]`;
+                    s = s.replace(new RegExp(ineqMatch[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'), '').trim();
+                }
+            }
+
+            s = s.replace(/[,;]+$/, '').trim();
+            return { cleanExpr: s, domain };
+        }
+
+        function compileMathExpression(expr, domain = null) {
+            let s = expr.trim();
+            if (s.startsWith('y=') || s.startsWith('y =')) {
+                s = s.substring(s.indexOf('=') + 1).trim();
+            }
+
+            s = s.replace(/π/g, 'pi');
+            s = s.replace(/(\d+)\s*\*?\s*pi/gi, '$1*Math.PI');
+            s = s.replace(/(^|[^a-zA-Z0-9_])pi\b/gi, '$1Math.PI');
+
+            s = s.replace(/\^/g, '**')
+                 .replace(/(\d)(x)/gi, '$1*$2')
+                 .replace(/(x)(\d)/gi, '$1*$2')
+                 .replace(/\)\s*\(/g, ')*(')
+                 .replace(/(\d)\s*\(/g, '$1*(')
+                 .replace(/\)\s*([a-zA-Z])/g, ')*$1');
+
+            s = s.replace(/\bsin\b/gi, 'Math.sin')
+                 .replace(/\bcos\b/gi, 'Math.cos')
+                 .replace(/\btan\b/gi, 'Math.tan')
+                 .replace(/\bsqrt\b/gi, 'Math.sqrt')
+                 .replace(/\babs\b/gi, 'Math.abs')
+                 .replace(/\be\b/gi, 'Math.E');
+
+            const minX = domain && isFinite(domain.min) ? domain.min : -Infinity;
+            const maxX = domain && isFinite(domain.max) ? domain.max : Infinity;
+
+            return new Function('x', `
+                if (x < ${minX} || x > ${maxX}) return NaN;
+                try {
+                    const val = ${s};
+                    return isFinite(val) ? val : NaN;
+                } catch(e) {
+                    return NaN;
+                }
+            `);
+        }
+
+        // Đạo hàm bậc 1: f'(x)
+        function numericalDerivative(fn, x, h = 1e-5) {
+            const y1 = fn(x + h);
+            const y0 = fn(x - h);
+            if (isNaN(y1) || isNaN(y0)) return NaN;
+            return (y1 - y0) / (2 * h);
+        }
+
+        // Đạo hàm bậc 2: f''(x)
+        function numericalSecondDerivative(fn, x, h = 1e-4) {
+            const y1 = fn(x + h);
+            const y0 = fn(x);
+            const ym1 = fn(x - h);
+            if (isNaN(y1) || isNaN(y0) || isNaN(ym1)) return NaN;
+            return (y1 - 2 * y0 + ym1) / (h * h);
+        }
+
+        function toCanvasX(mathX) {
+            return view.originX + mathX * view.scale;
+        }
+
+        function toCanvasY(mathY) {
+            return view.originY - mathY * view.scale;
+        }
+
+        function toMathX(canvasX) {
+            return (canvasX - view.originX) / view.scale;
+        }
+
+        function toMathY(canvasY) {
+            return (view.originY - canvasY) / view.scale;
+        }
+
+        function THREE_CLAMP(v, min, max) {
+            return Math.max(min, Math.min(max, v));
+        }
+
+        // ==========================================
+        // VẼ HỆ TRỤC, LƯỚI & TIỆM CẬN
+        // ==========================================
+        function drawGridAndAxes() {
+            const width = canvas.width;
+            const height = canvas.height;
+
+            ctx.clearRect(0, 0, width, height);
+
+            let step = 1;
+            if (view.scale < 15) step = 5;
+            else if (view.scale < 30) step = 2;
+            else if (view.scale > 140) step = 0.5;
+            else if (view.scale > 220) step = 0.2;
+
+            const xMin = toMathX(0);
+            const xMax = toMathX(width);
+            const yMin = toMathY(height);
+            const yMax = toMathY(0);
+
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = 'rgba(51, 65, 85, 0.4)';
+            ctx.font = '10px Inter, sans-serif';
+            ctx.fillStyle = '#64748b';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+
+            const firstX = Math.floor(xMin / step) * step;
+            for (let x = firstX; x <= xMax; x += step) {
+                const px = Math.round(toCanvasX(x));
+                ctx.beginPath();
+                ctx.moveTo(px, 0);
+                ctx.lineTo(px, height);
+                ctx.stroke();
+
+                if (Math.abs(x) > 1e-5) {
+                    const py = THREE_CLAMP(view.originY + 6, 8, height - 20);
+                    ctx.fillText(Number(x.toFixed(2)), px, py);
+                }
+            }
+
+            const firstY = Math.floor(yMin / step) * step;
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+            for (let y = firstY; y <= yMax; y += step) {
+                const py = Math.round(toCanvasY(y));
+                ctx.beginPath();
+                ctx.moveTo(0, py);
+                ctx.lineTo(width, py);
+                ctx.stroke();
+
+                if (Math.abs(y) > 1e-5) {
+                    const px = THREE_CLAMP(view.originX - 6, 25, width - 8);
+                    ctx.fillText(Number(y.toFixed(2)), px, py);
+                }
+            }
+
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#94a3b8';
+
+            // Trục Ox
+            ctx.beginPath();
+            ctx.moveTo(0, view.originY);
+            ctx.lineTo(width, view.originY);
+            ctx.stroke();
+
+            ctx.fillStyle = '#94a3b8';
+            ctx.beginPath();
+            ctx.moveTo(width - 2, view.originY);
+            ctx.lineTo(width - 12, view.originY - 5);
+            ctx.lineTo(width - 12, view.originY + 5);
+            ctx.fill();
+
+            ctx.font = 'bold 12px Inter, sans-serif';
+            ctx.fillText('x', width - 15, view.originY - 14);
+
+            // Trục Oy
+            ctx.beginPath();
+            ctx.moveTo(view.originX, height);
+            ctx.lineTo(view.originX, 0);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(view.originX, 2);
+            ctx.lineTo(view.originX - 5, 12);
+            ctx.lineTo(view.originX + 5, 12);
+            ctx.fill();
+
+            ctx.textAlign = 'left';
+            ctx.fillText('y', view.originX + 8, 14);
+
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'top';
+            ctx.fillText('O', view.originX - 6, view.originY + 6);
+        }
+
+        function drawCurves() {
+            const width = canvas.width;
+            const height = canvas.height;
+
+            // 1. Vẽ các đường đặc biệt: Tiệm cận & Tiếp tuyến
+            specialLines.forEach(line => {
+                ctx.lineWidth = 1.8;
+                ctx.strokeStyle = line.color || '#f59e0b';
+                ctx.setLineDash(line.type === 'asymptote' ? [6, 6] : []);
+
+                ctx.beginPath();
+                if (line.isVertical) {
+                    const px = toCanvasX(line.x0);
+                    ctx.moveTo(px, 0);
+                    ctx.lineTo(px, height);
+                    ctx.stroke();
+
+                    if (line.label) {
+                        ctx.fillStyle = line.color;
+                        ctx.font = 'bold 11px Inter, sans-serif';
+                        ctx.textAlign = 'left';
+                        ctx.fillText(line.label, px + 6, 25);
+                    }
+                } else {
+                    const xL = toMathX(0);
+                    const xR = toMathX(width);
+                    const yL = line.k * (xL - line.x0) + line.y0;
+                    const yR = line.k * (xR - line.x0) + line.y0;
+                    ctx.moveTo(0, toCanvasY(yL));
+                    ctx.lineTo(width, toCanvasY(yR));
+                    ctx.stroke();
+
+                    if (line.label) {
+                        ctx.fillStyle = line.color;
+                        ctx.font = 'bold 11px Inter, sans-serif';
+                        ctx.textAlign = 'right';
+                        const py = toCanvasY(line.k * (toMathX(width - 20) - line.x0) + line.y0);
+                        ctx.fillText(line.label, width - 20, THREE_CLAMP(py - 8, 20, height - 20));
+                    }
+                }
+                ctx.setLineDash([]);
+            });
+
+            // 2. Vẽ đồ thị hàm số và các nhánh đạo hàm
+            functionsData.forEach(item => {
+                if (!item.visible) return;
+
+                let startPx = 0;
+                let endPx = width;
+                if (item.domain && isFinite(item.domain.min)) {
+                    startPx = Math.max(0, toCanvasX(item.domain.min));
+                }
+                if (item.domain && isFinite(item.domain.max)) {
+                    endPx = Math.min(width, toCanvasX(item.domain.max));
+                }
+
+                // Hàm con trợ giúp vẽ một đường cong liên tục an toàn
+                const drawLineSegment = (evalFunc, strokeColor, lineWidth, lineDash = []) => {
+                    ctx.lineWidth = lineWidth;
+                    ctx.strokeStyle = strokeColor;
+                    ctx.setLineDash(lineDash);
+                    ctx.beginPath();
+
+                    let isDrawing = false;
+                    let prevY = NaN;
+
+                    for (let px = startPx; px <= endPx; px += 1) {
+                        const x = toMathX(px);
+                        const y = evalFunc(x);
+
+                        if (isNaN(y) || Math.abs(y) > 1e4) {
+                            isDrawing = false;
+                            prevY = NaN;
+                            continue;
+                        }
+
+                        const py = toCanvasY(y);
+
+                        if (!isNaN(prevY) && Math.abs(py - prevY) > height * 0.7) {
+                            isDrawing = false;
+                        }
+
+                        if (py < -height || py > height * 2) {
+                            isDrawing = false;
+                            prevY = py;
+                            continue;
+                        }
+
+                        if (!isDrawing) {
+                            ctx.moveTo(px, py);
+                            isDrawing = true;
+                        } else {
+                            ctx.lineTo(px, py);
+                        }
+                        prevY = py;
+                    }
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                };
+
+                // Vẽ Đạo hàm bậc 2 (y'') - Màu Fuchsia, nét chấm gạch
+                if (item.showY2) {
+                    drawLineSegment((x) => numericalSecondDerivative(item.parsedFn, x), '#e879f9', 2, [3, 4]);
+                }
+
+                // Vẽ Đạo hàm bậc 1 (y') - Màu Amber/Gold, nét đứt
+                if (item.showY1) {
+                    drawLineSegment((x) => numericalDerivative(item.parsedFn, x), '#fbbf24', 2.2, [6, 4]);
+                }
+
+                // Vẽ hàm số chính y = f(x) - Nét liền nổi bật
+                drawLineSegment((x) => item.parsedFn(x), item.color, 2.8, []);
+
+                // Đánh dấu mút đoạn
+                if (item.domain && isFinite(item.domain.min) && isFinite(item.domain.max)) {
+                    [item.domain.min, item.domain.max].forEach(xEndpoint => {
+                        const yEndpoint = item.parsedFn(xEndpoint);
+                        if (!isNaN(yEndpoint)) {
+                            const px = toCanvasX(xEndpoint);
+                            const py = toCanvasY(yEndpoint);
+                            ctx.fillStyle = item.color;
+                            ctx.beginPath();
+                            ctx.arc(px, py, 4.5, 0, Math.PI * 2);
+                            ctx.fill();
+                            ctx.lineWidth = 1.5;
+                            ctx.strokeStyle = '#ffffff';
+                            ctx.stroke();
+                        }
+                    });
+                }
+            });
+
+            // 3. Vẽ các điểm đánh dấu
+            pointsData.forEach(p => {
+                const px = toCanvasX(p.x);
+                const py = toCanvasY(p.y);
+
+                ctx.fillStyle = p.color || '#38bdf8';
+                ctx.beginPath();
+                ctx.arc(px, py, 5.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#ffffff';
+                ctx.stroke();
+            });
+        }
+
+        function updateLabels() {
+            labelsContainer.innerHTML = '';
+            pointsData.forEach(p => {
+                const px = toCanvasX(p.x);
+                const py = toCanvasY(p.y);
+
+                if (px < -50 || px > canvas.width + 50 || py < -50 || py > canvas.height + 50) return;
+
+                const label = document.createElement('div');
+                label.className = 'plot-label';
+                label.style.left = `${px}px`;
+                label.style.top = `${py}px`;
+                label.style.borderColor = p.color || '#38bdf8';
+                label.textContent = `${p.name} (${p.x.toFixed(2)}, ${p.y.toFixed(2)})`;
+                labelsContainer.appendChild(label);
+            });
+        }
+
+        function render() {
+            drawGridAndAxes();
+            drawCurves();
+            updateLabels();
+
+            // Hiển thị chú thích đạo hàm nếu có ít nhất 1 hàm đang bật y' hoặc y''
+            const hasDerivActive = functionsData.some(f => f.showY1 || f.showY2);
+            const legendEl = document.getElementById('derivativeLegend');
+            if (hasDerivActive) {
+                legendEl.classList.remove('hidden');
+            } else {
+                legendEl.classList.add('hidden');
+            }
+        }
+
+        // ==========================================
+        // CÔNG CỤ TÌM TIỆM CẬN (ĐỨNG, NGANG, XIÊN)
+        // ==========================================
+        function detectAsymptotes(expr, color) {
+            let s = expr.trim();
+            if (s.startsWith('y=') || s.startsWith('y =')) {
+                s = s.substring(s.indexOf('=') + 1).trim();
+            }
+
+            const match = s.match(/^\s*\((.*?)\)\s*\/\s*\((.*?)\)\s*$/) || s.match(/^(.*?)\/(.*)$/);
+            if (!match) return;
+
+            const numStr = match[1].trim();
+            const denStr = match[2].trim();
+
+            function parsePoly(str) {
+                let p = str.replace(/\s+/g, '').replace(/\*/g, '');
+                let m2 = p.match(/^([+-]?\d*)x\^?2(?:([+-]\d*)x)?(?:([+-]\d+))?$/);
+                if (m2) {
+                    let a = m2[1] === '' || m2[1] === '+' ? 1 : (m2[1] === '-' ? -1 : parseFloat(m2[1]));
+                    let b = !m2[2] ? 0 : (m2[2] === '+' ? 1 : (m2[2] === '-' ? -1 : parseFloat(m2[2])));
+                    let c = m2[3] ? parseFloat(m2[3]) : 0;
+                    return { deg: 2, a, b, c };
+                }
+                let m1 = p.match(/^([+-]?\d*)x(?:([+-]\d+))?$/);
+                if (m1) {
+                    let a = m1[1] === '' || m1[1] === '+' ? 1 : (m1[1] === '-' ? -1 : parseFloat(m1[1]));
+                    let b = m1[2] ? parseFloat(m1[2]) : 0;
+                    return { deg: 1, a, b, c: 0 };
+                }
+                let m0 = p.match(/^[+-]?\d+(\.\d+)?$/);
+                if (m0) return { deg: 0, a: 0, b: 0, c: parseFloat(m0[0]) };
+                return null;
+            }
+
+            const P = parsePoly(numStr);
+            const Q = parsePoly(denStr);
+
+            if (Q && Q.deg === 1 && Q.a !== 0) {
+                const xTCD = -Q.b / Q.a;
+                specialLines.push({
+                    type: 'asymptote',
+                    label: `TCĐ: x = ${Number(xTCD.toFixed(2))}`,
+                    isVertical: true,
+                    x0: xTCD,
+                    color: '#f43f5e'
+                });
+
+                if (P) {
+                    if (P.deg === 1) {
+                        const yTCN = P.a / Q.a;
+                        specialLines.push({
+                            type: 'asymptote',
+                            label: `TCN: y = ${Number(yTCN.toFixed(2))}`,
+                            isVertical: false,
+                            x0: 0,
+                            y0: yTCN,
+                            k: 0,
+                            color: '#38bdf8'
+                        });
+                    } else if (P.deg === 0) {
+                        specialLines.push({
+                            type: 'asymptote',
+                            label: `TCN: y = 0`,
+                            isVertical: false,
+                            x0: 0,
+                            y0: 0,
+                            k: 0,
+                            color: '#38bdf8'
+                        });
+                    } else if (P.deg === 2) {
+                        const A = P.a / Q.a;
+                        const B = (P.b - A * Q.b) / Q.a;
+                        const signB = B >= 0 ? `+ ${Number(B.toFixed(2))}` : `- ${Number(Math.abs(B).toFixed(2))}`;
+                        specialLines.push({
+                            type: 'asymptote',
+                            label: `TCX: y = ${Number(A.toFixed(2))}x ${signB}`,
+                            isVertical: false,
+                            x0: 0,
+                            y0: B,
+                            k: A,
+                            color: '#a855f7'
+                        });
+                    }
+                }
+            }
+        }
+
+        // ==========================================
+        // TÌM CỰC TRỊ & BÁO KHI KHÔNG CÓ CỰC TRỊ
+        // ==========================================
+        function autoFindKeyPoints() {
+            if (functionsData.length === 0) {
+                appAlert("Hãy nhập ít nhất một hàm số trước!");
+                return;
+            }
+
+            pushUndo();
+            const activeItem = functionsData[0];
+            const fn = activeItem.parsedFn;
+
+            let scanMin = -10;
+            let scanMax = 10;
+            if (activeItem.domain) {
+                if (isFinite(activeItem.domain.min)) scanMin = Math.max(-20, activeItem.domain.min);
+                if (isFinite(activeItem.domain.max)) scanMax = Math.min(20, activeItem.domain.max);
+            }
+
+            const step = 0.04;
+            let lastD = numericalDerivative(fn, scanMin);
+            let extremaFoundCount = 0;
+
+            for (let x = scanMin + step; x <= scanMax; x += step) {
+                const d = numericalDerivative(fn, x);
+                if (!isNaN(d) && !isNaN(lastD)) {
+                    if (lastD * d < 0 && Math.abs(d - lastD) < 400) {
+                        let low = x - step;
+                        let high = x;
+                        for (let k = 0; k < 15; k++) {
+                            let mid = (low + high) / 2;
+                            if (numericalDerivative(fn, mid) * numericalDerivative(fn, low) <= 0) {
+                                high = mid;
+                            } else {
+                                low = mid;
+                            }
+                        }
+                        const xExt = (low + high) / 2;
+                        const yExt = fn(xExt);
+                        if (isFinite(yExt) && Math.abs(yExt) < 1e3) {
+                            const isMax = lastD > 0;
+                            addPoint(isMax ? "CĐ" : "CT", xExt, yExt, isMax ? '#fb7185' : '#34d399', true);
+                            extremaFoundCount++;
+                        }
+                    }
+                }
+                lastD = d;
+            }
+
+            if (extremaFoundCount === 0) {
+                showNoExtremaNotification(activeItem.rawExpr);
+                return;
+            }
+
+            if (scanMin <= 0 && scanMax >= 0) {
+                const y0 = fn(0);
+                if (!isNaN(y0) && isFinite(y0)) {
+                    addPoint("Oy", 0, y0, '#38bdf8', true);
+                }
+            }
+        }
+
+        function showNoExtremaNotification(expr) {
+            let toast = document.getElementById('noExtremaToast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'noExtremaToast';
+                toast.className = 'fixed top-20 right-1/2 translate-x-1/2 z-50 glass-panel px-4 py-2.5 rounded-xl border border-amber-500/60 text-amber-300 font-semibold text-xs shadow-2xl flex items-center gap-2 transition-all duration-300 pointer-events-none';
+                document.body.appendChild(toast);
+            }
+            toast.innerHTML = `<i class="fa-solid fa-circle-info text-amber-400"></i> Hàm số <span class="font-mono text-white">y = ${expr}</span> không có cực trị.`;
+            toast.style.opacity = '1';
+            toast.style.transform = 'translate(50%, 0)';
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translate(50%, -10px)';
+            }, 3500);
+
+            const container = document.getElementById('pointsList');
+            const alertTag = document.createElement('div');
+            alertTag.className = 'p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300 flex items-center gap-1.5 font-medium';
+            alertTag.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-amber-400"></i> Không có cực trị trong khoảng xét`;
+            container.prepend(alertTag);
+        }
+
+        // ==========================================
+        // QUẢN LÝ DỮ LIỆU & TOOLBAR
+        // ==========================================
+        function setToolMode(mode) {
+            currentTool = mode;
+            document.querySelectorAll('.tool-btn').forEach(btn => {
+                btn.classList.remove('bg-cyan-500/20', 'text-cyan-300', 'border', 'border-cyan-500/50');
+                btn.classList.add('text-slate-300');
+            });
+
+            const activeBtn = document.getElementById(`tool-${mode}`);
+            if (activeBtn) {
+                activeBtn.classList.remove('text-slate-300');
+                activeBtn.classList.add('bg-cyan-500/20', 'text-cyan-300', 'border', 'border-cyan-500/50');
+            }
+
+            const inst = document.getElementById('mode-instruction');
+            if (mode === 'pan') {
+                canvas.style.cursor = 'grab';
+                inst.textContent = "Chế độ: Di chuyển hệ trục Oxy (Vuốt để kéo, chụm 2 ngón để zoom)";
+            } else if (mode === 'add_point') {
+                canvas.style.cursor = 'crosshair';
+                inst.textContent = "Chế độ: Chạm lên đồ thị hoặc mặt phẳng để chấm Điểm mới";
+            } else if (mode === 'tangent') {
+                canvas.style.cursor = 'pointer';
+                inst.textContent = "Chế độ: Chạm vào một điểm trên đồ thị để kẻ Tiếp tuyến tại điểm đó";
+            } else if (mode === 'delete') {
+                canvas.style.cursor = 'pointer';
+                inst.textContent = "Chế độ: Chạm vào Điểm đã đánh dấu để Xóa";
+            }
+        }
+
+        function triggerToolAt(mouseX, mouseY, clickRadius = 12) {
+            if (currentTool === 'add_point') {
+                const mathX = toMathX(mouseX);
+                const mathY = toMathY(mouseY);
+                pushUndo();
+                addPoint(getNextPointName(), mathX, mathY);
+            } else if (currentTool === 'tangent') {
+                if (functionsData.length === 0) {
+                    appAlert("Chưa có đồ thị nào để vẽ tiếp tuyến!");
+                    return;
+                }
+                const mathX = toMathX(mouseX);
+                const activeFn = functionsData[0];
+                const mathY = activeFn.parsedFn(mathX);
+                const k = numericalDerivative(activeFn.parsedFn, mathX);
+
+                if (!isNaN(k)) {
+                    pushUndo();
+                    specialLines.push({
+                        type: 'tangent',
+                        x0: mathX,
+                        y0: mathY,
+                        k: k,
+                        color: '#f59e0b'
+                    });
+                    addPoint(`M`, mathX, mathY, '#f59e0b');
+                    render();
+                }
+            } else if (currentTool === 'delete') {
+                const idx = pointsData.findIndex(p => {
+                    const px = toCanvasX(p.x);
+                    const py = toCanvasY(p.y);
+                    return Math.hypot(px - mouseX, py - mouseY) < clickRadius;
+                });
+                if (idx !== -1) {
+                    pushUndo();
+                    pointsData.splice(idx, 1);
+                    render();
+                    renderPointsList();
+                }
+            }
+        }
+
+        function onMouseDown(e) {
+            if (e.pointerType === 'touch') return; // Bỏ qua nếu là sự kiện sinh ra từ touch
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            if (currentTool === 'pan') {
+                isDragging = true;
+                lastMousePos = { x: mouseX, y: mouseY };
+                canvas.style.cursor = 'grabbing';
+            } else {
+                triggerToolAt(mouseX, mouseY, 12);
+            }
+        }
+
+        function onMouseMove(e) {
+            if (e.pointerType === 'touch') return;
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            const mX = toMathX(mouseX);
+            const mY = toMathY(mouseY);
+            document.getElementById('coordDisplay').textContent = `(${mX.toFixed(2)}, ${mY.toFixed(2)})`;
+
+            if (isDragging && currentTool === 'pan') {
+                const dx = mouseX - lastMousePos.x;
+                const dy = mouseY - lastMousePos.y;
+                view.originX += dx;
+                view.originY += dy;
+                lastMousePos = { x: mouseX, y: mouseY };
+                render();
+            }
+        }
+
+        function onMouseUp(e) {
+            if (e && e.pointerType === 'touch') return;
+            if (isDragging) {
+                isDragging = false;
+                if (currentTool === 'pan') canvas.style.cursor = 'grab';
+            }
+        }
+
+        // --- CẢM ỨNG (TOUCH EVENTS) ---
+        let lastPinchDistance = null;
+        let lastTouchPan = null;
+
+        function getTouchCenter(touches) {
+            const rect = canvas.getBoundingClientRect();
+            let x = 0, y = 0;
+            for (let i = 0; i < touches.length; i++) {
+                x += touches[i].clientX - rect.left;
+                y += touches[i].clientY - rect.top;
+            }
+            return { x: x / touches.length, y: y / touches.length };
+        }
+
+        function getTouchDistance(touches) {
+            const dx = touches[0].clientX - touches[1].clientX;
+            const dy = touches[0].clientY - touches[1].clientY;
+            return Math.hypot(dx, dy);
+        }
+
+        function onTouchStart(e) {
+            e.preventDefault(); // Chống cuộn trang, chống mousedown giả
+            if (e.touches.length === 1) {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.touches[0].clientX - rect.left;
+                const mouseY = e.touches[0].clientY - rect.top;
+
+                if (currentTool === 'pan') {
+                    isDragging = true;
+                    lastTouchPan = { x: mouseX, y: mouseY };
+                } else {
+                    // Radius lớn hơn để dễ chạm
+                    triggerToolAt(mouseX, mouseY, 24);
+                }
+            } else if (e.touches.length === 2 && currentTool === 'pan') {
+                isDragging = false; // Tắt chế độ kéo 1 ngón
+                lastPinchDistance = getTouchDistance(e.touches);
+                lastTouchPan = getTouchCenter(e.touches);
+            }
+        }
+
+        function onTouchMove(e) {
+            e.preventDefault();
+            if (e.touches.length === 1 && isDragging && currentTool === 'pan') {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.touches[0].clientX - rect.left;
+                const mouseY = e.touches[0].clientY - rect.top;
+
+                const mX = toMathX(mouseX);
+                const mY = toMathY(mouseY);
+                document.getElementById('coordDisplay').textContent = `(${mX.toFixed(2)}, ${mY.toFixed(2)})`;
+
+                const dx = mouseX - lastTouchPan.x;
+                const dy = mouseY - lastTouchPan.y;
+                view.originX += dx;
+                view.originY += dy;
+                lastTouchPan = { x: mouseX, y: mouseY };
+                
+                requestAnimationFrame(render);
+            } else if (e.touches.length === 2 && currentTool === 'pan') {
+                const currentDistance = getTouchDistance(e.touches);
+                const currentCenter = getTouchCenter(e.touches);
+
+                if (lastPinchDistance) {
+                    const factor = currentDistance / lastPinchDistance;
+                    zoomAtPoint(currentCenter.x, currentCenter.y, factor);
+                }
+
+                if (lastTouchPan) {
+                    const dx = currentCenter.x - lastTouchPan.x;
+                    const dy = currentCenter.y - lastTouchPan.y;
+                    view.originX += dx;
+                    view.originY += dy;
+                }
+
+                lastPinchDistance = currentDistance;
+                lastTouchPan = currentCenter;
+                requestAnimationFrame(render);
+            }
+        }
+
+        function onTouchEnd(e) {
+            e.preventDefault();
+            if (e.touches.length < 2) {
+                lastPinchDistance = null;
+            }
+            if (e.touches.length === 0) {
+                isDragging = false;
+                lastTouchPan = null;
+            }
+        }
+
+        function onWheel(e) {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            const zoomFactor = e.deltaY < 0 ? 1.12 : 0.89;
+            zoomAtPoint(mouseX, mouseY, zoomFactor);
+        }
+
+        function zoomAtPoint(pivotX, pivotY, factor) {
+            const newScale = THREE_CLAMP(view.scale * factor, view.minScale, view.maxScale);
+            const actualFactor = newScale / view.scale;
+
+            view.originX = pivotX - (pivotX - view.originX) * actualFactor;
+            view.originY = pivotY - (pivotY - view.originY) * actualFactor;
+            view.scale = newScale;
+
+            render();
+        }
+
+        function zoomView(factor) {
+            zoomAtPoint(canvas.width / 2, canvas.height / 2, factor);
+        }
+
+        function resetView() {
+            view.originX = canvas.width / 2;
+            view.originY = canvas.height / 2;
+            view.scale = 45;
+            render();
+        }
+
+        const POINT_NAMES = "ABCDEFGHIKLMNPQRSTUVWXYZ";
+        let pointNameIdx = 0;
+        function getNextPointName() {
+            const name = POINT_NAMES[pointNameIdx % POINT_NAMES.length];
+            pointNameIdx++;
+            return name;
+        }
+
+        function addFunction(fullInput, color = null, domain = null) {
+            let finalDomain = domain;
+            let exprToCompile = fullInput;
+
+            if (!finalDomain) {
+                const extracted = extractIntervalAndCleanExpr(fullInput);
+                exprToCompile = extracted.cleanExpr;
+                finalDomain = extracted.domain;
+            }
+
+            const fn = compileMathExpression(exprToCompile, finalDomain);
+            const id = 'fn_' + Math.random().toString(36).substr(2, 9);
+            const assignedColor = color || functionColors[functionsData.length % functionColors.length];
+
+            functionsData.push({
+                id,
+                rawExpr: exprToCompile,
+                domain: finalDomain,
+                parsedFn: fn,
+                color: assignedColor,
+                visible: true,
+                showY1: false, // Bật/tắt y'
+                showY2: false  // Bật/tắt y''
+            });
+
+            detectAsymptotes(exprToCompile, assignedColor);
+
+            renderFunctionsList();
+            render();
+        }
+
+        function toggleDerivative(idx, order) {
+            if (!functionsData[idx]) return;
+            if (order === 1) {
+                functionsData[idx].showY1 = !functionsData[idx].showY1;
+            } else if (order === 2) {
+                functionsData[idx].showY2 = !functionsData[idx].showY2;
+            }
+            renderFunctionsList();
+            render();
+        }
+
+        async function promptAddFunction() {
+            const input = await appPrompt("Nhập hàm số y = f(x) (Hỗ trợ khoảng và pi, VD: '(2x - 1)/(x + 1)' hoặc 'sin(x) trên [-pi, pi]'):", "x^3 - 3*x + 1");
+            if (input && input.trim()) {
+                pushUndo();
+                addFunction(input.trim());
+            }
+        }
+
+        function addPoint(name, x, y, color = '#38bdf8', autoFound = false) {
+            const id = 'pt_' + Math.random().toString(36).substr(2, 9);
+            pointsData.push({ id, name, x, y, color, autoFound });
+            renderPointsList();
+            render();
+        }
+
+        function renderFunctionsList() {
+            const container = document.getElementById('functionsList');
+            container.innerHTML = '';
+
+            functionsData.forEach((fn, idx) => {
+                const domainBadge = fn.domain && fn.domain.text 
+                    ? `<span class="px-1.5 py-0.5 rounded bg-teal-950/80 border border-teal-500/40 text-teal-300 font-mono text-[10px]">${fn.domain.text}</span>` 
+                    : '';
+
+                const btnY1Class = fn.showY1 
+                    ? 'bg-amber-500/30 text-amber-300 border border-amber-500/60 font-bold' 
+                    : 'bg-slate-700/50 text-slate-400 hover:text-amber-300 border border-slate-600/50';
+
+                const btnY2Class = fn.showY2 
+                    ? 'bg-fuchsia-500/30 text-fuchsia-300 border border-fuchsia-500/60 font-bold' 
+                    : 'bg-slate-700/50 text-slate-400 hover:text-fuchsia-300 border border-slate-600/50';
+
+                const row = document.createElement('div');
+                row.className = 'flex flex-col gap-1.5 p-2 rounded-xl bg-slate-800/60 border border-slate-700/50 text-xs';
+                row.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-1.5 overflow-hidden">
+                            <span class="w-3 h-3 rounded-full shrink-0" style="background-color: ${fn.color}"></span>
+                            <span class="font-mono text-slate-200 truncate">y = ${fn.rawExpr}</span>
+                            ${domainBadge}
+                        </div>
+                        <button onclick="removeFunction(${idx})" class="text-slate-500 hover:text-rose-400 p-1 shrink-0">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                    <div class="flex items-center justify-between border-t border-slate-700/40 pt-1.5 text-[11px]">
+                        <span class="text-slate-400 font-medium">Đạo hàm:</span>
+                        <div class="flex items-center gap-1.5">
+                            <button onclick="toggleDerivative(${idx}, 1)" class="px-2 py-0.5 rounded-lg text-[10px] font-mono transition-all ${btnY1Class}" title="Bật/Tắt vẽ đạo hàm bậc 1 y'">
+                                y'
+                            </button>
+                            <button onclick="toggleDerivative(${idx}, 2)" class="px-2 py-0.5 rounded-lg text-[10px] font-mono transition-all ${btnY2Class}" title="Bật/Tắt vẽ đạo hàm bậc 2 y''">
+                                y''
+                            </button>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function removeFunction(idx) {
+            pushUndo();
+            functionsData.splice(idx, 1);
+            specialLines = [];
+            renderFunctionsList();
+            render();
+        }
+
+        function renderPointsList() {
+            const container = document.getElementById('pointsList');
+            container.innerHTML = '';
+
+            if (pointsData.length === 0) {
+                container.innerHTML = '<div class="text-center text-xs text-slate-500 py-4">Chưa có điểm nào.</div>';
+                return;
+            }
+
+            pointsData.forEach(p => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between p-1.5 rounded-lg bg-slate-800/40 text-xs';
+                row.innerHTML = `
+                    <div class="flex items-center gap-1.5">
+                        <span class="font-bold text-cyan-300 font-mono">${p.name}</span>
+                        <span class="text-slate-400 font-mono">(${p.x.toFixed(2)}, ${p.y.toFixed(2)})</span>
+                    </div>
+                    <button onclick="removePointById('${p.id}')" class="text-slate-500 hover:text-rose-400 p-1">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function removePointById(id) {
+            pushUndo();
+            pointsData = pointsData.filter(p => p.id !== id);
+            renderPointsList();
+            render();
+        }
+
+        function pushUndo() {
+            undoStack.push(JSON.stringify({
+                functions: functionsData.map(f => ({ 
+                    expr: f.rawExpr, 
+                    color: f.color, 
+                    domain: f.domain,
+                    showY1: f.showY1,
+                    showY2: f.showY2
+                })),
+                points: pointsData,
+                lines: specialLines
+            }));
+            if (undoStack.length > MAX_UNDO) undoStack.shift();
+            document.getElementById('btnUndo').disabled = false;
+        }
+
+        function undoLastAction() {
+            if (undoStack.length === 0) return;
+            const state = JSON.parse(undoStack.pop());
+            functionsData = [];
+            specialLines = state.lines || [];
+            pointsData = state.points || [];
+
+            (state.functions || []).forEach(f => {
+                addFunction(f.expr, f.color, f.domain);
+                const item = functionsData[functionsData.length - 1];
+                if (item) {
+                    item.showY1 = !!f.showY1;
+                    item.showY2 = !!f.showY2;
+                }
+            });
+            render();
+            renderPointsList();
+            document.getElementById('btnUndo').disabled = undoStack.length === 0;
+        }
+
+        function clearAllData() {
+            pushUndo();
+            functionsData = [];
+            pointsData = [];
+            specialLines = [];
+            pointNameIdx = 0;
+            renderFunctionsList();
+            renderPointsList();
+            render();
+        }
+
+        function loadPreset(type) {
+            clearAllData();
+            if (type === 'sin_interval') {
+                addFunction('sin(x) trên [-pi, pi]', '#fb7185');
+            } else if (type === 'cos_interval') {
+                addFunction('cos(x) trên [0, 2pi]', '#2dd4bf');
+            } else if (type === 'cubic') {
+                addFunction('x^3 - 3*x + 1', '#818cf8');
+            } else if (type === 'rational') {
+                addFunction('(2*x - 1)/(x + 1)', '#c084fc');
+            }
+            autoFindKeyPoints();
+        }
+
+        // ==========================================
+        // XỬ LÝ NHẬP LỆNH VẼ ĐỒ THỊ BẰNG AI
+        // ==========================================
+        async function handleCommandSubmit() {
+            if (!GROQ_API_KEY_DRAW) {
+                appAlert("Chưa cấu hình API Key. Vui lòng cập nhật file config.js");
+                return;
+            }
+            const input = document.getElementById('aiCommandInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const { cleanExpr, domain } = extractIntervalAndCleanExpr(text);
+            const directMath = cleanExpr.match(/^(y\s*=\s*)?([0-9x\s\+\-\*\/\^\(\)\.\b(sin|cos|tan|sqrt|abs|pi|Math\.PI)\bπ]+)$/i);
+            
+            if (directMath) {
+                pushUndo();
+                addFunction(cleanExpr, null, domain);
+                input.value = '';
+                return;
+            }
+
+            const btn = document.getElementById('btnSubmitPlot');
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Xử lý...`;
+
+            try {
+                const systemPrompt = `Bạn là trợ lý toán học giải tích 2D.
+Nhiệm vụ: Trích xuất hàm số y=f(x), khoảng/đoạn vẽ (domain [min, max] nếu có) và các điểm/tiếp tuyến.
+Hỗ trợ chuyển đổi số Pi thành giá trị thập phân (pi = 3.14159, 2pi = 6.28318, -pi = -3.14159).
+Chỉ trả về JSON thuần túy theo cấu trúc:
+{
+  "functions": [
+    { "expr": "sin(x)", "min": -3.14159, "max": 3.14159 }
+  ],
+  "points": [{"name": "A", "x": 1, "y": -1}],
+  "tangents": [{"x0": 1}]
+}`;
+
+                const data = await callGroqWithRetry(GROQ_API_KEY_DRAW, [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: text }
+                ], { jsonMode: true, temperature: 0.1 });
+
+                let replyText = data.choices[0].message.content.trim();
+                if (replyText.includes("```")) {
+                    replyText = replyText.replace(/```json/gi, "").replace(/```/g, "").trim();
+                }
+                const firstBrace = replyText.indexOf('{');
+                const lastBrace = replyText.lastIndexOf('}');
+                if (firstBrace !== -1 && lastBrace !== -1) {
+                    replyText = replyText.substring(firstBrace, lastBrace + 1);
+                }
+
+                const res = JSON.parse(replyText);
+
+                pushUndo();
+                if (res.functions) {
+                    res.functions.forEach(f => {
+                        if (typeof f === 'string') {
+                            addFunction(f);
+                        } else if (f && f.expr) {
+                            const dom = (f.min !== null && f.max !== null && f.min !== undefined && f.max !== undefined) 
+                                ? { min: parseFloat(f.min), max: parseFloat(f.max), text: `[${f.min},${f.max}]` } 
+                                : null;
+                            addFunction(f.expr, null, dom);
+                        }
+                    });
+                }
+                if (res.points) res.points.forEach(p => addPoint(p.name || "M", p.x, p.y));
+                if (res.tangents && functionsData.length > 0) {
+                    res.tangents.forEach(t => {
+                        const fn = functionsData[0].parsedFn;
+                        const y0 = fn(t.x0);
+                        const k = numericalDerivative(fn, t.x0);
+                        specialLines.push({ type: 'tangent', x0: t.x0, y0, k, color: '#f59e0b' });
+                        addPoint("M", t.x0, y0, '#f59e0b');
+                    });
+                }
+                input.value = '';
+            } catch (err) {
+                await appAlert("Lỗi AI: " + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fa-solid fa-pen-nib"></i><span>Vẽ Đồ Thị</span>`;
+            }
+        }
+
+        // ==========================================
+        // CHATBOT KHẢO SÁT & CÔNG THỨC TOÁN
+        // ==========================================
+        function toggleFormulaChat() {
+            document.getElementById('formulaChatPanel').classList.toggle('hidden');
+        }
+
+        function renderFormattedMath(element, text) {
+            if (!text) return;
+
+            let processed = text
+                .replace(/\\\\\[/g, '\\[')                 .replace(/\\\\\]/g, '\\]')
+                .replace(/\\\\\(/g, '\\(')                 .replace(/\\\\\)/g, '\\)');
+
+            const mathBlocks = [];
+            const mathRegex = /(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\$[^$\n]+?\$|\\\([\s\S]*?\\\))/g;
+
+            processed = processed.replace(mathRegex, (match) => {
+                mathBlocks.push(match);
+                return `___MATH_BLOCK_${mathBlocks.length - 1}___`;
+            });
+
+            processed = processed
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\n/g, '<br>');
+
+            processed = processed.replace(/___MATH_BLOCK_(\d+)___/g, (_, idx) => {
+                return mathBlocks[parseInt(idx)];
+            });
+
+            element.innerHTML = processed;
+
+            const triggerKaTeX = () => {
+                if (window.renderMathInElement) {
+                    renderMathInElement(element, {
+                        delimiters: [
+                            { left: '$$', right: '$$', display: true },
+                            { left: '$', right: '$', display: false },
+                            { left: '\\[', right: '\\]', display: true },
+                            { left: '\\(', right: '\\)', display: false }
+                        ],
+                        ignoredTags: ["script", "noscript", "style", "textarea", "pre", "code"],
+                        throwOnError: false
+                    });
+                    return true;
+                }
+                return false;
+            };
+
+            if (!triggerKaTeX()) {
+                const timer = setInterval(() => {
+                    if (triggerKaTeX()) clearInterval(timer);
+                }, 100);
+                setTimeout(() => clearInterval(timer), 2500);
+            }
+        }
+
+        function appendChatMessage(text, role) {
+            const container = document.getElementById('formulaChatMessages');
+            const row = document.createElement('div');
+            const bubble = document.createElement('div');
+
+            const avatar = document.createElement('div');
+            avatar.className = 'w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0';
+
+            if (role === 'user') {
+                row.className = 'flex items-end justify-end gap-1.5';
+                bubble.className = 'max-w-[85%] bg-cyan-600/20 border border-cyan-500/40 text-cyan-100 rounded-xl px-3 py-2 leading-relaxed text-xs break-words';
+                bubble.textContent = text;
+                avatar.className += ' bg-cyan-500/20 text-cyan-300';
+                avatar.textContent = 'B';
+                row.appendChild(bubble);
+                row.appendChild(avatar);
+            } else {
+                row.className = 'flex items-end gap-1.5';
+                bubble.className = 'max-w-[85%] bg-slate-800/80 border border-slate-700/60 text-slate-200 rounded-xl px-3 py-2 leading-relaxed text-xs break-words';
+                avatar.className += ' bg-emerald-500/20 text-emerald-300';
+                avatar.innerHTML = '<i class="fa-solid fa-robot"></i>';
+                renderFormattedMath(bubble, text);
+                row.appendChild(avatar);
+                row.appendChild(bubble);
+            }
+
+            container.appendChild(row);
+            container.scrollTop = container.scrollHeight;
+            return bubble;
+        }
+
+        async function sendFormulaChat() {
+            if (!GROQ_API_KEY_CHAT) {
+                appAlert("Chưa cấu hình API Key. Vui lòng cập nhật file config.js");
+                return;
+            }
+            const input = document.getElementById('formulaChatInput');
+            const question = input.value.trim();
+            const btn = document.getElementById('btnSubmitFormulaChat');
+            if (!question) return;
+
+            appendChatMessage(question, 'user');
+            input.value = '';
+            btn.disabled = true;
+            const loadingBubble = appendChatMessage('Đang tính toán...', 'model');
+
+            const fList = functionsData.map(f => {
+                const dom = f.domain && f.domain.text ? ` (${f.domain.text})` : '';
+                return `y = ${f.rawExpr}${dom}`;
+            }).join('; ') || 'Chưa có hàm số';
+
+            const pList = pointsData.map(p => `${p.name}(${p.x.toFixed(2)}, ${p.y.toFixed(2)})`).join(', ') || 'Không có';
+
+            const systemPrompt = `Bạn là gia sư toán học chuyên giải tích 12.
+Thông tin đồ thị đang mở:
+- Các hàm số: 
+${fList}
+- Các điểm: 
+${pList}
+
+Quy định phản hồi:
+1. Trả lời súc tích, ngắn gọn (tối đa 6-8 dòng).
+2. Khi viết công thức toán, vector, tọa độ, BẮT BUỘC dùng dấu $...$ cùng dòng. Hạn chế dùng khối \\[ ... \\] trừ ma trận, hệ phương trình.
+3. Không để sót ký tự rác, dùng tiếng Việt chuẩn mực.`;
+
+            formulaChatHistory.push({ role: "user", content: question });
+
+            try {
+                const messages = [
+                    { role: "system", content: systemPrompt },
+                    ...formulaChatHistory.slice(-6)
+                ];
+
+                const data = await callGroqWithRetry(GROQ_API_KEY_CHAT, messages, { temperature: 0.2 });
+                const replyText = data.choices[0].message.content.trim();
+
+                formulaChatHistory.push({ role: "assistant", content: replyText });
+                renderFormattedMath(loadingBubble, replyText);
+            } catch (err) {
+                console.error(err);
+                loadingBubble.textContent = "Lỗi: " + err.message;
+                loadingBubble.className += ' text-rose-300 border-rose-500/40';
+                formulaChatHistory.pop();
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            if (view.originX === 0 && view.originY === 0) {
+                view.originX = canvas.width / 2;
+                view.originY = canvas.height / 2;
+            }
+            render();
+        }
+
+        window.addEventListener('resize', resize);
+        canvas.addEventListener('mousedown', onMouseDown);
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mouseup', onMouseUp);
+        canvas.addEventListener('wheel', onWheel, { passive: false });
+
+        try {
+            canvas.addEventListener('touchstart', onTouchStart, { passive: false });
+            canvas.addEventListener('touchmove', onTouchMove, { passive: false });
+            canvas.addEventListener('touchend', onTouchEnd, { passive: false });
+            canvas.addEventListener('touchcancel', onTouchEnd, { passive: false });
+        } catch(e) {
+            console.error("Touch init error", e);
+        }
+
+        window.onload = () => {
+            resize();
+            clearAllData();
+        };
+    </script>
+</body>
+</html>
