@@ -147,6 +147,31 @@
         }
     </style>
     <script src="config.js"></script>
+    <script>
+        // Thông báo lỗi dạng toast (cùng phong cách app), tự ẩn sau 5 giây
+        function showError(msg) {
+            let el = document.getElementById('app-error-toast');
+            if (!el) {
+                el = document.createElement('div');
+                el.id = 'app-error-toast';
+                el.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);max-width:640px;width:90%;' +
+                    'background:rgba(15,23,42,0.96);color:#e2e8f0;border:1px solid rgba(244,63,94,0.6);border-radius:14px;' +
+                    'box-shadow:0 10px 30px rgba(0,0,0,0.5);padding:12px 16px;z-index:99999;font-size:14px;' +
+                    'display:flex;gap:10px;align-items:flex-start;transition:opacity .3s;pointer-events:auto;';
+                el.onclick = () => { el.style.opacity = '0'; setTimeout(() => el.style.display = 'none', 300); };
+                document.body.appendChild(el);
+            }
+            const safe = String(msg).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+            el.innerHTML = '<span style="color:#fb7185;font-size:18px;line-height:1">⚠</span>' +
+                '<div><div style="font-weight:700;color:#fda4af;margin-bottom:2px">Đã xảy ra lỗi</div><div>' + safe + '</div></div>';
+            el.style.display = 'flex';
+            el.style.opacity = '1';
+            clearTimeout(el._t);
+            el._t = setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.style.display = 'none', 300); }, 5000);
+        }
+        window.addEventListener('error', e => showError(e.message));
+        window.addEventListener('unhandledrejection', e => showError((e.reason && e.reason.message) || e.reason));
+    </script>
 </head>
 <body class="w-screen relative select-none" style="height: 100vh; height: 100dvh;">
 
@@ -550,6 +575,38 @@
                 };
             });
         }
+
+        // Hộp thoại thông báo / xác nhận: dùng lại modal của appPrompt, ẩn ô nhập
+        function _appMessageModal(title, message, withCancel) {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('customPromptModal');
+                const titleEl = document.getElementById('customPromptTitle');
+                const msgEl = document.getElementById('customPromptMessage');
+                const inputEl = document.getElementById('customPromptInput');
+                const okBtn = document.getElementById('customPromptOkBtn');
+                const cancelBtn = document.getElementById('customPromptCancelBtn');
+                if (!modal) { showError(message); resolve(!withCancel); return; }
+
+                titleEl.querySelector('span').textContent = title;
+                msgEl.textContent = message || "";
+                inputEl.style.display = 'none';
+                cancelBtn.style.display = withCancel ? '' : 'none';
+                modal.classList.remove('hidden');
+
+                const done = (val) => {
+                    modal.classList.add('hidden');
+                    inputEl.style.display = '';
+                    cancelBtn.style.display = '';
+                    okBtn.onclick = null;
+                    cancelBtn.onclick = null;
+                    resolve(val);
+                };
+                okBtn.onclick = () => done(true);
+                cancelBtn.onclick = () => done(false);
+            });
+        }
+        function appAlert(message, title) { return _appMessageModal(title || "Thông báo", message, false); }
+        function appConfirm(message, title) { return _appMessageModal(title || "Xác nhận", message, true); }
 
         // App State
         let scene, camera, renderer, controls;
@@ -1812,6 +1869,12 @@
             anglesData.splice(idx, 1);
         }
 
+        // Hệ AI/Oxyz: z = chiều cao, mặt Oxy là đáy. Hệ Three.js: y = chiều cao, trục Y hiển thị = -z
+        function aiToThreePos(p)     { return new THREE.Vector3(p[0], p[2], -p[1]); }
+        function threeToAiPos(v)     { return [v.x, -v.z, v.y]; }
+        function aiToThreeNormal(n)  { return new THREE.Vector3(n[0], n[2], -n[1]); }
+        function threeToAiNormal(n)  { return [n.x, -n.z, n.y]; }
+
         function addVertex(name, pos) {
             const id = 'v_' + Math.random().toString(36).substr(2, 9);
 
@@ -2320,7 +2383,7 @@ QUY TẮC BẮT BUỘC:
             }
             btn.disabled = true;
             btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Xử lý...`;
-            const currentVertices = verticesData.map(v => ({ name: v.name, pos: [v.point.x, v.point.y, v.point.z] }));
+            const currentVertices = verticesData.map(v => ({ name: v.name, pos: threeToAiPos(v.point) }));
             const currentEdges = edgesData.map(e => {
                 const v1 = verticesData.find(v => v.id === e.v1Id)?.name;
                 const v2 = verticesData.find(v => v.id === e.v2Id)?.name;
@@ -2335,7 +2398,7 @@ QUY TẮC BẮT BUỘC:
 
             const currentCircles = circlesData.map(c => {
                 const center = verticesData.find(v => v.id === c.centerId)?.name;
-                return center ? { center, radius: c.radius, normal: [c.normal.x, c.normal.y, c.normal.z] } : null;
+                return center ? { center, radius: c.radius, normal: threeToAiNormal(c.normal) } : null;
             }).filter(Boolean);
 
             const currentHighlights = edgesData.filter(e => e.highlighted).map(e => {
@@ -2356,12 +2419,12 @@ QUY TẮC BẮT BUỘC:
             const systemPrompt = `Bạn là chuyên gia hình học không gian 3D.
 Nhiệm vụ: Phân tích yêu cầu vẽ/sửa hình và trả về JSON chứa TOÀN BỘ hình.
 Quy tắc toán học bắt buộc:
-1. Tọa độ Y là trục chiều cao. Mặt đáy mặc định nằm trên mặt phẳng Y = 0.
+1. HỆ TỌA ĐỘ OXYZ (BẮT BUỘC): pos = [x, y, z]. Mặt phẳng Oxy (z = 0) là MẶT ĐÁY nằm ngang, MỌI đỉnh thuộc đáy phải có z = 0. Trục z là chiều cao (đỉnh chóp S có z > 0, ví dụ S = [0, 0, h]). Trục x sang phải, trục y đi vào trong.
 2. QUY TẮC ĐƯỜNG TRÒN (BẮT BUỘC):
    - Khi người dùng yêu cầu vẽ đường tròn (VD: "vẽ đường tròn tâm O bán kính 3", "đường tròn tâm A r=2"):
      * BẮT BUỘC phải tạo ĐỈNH TÂM trong "vertices" nếu đỉnh đó chưa có (VD: nếu tâm là O, PHẢI có {"name": "O", "pos": [0, 0, 0]}).
-     * Thêm vào mảng "circles": [{"center": "O", "radius": 3.0, "normal": [0, 1, 0]}].
-     * (normal [0, 1, 0] là mặt phẳng đáy Oxy song song mặt sàn).
+     * Thêm vào mảng "circles": [{"center": "O", "radius": 3.0, "normal": [0, 0, 1]}].
+     * normal [0, 0, 1] nghĩa là đường tròn nằm trong mặt phẳng Oxy (song song đáy). Đường tròn đứng thì dùng [1, 0, 0] hoặc [0, 1, 0].
 3. QUY TẮC VECTOR:
    - Khi người dùng yêu cầu vẽ vector (VD: "vẽ vector SA", "vector AB", mũi tên →), thêm vào "vectors": [["S", "A"]]. Bắt buộc 2 đỉnh đầu mút phải có trong "vertices".
 4. KÝ TỰ CĂN & MŨ (√, ∛, x^, ², ³...): Tính toán chính xác ra số thập phân.
@@ -2373,7 +2436,7 @@ Quy tắc toán học bắt buộc:
 {
   "vertices": [{"name": "O", "pos": [0, 0, 0]}],
   "edges": [["A", "B"]],
-  "circles": [{"center": "O", "radius": 2.5, "normal": [0, 1, 0]}],
+  "circles": [{"center": "O", "radius": 2.5, "normal": [0, 0, 1]}],
   "vectors": [["A", "B"]],
   "highlights": [],
   "equalEdges": [ [["A","B"], ["A","C"], 1, "a"] ],
@@ -2408,7 +2471,7 @@ Quy tắc toán học bắt buộc:
             // 1. Đỉnh
             if (data.vertices && Array.isArray(data.vertices)) {
                 data.vertices.forEach(v => {
-                    const pos = new THREE.Vector3(v.pos[0], v.pos[1], v.pos[2]);
+                    const pos = aiToThreePos(v.pos);
                     const vObj = addVertex(v.name, pos);
                     createdVertices[v.name] = vObj;
                 });
@@ -2432,7 +2495,7 @@ Quy tắc toán học bắt buộc:
                         createdVertices[c.center || 'O'] = centerObj;
                     }
                     const norm = Array.isArray(c.normal) && c.normal.length === 3 
-                        ? new THREE.Vector3(c.normal[0], c.normal[1], c.normal[2]) 
+                        ? aiToThreeNormal(c.normal) 
                         : new THREE.Vector3(0, 1, 0);
                     addCircle3D(centerObj.id, parseFloat(c.radius) || 2.5, norm);
                 });
@@ -2534,7 +2597,7 @@ Quy tắc toán học bắt buộc:
                 row.innerHTML = `
                     <div class="flex items-center gap-2">
                         <span class="w-5 h-5 rounded-md ${v.name === 'S' ? 'bg-rose-500/20 text-rose-400' : 'bg-cyan-500/20 text-cyan-300'} font-bold flex items-center justify-center text-[11px]">${v.name}</span>
-                        <span class="text-slate-400 font-mono">(${v.point.x.toFixed(2)}, ${v.point.z.toFixed(2)}, ${v.point.y.toFixed(2)})</span>
+                        <span class="text-slate-400 font-mono">(${v.point.x.toFixed(2)}, ${(-v.point.z).toFixed(2)}, ${v.point.y.toFixed(2)})</span>
                     </div>
                     <div class="flex items-center gap-0.5">
                         <button onclick="renameVertex('${v.id}')" class="text-slate-500 hover:text-cyan-400 p-1 transition-colors">
