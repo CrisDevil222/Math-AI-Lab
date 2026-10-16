@@ -1,3 +1,4 @@
+import UIKit
 import Foundation
 import Capacitor
 
@@ -9,7 +10,8 @@ fileprivate extension CAPPluginCall {
         return (options as? [String: Any])?[key] as? [Any]
     }
     func rejectError(_ message: String, _ code: String? = nil, _ error: Error? = nil) {
-        errorHandler(CAPPluginCallError(message: message, code: code, error: error, data: nil))
+        let err = CAPPluginCallError(message: message, code: code, error: error, data: [:] as [String: Any])
+        errorHandler?(err)
     }
 }
 
