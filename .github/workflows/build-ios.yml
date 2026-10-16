@@ -31,16 +31,16 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
-      - name: Patch Capacitor Share for Swift SPM
+      - name: Patch Capacitor Plugins for Swift SPM
         run: |
           cp scripts/SharePlugin.swift node_modules/@capacitor/share/ios/Sources/SharePlugin/SharePlugin.swift
-          echo "=== Patched SharePlugin.swift verify ==="
-          head -n 25 node_modules/@capacitor/share/ios/Sources/SharePlugin/SharePlugin.swift
+          cp scripts/LegacyFilesystemImplementation.swift node_modules/@capacitor/filesystem/ios/Sources/FilesystemPlugin/LegacyFilesystemImplementation.swift
 
       - name: Sync Capacitor iOS
         run: |
           npx cap sync ios
           cp scripts/SharePlugin.swift node_modules/@capacitor/share/ios/Sources/SharePlugin/SharePlugin.swift
+          cp scripts/LegacyFilesystemImplementation.swift node_modules/@capacitor/filesystem/ios/Sources/FilesystemPlugin/LegacyFilesystemImplementation.swift
 
 
       - name: Build iOS Archive (Unsigned)
