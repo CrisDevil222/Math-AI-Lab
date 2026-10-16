@@ -17,14 +17,14 @@ import Capacitor
         func handleDownload(downloadLocation: URL?, response: URLResponse?, error: Error?) {
             if let error = error {
                 CAPLog.print("Error on download file", String(describing: downloadLocation), String(describing: response), String(describing: error))
-                call.reject(error.localizedDescription, "DOWNLOAD", error)
+                call.reject("Error downloading file: \(error.localizedDescription)")
                 return
             }
 
             if let httpResponse = response as? HTTPURLResponse {
                 if !(200...299).contains(httpResponse.statusCode) {
                     CAPLog.print("Error downloading file:", urlString, httpResponse)
-                    call.reject("Error downloading file: \(urlString)", "DOWNLOAD")
+                    call.reject("Error downloading file: \(urlString)")
                     return
                 }
                 HttpRequestHandler.setCookiesFromResponse(httpResponse, config)
@@ -62,7 +62,7 @@ import Capacitor
                     CAPLog.print("Downloaded file successfully! \(dest.absoluteString)")
                     call.resolve(["path": dest.absoluteString])
                 } catch let error {
-                    call.reject("Unable to download file: \(error.localizedDescription)", "DOWNLOAD", error)
+                    call.reject("Unable to download file: \(error.localizedDescription)")
                     return
                 }
             } else {
@@ -72,8 +72,8 @@ import Capacitor
 
         let method = call.getString("method", "GET")
 
-        let headers = (call.getObject("headers") ?? [:]) as [String: Any]
-        let params = (call.getObject("params") ?? [:]) as [String: Any]
+        let headers = (call.options["headers"] as? [String: Any]) ?? [:]
+        let params = (call.options["params"] as? [String: Any]) ?? [:]
         let responseType = call.getString("responseType", "text")
         let connectTimeout = (call.options["connectTimeout"] as? Double)
         let readTimeout = (call.options["readTimeout"] as? Double)
@@ -102,9 +102,7 @@ import Capacitor
             do {
                 try request.setRequestBody(data)
             } catch {
-                // Explicitly reject if the http request body was not set successfully,
-                // so as to not send a known malformed request, and to provide the developer with additional context.
-                call.reject(error.localizedDescription, (error as NSError).domain, error)
+                call.reject("Failed to set request body: \(error.localizedDescription)")
                 return
             }
         }
