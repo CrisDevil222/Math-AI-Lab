@@ -9,7 +9,7 @@ import Capacitor
     @objc public func downloadFile(call: CAPPluginCall, emitter: @escaping ProgressEmitter, config: InstanceConfiguration?) throws {
         let directory = call.getString("directory", "DOCUMENTS")
         guard let path = call.getString("path") else {
-            call.reject("Invalid file path")
+            call.resolve(["error": "Invalid file path"])
             return
         }
         guard var urlString = call.getString("url") else { throw URLError(.badURL) }
@@ -17,21 +17,21 @@ import Capacitor
         func handleDownload(downloadLocation: URL?, response: URLResponse?, error: Error?) {
             if let error = error {
                 CAPLog.print("Error on download file", String(describing: downloadLocation), String(describing: response), String(describing: error))
-                call.reject("Error downloading file: \(error.localizedDescription)")
+                call.resolve(["error": "Error downloading file: \(error.localizedDescription)"])
                 return
             }
 
             if let httpResponse = response as? HTTPURLResponse {
                 if !(200...299).contains(httpResponse.statusCode) {
                     CAPLog.print("Error downloading file:", urlString, httpResponse)
-                    call.reject("Error downloading file: \(urlString)")
+                    call.resolve(["error": "Error downloading file: \(urlString)"])
                     return
                 }
                 HttpRequestHandler.setCookiesFromResponse(httpResponse, config)
             }
 
             guard let location = downloadLocation else {
-                call.reject("Unable to get file after downloading")
+                call.resolve(["error": "Unable to get file after downloading"])
                 return
             }
 
@@ -53,7 +53,7 @@ import Capacitor
                             CAPLog.print("File already exists. Attempting to remove file before writing.")
                             try fileManager.removeItem(at: dest)
                         } catch let error {
-                            call.reject("Unable to remove existing file: \(error.localizedDescription)")
+                            call.resolve(["error": "Unable to remove existing file: \(error.localizedDescription)"])
                             return
                         }
                     }
@@ -62,11 +62,11 @@ import Capacitor
                     CAPLog.print("Downloaded file successfully! \(dest.absoluteString)")
                     call.resolve(["path": dest.absoluteString])
                 } catch let error {
-                    call.reject("Unable to download file: \(error.localizedDescription)")
+                    call.resolve(["error": "Unable to download file: \(error.localizedDescription)"])
                     return
                 }
             } else {
-                call.reject("Unable to download file. Couldn't find directory \(directory)")
+                call.resolve(["error": "Unable to download file. Couldn't find directory \(directory)"])
             }
         }
 
@@ -102,7 +102,7 @@ import Capacitor
             do {
                 try request.setRequestBody(data)
             } catch {
-                call.reject("Failed to set request body: \(error.localizedDescription)")
+                call.resolve(["error": "Failed to set request body: \(error.localizedDescription)"])
                 return
             }
         }
