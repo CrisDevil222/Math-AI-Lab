@@ -113,33 +113,38 @@
             height: 48px !important;
             font-size: 18px !important;
         }
+        #variationPanel {
+            left: 50%;
+            transform: translateX(-50%);
+            width: min(94vw, 820px);
+        }
+        @media (min-width: 640px) {
+            #variationPanel {
+                left: calc((100vw - 21rem) / 2);
+                width: min(820px, calc(100vw - 22rem));
+            }
+        }
     </style>
-    <script src="config.js"></script>
+    <!-- DEBUG-TEMP -->
     <script>
-        // Thông báo lỗi dạng toast (cùng phong cách app), tự ẩn sau 5 giây
+        window.addEventListener('error', function(e) {
+            showError('Lỗi JS: ' + e.message + ' tại ' + e.filename + ':' + e.lineno);
+        });
+        window.addEventListener('unhandledrejection', function(e) {
+            showError('Lỗi Promise: ' + (e.reason && e.reason.message || e.reason));
+        });
         function showError(msg) {
-            let el = document.getElementById('app-error-toast');
-            if (!el) {
+            let el = document.getElementById('debug-error-panel');
+            if(!el) {
                 el = document.createElement('div');
-                el.id = 'app-error-toast';
-                el.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);max-width:640px;width:90%;' +
-                    'background:rgba(15,23,42,0.96);color:#e2e8f0;border:1px solid rgba(244,63,94,0.6);border-radius:14px;' +
-                    'box-shadow:0 10px 30px rgba(0,0,0,0.5);padding:12px 16px;z-index:99999;font-size:14px;' +
-                    'display:flex;gap:10px;align-items:flex-start;transition:opacity .3s;pointer-events:auto;';
-                el.onclick = () => { el.style.opacity = '0'; setTimeout(() => el.style.display = 'none', 300); };
+                el.id = 'debug-error-panel';
+                el.style = 'position:fixed;bottom:0;left:0;width:100%;background:red;color:white;z-index:99999;font-size:18px;padding:10px;pointer-events:none;';
                 document.body.appendChild(el);
             }
-            const safe = String(msg).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
-            el.innerHTML = '<span style="color:#fb7185;font-size:18px;line-height:1">⚠</span>' +
-                '<div><div style="font-weight:700;color:#fda4af;margin-bottom:2px">Đã xảy ra lỗi</div><div>' + safe + '</div></div>';
-            el.style.display = 'flex';
-            el.style.opacity = '1';
-            clearTimeout(el._t);
-            el._t = setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.style.display = 'none', 300); }, 5000);
+            el.innerHTML += msg + '<br>';
         }
-        window.addEventListener('error', e => showError(e.message));
-        window.addEventListener('unhandledrejection', e => showError((e.reason && e.reason.message) || e.reason));
     </script>
+    <script src="config.js"></script>
 </head>
 <body class="w-screen relative select-none" style="height: 100vh; height: 100dvh;">
 
@@ -160,7 +165,7 @@
             <div>
                 <div class="flex items-center gap-2">
                     <h1 class="font-bold text-base text-slate-100 tracking-wide leading-tight">Khảo Sát Đồ Thị 2D</h1>
-                    <span class="px-2 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-400/40 text-[10px] font-bold text-cyan-300">v1.0.2</span>
+                    <span class="px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-mono text-[10px] font-bold border border-cyan-500/30">v1.0.2</span>
                 </div>
                 <p class="text-xs text-cyan-400 font-medium">Hỗ Trợ Tiệm Cận, Đạo Hàm y', y'' & Tiếp Tuyến</p>
             </div>
@@ -234,6 +239,20 @@
         </div>
     </div>
 
+    <!-- Bảng biến thiên -->
+    <div id="variationPanel" class="hidden fixed z-40 top-[8.25rem] glass-panel rounded-2xl border border-amber-500/30 shadow-2xl flex flex-col max-h-[62vh]">
+        <div class="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-700/50">
+            <h2 class="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-2 shrink-0">
+                <i class="fa-solid fa-table-list"></i> Bảng Biến Thiên
+            </h2>
+            <select id="variationSelect" onchange="onVariationSelect(this)" class="min-w-0 flex-1 max-w-[16rem] bg-slate-900/80 border border-slate-700 text-slate-200 text-xs font-mono px-2 py-1 rounded-lg outline-none focus:border-amber-500"></select>
+            <button onclick="toggleVariationTable(false)" class="text-slate-500 hover:text-slate-300 transition-colors" title="Đóng (Esc)">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div id="variationBody" class="overflow-auto p-3 text-xs text-slate-300"></div>
+    </div>
+
     <!-- Toolbar -->
     <div class="absolute top-4 left-1/2 -translate-x-1/2 z-20">
         <div class="glass-panel p-1.5 rounded-2xl flex items-center space-x-1 shadow-2xl border border-slate-700/60 overflow-x-auto max-w-[94vw]">
@@ -254,13 +273,13 @@
                 <span>Xóa Điểm</span>
             </button>
             <div class="w-px h-6 bg-slate-700 mx-1"></div>
-            <button onclick="zoomView(1.2)" class="tool-btn p-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800" title="Phóng to">
+            <button onclick="zoomView(1.2)" class="tool-btn p-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800" title="Phóng to (phím +)">
                 <i class="fa-solid fa-magnifying-glass-plus text-cyan-300"></i>
             </button>
-            <button onclick="zoomView(0.8)" class="tool-btn p-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800" title="Thu nhỏ">
+            <button onclick="zoomView(0.8)" class="tool-btn p-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800" title="Thu nhỏ (phím -)">
                 <i class="fa-solid fa-magnifying-glass-minus text-cyan-300"></i>
             </button>
-            <button onclick="resetView()" class="tool-btn p-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800" title="Gốc tọa độ (0,0)">
+            <button onclick="resetView()" class="tool-btn p-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800" title="Gốc tọa độ (0,0) (phím 0)">
                 <i class="fa-solid fa-arrows-to-dot text-amber-300"></i>
             </button>
             <div class="w-px h-6 bg-slate-700 mx-1"></div>
@@ -268,9 +287,14 @@
                 <i class="fa-solid fa-rotate-left text-sky-400"></i>
                 <span>Hoàn Tác</span>
             </button>
-            <button onclick="clearAllData()" class="tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:bg-slate-800 transition-all whitespace-nowrap">
+            <button onclick="clearAllData()" title="Xóa hết (Shift+Delete)" class="tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:bg-slate-800 transition-all whitespace-nowrap">
                 <i class="fa-solid fa-eraser"></i>
                 <span>Xóa Hết</span>
+            </button>
+            <div class="w-px h-6 bg-slate-700 mx-1"></div>
+            <button id="btnVarTable" onclick="toggleVariationTable()" title="Bảng biến thiên (phím B)" class="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-transparent text-xs font-semibold text-amber-300 hover:bg-slate-800 transition-all whitespace-nowrap">
+                <i class="fa-solid fa-table-list"></i>
+                <span>Bảng Biến Thiên</span>
             </button>
         </div>
     </div>
@@ -278,12 +302,17 @@
     <!-- Quick Instruction Tooltip -->
     <div class="absolute top-20 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
         <div id="mode-instruction" class="glass-panel px-4 py-1.5 rounded-full text-xs text-cyan-300 font-medium shadow-md border border-cyan-500/30 animate-pulse">
-            Chế độ: Di chuyển hệ trục Oxy (Vuốt để kéo, chụm 2 ngón để zoom)
+            Chế độ: Di chuyển hệ trục Oxy (Ấn giữ chuột trái để kéo, cuộn chuột để phóng to/thu nhỏ)
         </div>
     </div>
 
     <!-- Right Sidebar -->
-    <aside class="absolute top-4 right-4 bottom-24 w-80 sm:w-88 z-20 flex flex-col gap-4 pointer-events-none">
+    <aside id="right-sidebar" class="absolute top-4 right-4 bottom-24 w-80 sm:w-88 z-20 flex flex-col gap-4 pointer-events-none" style="transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);">
+        <!-- Nút thu/mở bảng bên phải -->
+        <button id="sidebarToggleBtn" type="button" onclick="toggleRightSidebar()" title="Thu gọn / mở rộng bảng bên phải"
+                class="glass-panel absolute top-3 -left-10 w-9 h-9 rounded-xl border border-slate-600/60 text-cyan-300 hover:bg-cyan-500/15 shadow-xl flex items-center justify-center pointer-events-auto transition-colors">
+            <i id="sidebarToggleIcon" class="fa-solid fa-chevron-right text-sm"></i>
+        </button>
         <div class="glass-panel rounded-2xl p-4 sm:p-5 shadow-2xl flex-1 flex flex-col pointer-events-auto overflow-y-auto">
             
             <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2.5 flex items-center gap-2">
@@ -323,7 +352,12 @@
                 </button>
             </div>
 
-            <div id="functionsList" class="space-y-2 mb-4 max-h-[170px] overflow-y-auto pr-1"></div>
+            <div id="functionsList" class="space-y-2 mb-3 max-h-[170px] overflow-y-auto pr-1"></div>
+
+            <button id="btnIntersections" onclick="toggleIntersections()" title="Hiện / ẩn giao điểm giữa các đồ thị (phím G)" class="w-full mb-4 py-2 px-3 rounded-xl border text-xs font-semibold transition-all flex items-center justify-between gap-2">
+                <span class="flex items-center gap-1.5"><i class="fa-regular fa-circle-dot"></i> Giao điểm các đồ thị</span>
+                <span id="intersectionCount" class="font-mono text-[11px]"></span>
+            </button>
 
             <hr class="border-slate-700/50 mb-3">
 
@@ -332,13 +366,29 @@
                 <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
                     <i class="fa-solid fa-location-dot text-emerald-400"></i> Điểm Đánh Dấu
                 </h2>
-                <button onclick="autoFindKeyPoints()" class="text-xs text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1" title="Tự động tìm Cực trị & Giao điểm">
+                <button onclick="autoFindKeyPoints()" class="text-xs text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1" title="Tự động tìm Cực trị (phím K)">
                     <i class="fa-solid fa-bolt"></i> Tự tìm cực trị
                 </button>
             </div>
+            <button onclick="findSymmetryCenter()" class="w-full mb-2 py-1.5 px-3 rounded-xl border border-orange-500/50 bg-orange-500/10 hover:bg-orange-500/20 text-orange-300 text-xs font-semibold transition-all flex items-center justify-center gap-1.5" title="Tìm tâm đối xứng của đồ thị (phím S)">
+                <i class="fa-solid fa-circle-dot"></i> Tìm tâm đối xứng
+            </button>
 
             <div id="pointsList" class="flex-1 min-h-[90px] max-h-[130px] overflow-y-auto space-y-1.5 pr-1 mb-4">
                 <div class="text-center text-xs text-slate-500 py-4">Chưa có điểm nào.</div>
+            </div>
+
+            <hr class="border-slate-700/50 mb-3">
+
+            <!-- Danh sách tiếp tuyến -->
+            <div class="flex items-center justify-between mb-2">
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-ruler-combined text-amber-400"></i> Tiếp Tuyến
+                </h2>
+            </div>
+
+            <div id="tangentsList" class="min-h-[60px] max-h-[110px] overflow-y-auto space-y-1.5 pr-1 mb-4">
+                <div class="text-center text-xs text-slate-500 py-3">Chưa có tiếp tuyến nào.</div>
             </div>
 
             <div class="mt-auto pt-2">
@@ -513,9 +563,18 @@
         let undoStack = [];
         const MAX_UNDO = 15;
 
-        const GROQ_API_KEY_DRAW = window.APP_CONFIG && window.APP_CONFIG.GROQ_KEY_DRAW;
-        const GROQ_API_KEY_CHAT = window.APP_CONFIG && window.APP_CONFIG.GROQ_KEY_CHAT;
+        const APP_GROQ_KEY = (typeof window !== 'undefined' && window.APP_CONFIG && window.APP_CONFIG.GROQ_API_KEY) ? window.APP_CONFIG.GROQ_API_KEY : null;
+        const GROQ_API_KEY_DRAW = (typeof window !== "undefined" && window.APP_CONFIG && (window.APP_CONFIG.GROQ_KEY_DRAW_2D || window.APP_CONFIG.GROQ_API_KEY)) || "";
+        const GROQ_API_KEY_CHAT = (typeof window !== "undefined" && window.APP_CONFIG && (window.APP_CONFIG.GROQ_KEY_CHAT_2D || window.APP_CONFIG.GROQ_API_KEY)) || "";
         let formulaChatHistory = [];
+
+        // Trạng thái: giao điểm, kéo thả điểm, bảng biến thiên
+        let showIntersections = true;
+        let currentIntersections = [];
+        let hoverIntersectionKey = '';
+        let pointDrag = null;
+        let variationOpen = false;
+        let variationFnIdx = 0;
 
         function insertSymbol(sym) {
             const input = document.getElementById('aiCommandInput');
@@ -592,6 +651,17 @@
         // ==========================================
         // TÍNH TOÁN & CHUYỂN ĐỔI CHUỖI TOÁN HỌC
         // ==========================================
+        // Chuẩn hóa chuỗi người dùng nhập: X/Y viết hoa, SIN/Cos..., ký tự toán học lạ
+        function normalizeMathInput(str) {
+            return String(str || '')
+                .replace(/[−–—]/g, '-')
+                .replace(/[×·]/g, '*')
+                .replace(/÷/g, '/')
+                .replace(/[（]/g, '(').replace(/[）]/g, ')')
+                .toLowerCase()
+                .trim();
+        }
+
         function evaluateConstantExpression(str) {
             if (!str) return NaN;
             let s = str.trim().toLowerCase();
@@ -655,7 +725,7 @@
         }
 
         function compileMathExpression(expr, domain = null) {
-            let s = expr.trim();
+            let s = normalizeMathInput(expr);
             if (s.startsWith('y=') || s.startsWith('y =')) {
                 s = s.substring(s.indexOf('=') + 1).trim();
             }
@@ -975,14 +1045,41 @@
                 }
             });
 
+            // 2b. Vẽ giao điểm giữa các đồ thị
+            ctx.setLineDash([]);
+            currentIntersections.forEach(it => {
+                const px = toCanvasX(it.x);
+                const py = toCanvasY(it.y);
+                if (px < -10 || px > width + 10 || py < -10 || py > height + 10) return;
+                const hot = ixKey(it) === hoverIntersectionKey;
+                ctx.beginPath();
+                ctx.arc(px, py, hot ? 8 : 6.5, 0, Math.PI * 2);
+                ctx.fillStyle = '#0f172a';
+                ctx.fill();
+                ctx.lineWidth = 2.4;
+                ctx.strokeStyle = IX_COLOR;
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(px, py, 2.2, 0, Math.PI * 2);
+                ctx.fillStyle = IX_COLOR;
+                ctx.fill();
+            });
+
             // 3. Vẽ các điểm đánh dấu
             pointsData.forEach(p => {
                 const px = toCanvasX(p.x);
                 const py = toCanvasY(p.y);
+                const dragging = pointDrag && pointDrag.moved && pointDrag.id === p.id;
 
+                if (dragging) {
+                    ctx.beginPath();
+                    ctx.arc(px, py, 11, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+                    ctx.fill();
+                }
                 ctx.fillStyle = p.color || '#38bdf8';
                 ctx.beginPath();
-                ctx.arc(px, py, 5.5, 0, Math.PI * 2);
+                ctx.arc(px, py, dragging ? 6.5 : 5.5, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.lineWidth = 2;
                 ctx.strokeStyle = '#ffffff';
@@ -1004,6 +1101,23 @@
                 label.style.top = `${py}px`;
                 label.style.borderColor = p.color || '#38bdf8';
                 label.textContent = `${p.name} (${p.x.toFixed(2)}, ${p.y.toFixed(2)})`;
+                labelsContainer.appendChild(label);
+            });
+
+            // Nhãn giao điểm: hiện hết nếu ít, còn nhiều thì chỉ hiện điểm đang rê chuột tới
+            const showAllIx = currentIntersections.length <= 8;
+            currentIntersections.forEach(it => {
+                if (!showAllIx && ixKey(it) !== hoverIntersectionKey) return;
+                const px = toCanvasX(it.x);
+                const py = toCanvasY(it.y);
+                if (px < -50 || px > canvas.width + 50 || py < -50 || py > canvas.height + 50) return;
+                const label = document.createElement('div');
+                label.className = 'plot-label';
+                label.style.left = `${px}px`;
+                label.style.top = `${py - 6}px`;
+                label.style.borderColor = IX_COLOR;
+                label.style.color = IX_COLOR;
+                label.textContent = `(${it.x.toFixed(2)}, ${it.y.toFixed(2)})`;
                 labelsContainer.appendChild(label);
             });
         }
@@ -1154,6 +1268,7 @@
 
         function render() {
             drawGridAndAxes();
+            computeIntersections();
             drawCurves();
             updateLabels();
             drawHoverMarker();
@@ -1172,7 +1287,7 @@
         // CÔNG CỤ TÌM TIỆM CẬN (ĐỨNG, NGANG, XIÊN)
         // ==========================================
         function detectAsymptotes(expr, color) {
-            let s = expr.trim();
+            let s = normalizeMathInput(expr);
             if (s.startsWith('y=') || s.startsWith('y =')) {
                 s = s.substring(s.indexOf('=') + 1).trim();
             }
@@ -1311,12 +1426,96 @@
                 return;
             }
 
-            if (scanMin <= 0 && scanMax >= 0) {
-                const y0 = fn(0);
-                if (!isNaN(y0) && isFinite(y0)) {
-                    addPoint("Oy", 0, y0, '#38bdf8', true);
-                }
+        }
+
+        // ==========================================
+        // TÌM TÂM ĐỐI XỨNG (tách riêng khỏi tìm cực trị)
+        // ==========================================
+        function showInfoToast(html) {
+            let toast = document.getElementById('infoToast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'infoToast';
+                toast.className = 'fixed top-20 right-1/2 translate-x-1/2 z-50 glass-panel px-4 py-2.5 rounded-xl border border-orange-500/60 text-orange-300 font-semibold text-xs shadow-2xl flex items-center gap-2 transition-all duration-300 pointer-events-none';
+                document.body.appendChild(toast);
             }
+            toast.innerHTML = html;
+            toast.style.opacity = '1';
+            toast.style.transform = 'translate(50%, 0)';
+            clearTimeout(toast._t);
+            toast._t = setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translate(50%, -10px)';
+            }, 3500);
+        }
+
+        function findSymmetryCenter() {
+            if (functionsData.length === 0) {
+                appAlert("Hãy nhập ít nhất một hàm số trước!");
+                return;
+            }
+            const item = functionsData[0];
+            const fn = item.parsedFn;
+            const dmin = item.domain && isFinite(item.domain.min) ? item.domain.min : -Infinity;
+            const dmax = item.domain && isFinite(item.domain.max) ? item.domain.max : Infinity;
+
+            const scanMin = Math.max(-20, dmin);
+            const scanMax = Math.min(20, dmax);
+            const cands = [];
+
+            // Ứng viên 1: tâm của đoạn xác định, gốc tọa độ
+            if (isFinite(dmin) && isFinite(dmax)) cands.push((dmin + dmax) / 2);
+            cands.push(0);
+
+            // Ứng viên 2: tiệm cận đứng
+            specialLines.forEach(l => { if (l.isVertical) cands.push(l.x0); });
+
+            // Ứng viên 3: điểm uốn (y'' đổi dấu)
+            const step = 0.04;
+            let lastS = numericalSecondDerivative(fn, scanMin);
+            for (let x = scanMin + step; x <= scanMax; x += step) {
+                const s = numericalSecondDerivative(fn, x);
+                if (!isNaN(s) && !isNaN(lastS) && lastS * s < 0 && Math.abs(s - lastS) < 1e4) {
+                    let lo = x - step, hi = x, sLo = lastS;
+                    for (let k = 0; k < 40; k++) {
+                        const mid = (lo + hi) / 2;
+                        const sm = numericalSecondDerivative(fn, mid);
+                        if (isNaN(sm)) break;
+                        if (sm * sLo <= 0) hi = mid; else { lo = mid; sLo = sm; }
+                    }
+                    cands.push((lo + hi) / 2);
+                }
+                lastS = s;
+            }
+
+            // Kiểm tra f(x0+t) + f(x0-t) = 2*y0 với mọi t
+            const found = [];
+            cands.forEach(x0 => {
+                if (!isFinite(x0)) return;
+                if (x0 < dmin - 1e-9 || x0 > dmax + 1e-9) return;
+                if (found.some(c => Math.abs(c.x - x0) < 1e-3)) return;
+                const tmax = Math.min(isFinite(dmin) ? x0 - dmin : Infinity, isFinite(dmax) ? dmax - x0 : Infinity);
+                if (!(tmax > 1e-6)) return;
+                const ts = isFinite(tmax) ? [0.2, 0.4, 0.6, 0.8, 0.99].map(r => r * tmax) : [0.37, 0.8, 1.5, 2.6, 4.1];
+                const sum0 = fn(x0 + ts[0]) + fn(x0 - ts[0]);
+                if (!isFinite(sum0)) return;
+                const y0 = sum0 / 2;
+                const ok = ts.every(t => {
+                    const a = fn(x0 + t), b = fn(x0 - t);
+                    return isFinite(a) && isFinite(b) && Math.abs(a + b - 2 * y0) <= 1e-3 * (1 + Math.abs(y0));
+                });
+                if (ok) found.push({ x: x0, y: y0 });
+            });
+
+            if (found.length === 0) {
+                showInfoToast(`<i class="fa-solid fa-circle-info text-orange-400"></i> Đồ thị <span class="font-mono text-white">y = ${item.rawExpr}</span> không có tâm đối xứng.`);
+                return;
+            }
+
+            pushUndo();
+            pointsData = pointsData.filter(p => p.name !== 'I');
+            found.sort((a, b) => a.x - b.x).slice(0, 12).forEach(c => addPoint('I', c.x, c.y, '#fb923c', true));
+            showInfoToast(`<i class="fa-solid fa-circle-dot text-orange-400"></i> Tâm đối xứng: ` + found.slice(0, 3).map(c => `I(${c.x.toFixed(2)}; ${c.y.toFixed(2)})`).join(', '));
         }
 
         function showNoExtremaNotification(expr) {
@@ -1362,10 +1561,10 @@
             const inst = document.getElementById('mode-instruction');
             if (mode === 'pan') {
                 canvas.style.cursor = 'grab';
-                inst.textContent = "Chế độ: Di chuyển hệ trục Oxy (Vuốt để kéo, chụm 2 ngón để zoom)";
+                inst.textContent = "Chế độ: Di chuyển hệ trục Oxy (Vuốt để kéo, chụm 2 ngón để zoom; kéo một điểm để dời điểm đó)";
             } else if (mode === 'add_point') {
                 canvas.style.cursor = 'crosshair';
-                inst.textContent = "Chế độ: Chạm lên đồ thị hoặc mặt phẳng để chấm Điểm mới";
+                inst.textContent = "Chế độ: Chạm lên đồ thị hoặc mặt phẳng để chấm Điểm mới (kéo điểm có sẵn để dời)";
             } else if (mode === 'tangent') {
                 canvas.style.cursor = 'pointer';
                 inst.textContent = "Chế độ: Chạm vào một điểm trên đồ thị để kẻ Tiếp tuyến tại điểm đó";
@@ -1393,7 +1592,9 @@
 
                 if (!isNaN(k)) {
                     pushUndo();
+                    const lineId = 'ln_' + Math.random().toString(36).substr(2, 9);
                     specialLines.push({
+                        id: lineId,
                         type: 'tangent',
                         x0: mathX,
                         y0: mathY,
@@ -1401,6 +1602,8 @@
                         color: '#f59e0b'
                     });
                     addPoint(`M`, mathX, mathY, '#f59e0b');
+                    pointsData[pointsData.length - 1].lineId = lineId; // kéo điểm M thì tiếp tuyến đi theo
+                    renderPointsList();
                     render();
                 }
             } else if (currentTool === 'delete') {
@@ -1411,6 +1614,10 @@
                 });
                 if (idx !== -1) {
                     pushUndo();
+                    const pt = pointsData[idx];
+                    if (pt && pt.lineId) {
+                        specialLines = specialLines.filter(l => l.id !== pt.lineId);
+                    }
                     pointsData.splice(idx, 1);
                     render();
                     renderPointsList();
@@ -1423,6 +1630,15 @@
             const rect = canvas.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
             const mouseY = e.clientY - rect.top;
+
+            if (currentTool === 'pan' || currentTool === 'add_point') {
+                const hit = findPointAt(mouseX, mouseY, 12);
+                if (hit) {
+                    stopInertia();
+                    beginPointDrag(hit, mouseX, mouseY);
+                    return;
+                }
+            }
 
             if (currentTool === 'pan') {
                 stopInertia();
@@ -1445,7 +1661,28 @@
             const mX = toMathX(mouseX);
             const mY = toMathY(mouseY);
             document.getElementById('coordDisplay').textContent = `(${mX.toFixed(2)}, ${mY.toFixed(2)})`;
+
+            if (pointDrag) {
+                movePointDrag(mouseX, mouseY);
+                return;
+            }
+
             updateHoverState(mouseX, mouseY);
+
+            // Gợi ý kéo được điểm
+            if (!isDragging && (currentTool === 'pan' || currentTool === 'add_point')) {
+                canvas.style.cursor = findPointAt(mouseX, mouseY, 12) ? 'grab' : (currentTool === 'pan' ? canvas.style.cursor : 'crosshair');
+            }
+
+            // Rê chuột tới giao điểm: hiện tọa độ
+            let hk = '';
+            for (const it of currentIntersections) {
+                if (Math.hypot(toCanvasX(it.x) - mouseX, toCanvasY(it.y) - mouseY) < 10) { hk = ixKey(it); break; }
+            }
+            if (hk !== hoverIntersectionKey) {
+                hoverIntersectionKey = hk;
+                scheduleRender();
+            }
 
             if (isDragging && currentTool === 'pan') {
                 const dx = mouseX - lastMousePos.x;
@@ -1463,6 +1700,7 @@
 
         function onMouseUp(e) {
             if (e && e.pointerType === 'touch') return;
+            if (pointDrag) { endPointDrag(); return; }
             if (isDragging) {
                 isDragging = false;
                 if (currentTool === 'pan') {
@@ -1499,6 +1737,14 @@
                 const mouseX = e.touches[0].clientX - rect.left;
                 const mouseY = e.touches[0].clientY - rect.top;
 
+                if (currentTool === 'pan' || currentTool === 'add_point') {
+                    const hit = findPointAt(mouseX, mouseY, 24);
+                    if (hit) {
+                        beginPointDrag(hit, mouseX, mouseY);
+                        return;
+                    }
+                }
+
                 if (currentTool === 'pan') {
                     isDragging = true;
                     lastTouchPan = { x: mouseX, y: mouseY };
@@ -1515,6 +1761,13 @@
 
         function onTouchMove(e) {
             e.preventDefault();
+            if (pointDrag) {
+                if (e.touches.length === 1) {
+                    const rect = canvas.getBoundingClientRect();
+                    movePointDrag(e.touches[0].clientX - rect.left, e.touches[0].clientY - rect.top);
+                }
+                return;
+            }
             if (e.touches.length === 1 && isDragging && currentTool === 'pan') {
                 const rect = canvas.getBoundingClientRect();
                 const mouseX = e.touches[0].clientX - rect.left;
@@ -1561,6 +1814,7 @@
             if (e.touches.length === 0) {
                 isDragging = false;
                 lastTouchPan = null;
+                if (pointDrag) endPointDrag();
             }
         }
 
@@ -1606,6 +1860,7 @@
         }
 
         function addFunction(fullInput, color = null, domain = null) {
+            fullInput = normalizeMathInput(fullInput);
             let finalDomain = domain;
             let exprToCompile = fullInput;
 
@@ -1706,6 +1961,7 @@
                 `;
                 container.appendChild(row);
             });
+            if (variationOpen) renderVariationTable();
         }
 
         function removeFunction(idx) {
@@ -1713,10 +1969,61 @@
             functionsData.splice(idx, 1);
             specialLines = [];
             renderFunctionsList();
+            renderTangentsList();
+            render();
+        }
+
+        function formatTangentEquation(k, x0, y0) {
+            const b = y0 - k * x0;
+            const kRound = Number(k.toFixed(2));
+            const bRound = Number(Math.abs(b).toFixed(2));
+            if (Math.abs(kRound) < 1e-4) return `y = ${Number(y0.toFixed(2))}`;
+            const kPart = kRound === 1 ? 'x' : (kRound === -1 ? '-x' : `${kRound}x`);
+            if (bRound < 1e-4) return `y = ${kPart}`;
+            const sign = b >= 0 ? '+' : '-';
+            return `y = ${kPart} ${sign} ${bRound}`;
+        }
+
+        function renderTangentsList() {
+            const container = document.getElementById('tangentsList');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const tangents = specialLines.filter(l => l.type === 'tangent');
+            if (tangents.length === 0) {
+                container.innerHTML = '<div class="text-center text-xs text-slate-500 py-3">Chưa có tiếp tuyến nào.</div>';
+                return;
+            }
+
+            tangents.forEach((t, i) => {
+                if (!t.id) t.id = 'ln_' + Math.random().toString(36).substr(2, 9);
+                const eq = formatTangentEquation(t.k, t.x0, t.y0);
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between p-1.5 rounded-lg bg-slate-800/40 border border-amber-500/20 text-xs';
+                row.innerHTML = `
+                    <div class="flex flex-col overflow-hidden">
+                        <span class="font-bold text-amber-300 font-mono truncate">${eq}</span>
+                        <span class="text-[10px] text-slate-400 font-mono">Tại x₀ = ${t.x0.toFixed(2)}, y₀ = ${t.y0.toFixed(2)}</span>
+                    </div>
+                    <button onclick="removeTangentById('${t.id}')" class="text-slate-500 hover:text-rose-400 p-1 shrink-0" title="Xóa tiếp tuyến">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function removeTangentById(lineId) {
+            pushUndo();
+            specialLines = specialLines.filter(l => l.id !== lineId);
+            pointsData = pointsData.filter(p => p.lineId !== lineId);
+            renderPointsList();
+            renderTangentsList();
             render();
         }
 
         function renderPointsList() {
+            renderTangentsList();
             const container = document.getElementById('pointsList');
             container.innerHTML = '';
 
@@ -1743,8 +2050,13 @@
 
         function removePointById(id) {
             pushUndo();
+            const pt = pointsData.find(p => p.id === id);
+            if (pt && pt.lineId) {
+                specialLines = specialLines.filter(l => l.id !== pt.lineId);
+            }
             pointsData = pointsData.filter(p => p.id !== id);
             renderPointsList();
+            renderTangentsList();
             render();
         }
 
@@ -1779,6 +2091,7 @@
                     item.showY2 = !!f.showY2;
                 }
             });
+            renderFunctionsList();
             render();
             renderPointsList();
             document.getElementById('btnUndo').disabled = undoStack.length === 0;
@@ -1824,11 +2137,6 @@
                 pushUndo();
                 addFunction(cleanExpr, null, domain);
                 input.value = '';
-                return;
-            }
-
-            if (!directMath && !GROQ_API_KEY_DRAW) {
-                appAlert("Chưa cấu hình API Key. Vui lòng cập nhật file config.js");
                 return;
             }
 
@@ -1885,9 +2193,12 @@ Chỉ trả về JSON thuần túy theo cấu trúc:
                         const fn = functionsData[0].parsedFn;
                         const y0 = fn(t.x0);
                         const k = numericalDerivative(fn, t.x0);
-                        specialLines.push({ type: 'tangent', x0: t.x0, y0, k, color: '#f59e0b' });
+                        const lineId = 'ln_' + Math.random().toString(36).substr(2, 9);
+                        specialLines.push({ id: lineId, type: 'tangent', x0: t.x0, y0, k, color: '#f59e0b' });
                         addPoint("M", t.x0, y0, '#f59e0b');
+                        pointsData[pointsData.length - 1].lineId = lineId;
                     });
+                    renderPointsList();
                 }
                 input.value = '';
             } catch (err) {
@@ -1987,10 +2298,6 @@ Chỉ trả về JSON thuần túy theo cấu trúc:
         }
 
         async function sendFormulaChat() {
-            if (!GROQ_API_KEY_CHAT) {
-                appAlert("Chưa cấu hình API Key. Vui lòng cập nhật file config.js");
-                return;
-            }
             const input = document.getElementById('formulaChatInput');
             const question = input.value.trim();
             const btn = document.getElementById('btnSubmitFormulaChat');
@@ -2068,6 +2375,936 @@ Quy định phản hồi:
         } catch(e) {
             console.error("Touch init error", e);
         }
+
+        // ==========================================
+        // GIAO ĐIỂM GIỮA CÁC ĐỒ THỊ
+        // ==========================================
+        const IX_COLOR = '#fde047';
+        let lastIntersectionText = null;
+
+        function ixKey(it) {
+            return Math.round(it.x * 1e4) + '|' + Math.round(it.y * 1e4);
+        }
+
+        // Tìm giao điểm của các hàm trên đoạn [xL, xR]: quét đổi dấu rồi chia đôi
+        function findIntersectionsOf(fns, xL, xR, N, cap) {
+            const out = [];
+            if (!fns || fns.length < 2 || !(xR > xL)) return out;
+            cap = cap || 120;
+            const xs = new Array(N + 1);
+            for (let i = 0; i <= N; i++) xs[i] = i === N ? xR : xL + (xR - xL) * i / N;
+            const ys = fns.map(f => {
+                const arr = new Float64Array(N + 1);
+                for (let i = 0; i <= N; i++) {
+                    let v;
+                    try { v = f(xs[i]); } catch (e) { v = NaN; }
+                    arr[i] = (typeof v === 'number' && isFinite(v)) ? v : NaN;
+                }
+                return arr;
+            });
+            const seen = new Set();
+            const add = (x, y, p, q) => {
+                const key = Math.round(x * 1e5) + '|' + Math.round(y * 1e5);
+                if (seen.has(key)) return;
+                seen.add(key);
+                out.push({ x, y, p, q });
+            };
+            for (let p = 0; p < fns.length; p++) {
+                for (let q = p + 1; q < fns.length; q++) {
+                    let prevD = NaN, zeroRun = 0;
+                    for (let i = 0; i <= N && out.length < cap; i++) {
+                        const a = ys[p][i], b = ys[q][i];
+                        if (isNaN(a) || isNaN(b)) { prevD = NaN; zeroRun = 0; continue; }
+                        const d = a - b;
+                        if (d === 0) {
+                            zeroRun++;
+                            if (zeroRun === 1) add(xs[i], a, p, q);
+                        } else {
+                            if (zeroRun === 0 && !isNaN(prevD) && prevD * d < 0) {
+                                let l = xs[i - 1], r = xs[i], dl = prevD, ok = true;
+                                for (let it = 0; it < 60; it++) {
+                                    const m = (l + r) / 2;
+                                    let fa, fb;
+                                    try { fa = fns[p](m); fb = fns[q](m); } catch (e) { ok = false; break; }
+                                    if (!isFinite(fa) || !isFinite(fb)) { ok = false; break; }
+                                    const dm = fa - fb;
+                                    if (dm === 0) { l = r = m; break; }
+                                    if (dm * dl < 0) r = m; else { l = m; dl = dm; }
+                                }
+                                if (ok) {
+                                    const xm = (l + r) / 2;
+                                    let ya, yb;
+                                    try { ya = fns[p](xm); yb = fns[q](xm); } catch (e) { ya = NaN; yb = NaN; }
+                                    // Loại bỏ trường hợp đổi dấu do tiệm cận đứng (hai giá trị không bằng nhau)
+                                    if (isFinite(ya) && isFinite(yb) && Math.abs(ya - yb) <= 1e-6 * (1 + Math.abs(ya))) {
+                                        add(xm, ya, p, q);
+                                    }
+                                }
+                            }
+                            zeroRun = 0;
+                        }
+                        prevD = d;
+                    }
+                }
+            }
+            out.sort((u, v) => u.x - v.x);
+            return out;
+        }
+
+        function computeIntersections() {
+            if (!showIntersections) {
+                currentIntersections = [];
+                updateIntersectionUI(0);
+                return;
+            }
+            const fns = functionsData.filter(f => f.visible !== false && typeof f.parsedFn === 'function');
+            const xL = toMathX(0), xR = toMathX(canvas.width);
+            const N = Math.min(2400, Math.max(500, Math.round(canvas.width * 1.2)));
+            currentIntersections = findIntersectionsOf(fns.map(f => f.parsedFn), xL, xR, N, 120);
+            updateIntersectionUI(fns.length);
+        }
+
+        function updateIntersectionUI(fnCount) {
+            const cnt = document.getElementById('intersectionCount');
+            if (!cnt) return;
+            let text;
+            if (!showIntersections) text = 'Tắt';
+            else if (fnCount < 2) text = 'cần ≥ 2 hàm';
+            else text = String(currentIntersections.length);
+            if (text !== lastIntersectionText) {
+                lastIntersectionText = text;
+                cnt.textContent = text;
+            }
+        }
+
+        function applyIntersectionBtnStyle() {
+            const btn = document.getElementById('btnIntersections');
+            if (!btn) return;
+            const on = ['bg-yellow-500/15', 'border-yellow-500/50', 'text-yellow-300'];
+            const off = ['bg-slate-800', 'border-slate-700', 'text-slate-400'];
+            btn.classList.remove(...(showIntersections ? off : on));
+            btn.classList.add(...(showIntersections ? on : off));
+        }
+
+        function toggleIntersections(force) {
+            showIntersections = typeof force === 'boolean' ? force : !showIntersections;
+            lastIntersectionText = null;
+            applyIntersectionBtnStyle();
+            render();
+        }
+
+        // ==========================================
+        // KÉO THẢ ĐIỂM TRÊN ĐỒ THỊ
+        // ==========================================
+        function findPointAt(mx, my, radius) {
+            for (let i = pointsData.length - 1; i >= 0; i--) {
+                const p = pointsData[i];
+                if (Math.hypot(toCanvasX(p.x) - mx, toCanvasY(p.y) - my) <= radius) return p;
+            }
+            return null;
+        }
+
+        function nearestCurvePoint(mx, my, snapPx) {
+            let best = null, bestDist = snapPx;
+            functionsData.forEach(item => {
+                if (item.visible === false || typeof item.parsedFn !== 'function') return;
+                for (let px = mx - snapPx; px <= mx + snapPx; px += 1) {
+                    const x = toMathX(px);
+                    let y;
+                    try { y = item.parsedFn(x); } catch (err) { continue; }
+                    if (typeof y !== 'number' || !isFinite(y) || Math.abs(y) > 1e4) continue;
+                    const d = Math.hypot(px - mx, toCanvasY(y) - my);
+                    if (d < bestDist) { bestDist = d; best = { x: x, y: y }; }
+                }
+            });
+            return best;
+        }
+
+        function beginPointDrag(p, mx, my) {
+            pointDrag = {
+                id: p.id,
+                offX: mx - toCanvasX(p.x),
+                offY: my - toCanvasY(p.y),
+                startX: mx,
+                startY: my,
+                moved: false
+            };
+            hoverCurvePoint = null;
+            canvas.style.cursor = 'grabbing';
+        }
+
+        function movePointDrag(mx, my) {
+            if (!pointDrag) return;
+            const p = pointsData.find(q => q.id === pointDrag.id);
+            if (!p) { pointDrag = null; return; }
+            if (!pointDrag.moved) {
+                if (Math.hypot(mx - pointDrag.startX, my - pointDrag.startY) < 3) return;
+                pushUndo(); // chỉ lưu bước hoàn tác khi thực sự kéo
+                pointDrag.moved = true;
+            }
+            const tx = mx - pointDrag.offX, ty = my - pointDrag.offY;
+            let nx = toMathX(tx), ny = toMathY(ty);
+
+            const line = p.lineId ? specialLines.find(l => l.id === p.lineId) : null;
+            if (line && functionsData[0]) {
+                // Điểm tiếp xúc: chạy dọc đồ thị, tiếp tuyến đi theo
+                const fn = functionsData[0].parsedFn;
+                const yy = fn(nx);
+                const k = numericalDerivative(fn, nx);
+                if (isFinite(yy) && isFinite(k)) {
+                    p.x = nx; p.y = yy;
+                    line.x0 = nx; line.y0 = yy; line.k = k;
+                }
+            } else {
+                // Ưu tiên bám giao điểm, sau đó bám đồ thị
+                let snapped = false;
+                for (const it of currentIntersections) {
+                    if (Math.hypot(toCanvasX(it.x) - tx, toCanvasY(it.y) - ty) < 12) {
+                        nx = it.x; ny = it.y; snapped = true;
+                        break;
+                    }
+                }
+                if (!snapped) {
+                    const c = nearestCurvePoint(tx, ty, 14);
+                    if (c) { nx = c.x; ny = c.y; }
+                }
+                p.x = nx; p.y = ny;
+            }
+            renderPointsList();
+            scheduleRender();
+        }
+
+        function endPointDrag() {
+            if (!pointDrag) return;
+            pointDrag = null;
+            canvas.style.cursor = currentTool === 'pan' ? 'grab' : 'crosshair';
+            renderPointsList();
+            scheduleRender();
+        }
+
+        // ==========================================
+        // BẢNG BIẾN THIÊN
+        // ==========================================
+        function escapeHtml(s) {
+            return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        function fmtNum(v) {
+            if (v === Infinity) return '+∞';
+            if (v === -Infinity) return '-∞';
+            if (!isFinite(v)) return '?';
+            let r = parseFloat(v.toFixed(3));
+            if (Object.is(r, -0)) r = 0;
+            return String(r);
+        }
+
+        function fmtXLabel(x, usePi) {
+            if (x === Infinity) return '+∞';
+            if (x === -Infinity) return '-∞';
+            if (usePi) {
+                const k = x / Math.PI;
+                if (Math.abs(k) < 1e-9) return '0';
+                for (const q of [1, 2, 3, 4, 6]) {
+                    const p = Math.round(k * q);
+                    if (p !== 0 && Math.abs(k * q - p) < 1e-6) {
+                        const ap = Math.abs(p);
+                        const num = ap === 1 ? 'π' : ap + 'π';
+                        return (p < 0 ? '-' : '') + (q === 1 ? num : num + '/' + q);
+                    }
+                }
+            }
+            return fmtNum(x);
+        }
+
+        function vtText(s) {
+            return String(s).replace(/-/g, '−');
+        }
+
+        function vtSafe(fn, x) {
+            let v;
+            try { v = fn(x); } catch (e) { v = NaN; }
+            return (typeof v === 'number' && isFinite(v)) ? v : NaN;
+        }
+
+        // Đổi dấu của f: nghiệm (bỏ qua) hay tiệm cận đứng (giá trị bùng nổ)
+        function vtRefineSignChange(fn, l, r) {
+            let a = l, b = r, fl = vtSafe(fn, l);
+            for (let it = 0; it < 80; it++) {
+                const m = (a + b) / 2;
+                const fm = vtSafe(fn, m);
+                if (isNaN(fm)) return { pole: true, x: m };
+                if (fm * fl <= 0) b = m; else { a = m; fl = fm; }
+            }
+            const va = vtSafe(fn, a), vb = vtSafe(fn, b);
+            const big = Math.max(isNaN(va) ? Infinity : Math.abs(va), isNaN(vb) ? Infinity : Math.abs(vb));
+            return { pole: big > 1e3, x: (a + b) / 2 };
+        }
+
+        // Nghiệm của f' (đổi dấu): cực trị hoặc điểm gấp khúc
+        function vtRefineDerivRoot(fn, l, r, dl) {
+            let a = l, b = r;
+            for (let it = 0; it < 60; it++) {
+                const m = (a + b) / 2;
+                const dm = numericalDerivative(fn, m, 1e-6);
+                if (!isFinite(dm)) return null;
+                if (dm * dl <= 0) b = m; else { a = m; dl = dm; }
+            }
+            const x = (a + b) / 2;
+            const fx = vtSafe(fn, x);
+            if (isNaN(fx)) return null;
+            const dc = numericalDerivative(fn, x, 1e-6);
+            if (!isFinite(dc) || Math.abs(dc) > 1e3) return null;
+            const gap = (h) => {
+                const dL = (fx - vtSafe(fn, x - h)) / h;
+                const dR = (vtSafe(fn, x + h) - fx) / h;
+                return (isFinite(dL) && isFinite(dR)) ? Math.abs(dL - dR) : 0;
+            };
+            const g1 = gap(1e-4), g2 = gap(1e-5);
+            const corner = g1 > 1e-3 && g2 > 0.5 * g1;
+            return { x, kind: corner ? 'corner' : 'crit' };
+        }
+
+        // Cực đại của |f| trên [l, r] (để nhận ra tiệm cận đứng bậc chẵn, ví dụ 1/x^2)
+        function vtPeakMagnitude(fn, l, r) {
+            const g = (x) => { const v = vtSafe(fn, x); return isNaN(v) ? Infinity : Math.abs(v); };
+            let a = l, b = r;
+            for (let it = 0; it < 80; it++) {
+                const m1 = a + (b - a) / 3, m2 = b - (b - a) / 3;
+                if (g(m1) < g(m2)) a = m1; else b = m2;
+            }
+            return (a + b) / 2;
+        }
+
+        function vtProbe(fn, x, dir) {
+            const sc = 1 + Math.abs(x);
+            const v1 = vtSafe(fn, x + dir * 1e-9 * sc);
+            const v2 = vtSafe(fn, x + dir * 1e-6 * sc);
+            if (isNaN(v1)) return isNaN(v2) ? NaN : v2;
+            if (Math.abs(v1) > 1e3 && (isNaN(v2) || Math.abs(v1) > 5 * Math.abs(v2))) return v1 > 0 ? Infinity : -Infinity;
+            return v1;
+        }
+
+        function vtLimitInfinity(fn, s) {
+            const v1 = vtSafe(fn, s * 1e4), v2 = vtSafe(fn, s * 1e7);
+            if (isNaN(v2)) return NaN;
+            if (Math.abs(v2) > 1e3 && (isNaN(v1) || Math.abs(v2) > 5 * Math.abs(v1))) return v2 > 0 ? Infinity : -Infinity;
+            return v2;
+        }
+
+        function computeVariationData(item) {
+            const fn = item.parsedFn;
+            const expr = String(item.rawExpr || '');
+            const periodic = /\b(sin|cos|tan)\b/i.test(expr);
+            const usePi = periodic || /\bpi\b|π/i.test(expr);
+            const dmin = item.domain && isFinite(item.domain.min) ? item.domain.min : null;
+            const dmax = item.domain && isFinite(item.domain.max) ? item.domain.max : null;
+
+            let lo, hi, loInf = false, hiInf = false, note = '';
+            if (periodic) {
+                lo = dmin !== null ? dmin : (dmax !== null ? dmax - 4 * Math.PI : -2 * Math.PI);
+                hi = dmax !== null ? dmax : (dmin !== null ? dmin + 4 * Math.PI : 2 * Math.PI);
+                if (dmin === null || dmax === null) {
+                    note = 'Hàm lượng giác tuần hoàn nên bảng được lập trên khoảng [' + vtText(fmtXLabel(lo, true)) + '; ' + vtText(fmtXLabel(hi, true)) + ']. Nhập "trên [a, b]" để chọn khoảng khác.';
+                }
+            } else {
+                lo = dmin !== null ? dmin : (dmax !== null ? Math.min(-60, dmax - 60) : -60);
+                hi = dmax !== null ? dmax : (dmin !== null ? Math.max(60, dmin + 60) : 60);
+                loInf = dmin === null;
+                hiInf = dmax === null;
+            }
+
+            const N = 4000;
+            const xs = new Array(N + 1), ys = new Array(N + 1), ds = new Array(N + 1);
+            for (let i = 0; i <= N; i++) {
+                xs[i] = i === N ? hi : lo + (hi - lo) * i / N;
+                ys[i] = vtSafe(fn, xs[i]);
+            }
+            for (let i = 0; i <= N; i++) {
+                if (isNaN(ys[i])) { ds[i] = NaN; continue; }
+                const d = numericalDerivative(fn, xs[i], 1e-6);
+                ds[i] = isFinite(d) ? d : NaN;
+            }
+
+            const events = [];
+            const bisectDomain = (xFin, xNan) => {
+                let f = xFin, n = xNan;
+                for (let it = 0; it < 60; it++) {
+                    const m = (f + n) / 2;
+                    if (!isNaN(vtSafe(fn, m))) f = m; else n = m;
+                }
+                return f;
+            };
+
+            for (let i = 1; i <= N; i++) {
+                const a = ys[i - 1], b = ys[i];
+                const fa = !isNaN(a), fb = !isNaN(b);
+                if (fa && fb) {
+                    if (a * b < 0) {
+                        const r = vtRefineSignChange(fn, xs[i - 1], xs[i]);
+                        if (r.pole) events.push({ x: r.x, kind: 'pole' });
+                    }
+                } else if (fa && !fb) {
+                    events.push({ x: bisectDomain(xs[i - 1], xs[i]), kind: 'gapStart' });
+                } else if (!fa && fb) {
+                    events.push({ x: bisectDomain(xs[i], xs[i - 1]), kind: 'gapEnd' });
+                }
+            }
+
+            // Đổi dấu của y' (bỏ qua mẫu y' = 0 để không sót điểm nằm đúng trên lưới)
+            let dPrevSign = 0, dPrevIdx = -1;
+            for (let i = 0; i <= N; i++) {
+                if (isNaN(ys[i]) || isNaN(ds[i])) { dPrevSign = 0; dPrevIdx = -1; continue; }
+                const sg = ds[i] > 1e-9 ? 1 : (ds[i] < -1e-9 ? -1 : 0);
+                if (sg === 0) continue;
+                if (dPrevSign !== 0 && sg !== dPrevSign) {
+                    const c = vtRefineDerivRoot(fn, xs[dPrevIdx], xs[i], ds[dPrevIdx]);
+                    if (c) events.push(c);
+                }
+                dPrevSign = sg;
+                dPrevIdx = i;
+            }
+
+            // Tiệm cận đứng bậc chẵn: |f| lớn lên cực đại mà không đổi dấu
+            for (let i = 1; i < N; i++) {
+                const a = ys[i - 1], b = ys[i], c = ys[i + 1];
+                if (isNaN(a) || isNaN(b) || isNaN(c)) continue;
+                const ab = Math.abs(b);
+                if (ab > 1e3 && ab >= Math.abs(a) && ab >= Math.abs(c) && a * b > 0 && b * c > 0) {
+                    const p = vtPeakMagnitude(fn, xs[i - 1], xs[i + 1]);
+                    const near = [1e-3, 1e-5, 1e-7].map(dd => Math.abs(vtSafe(fn, p + dd)));
+                    if (near[0] > 0 && near[2] > 20 * near[0] && near[1] > 3 * near[0]) {
+                        events.push({ x: p, kind: 'pole' });
+                    }
+                }
+            }
+
+            events.sort((u, v) => u.x - v.x);
+
+            // Gộp cặp gapStart/gapEnd sát nhau (một điểm không xác định): tiệm cận hay lỗ thủng
+            const merged = [];
+            for (let k = 0; k < events.length; k++) {
+                const e = events[k], nx = events[k + 1];
+                if (e.kind === 'gapStart' && nx && nx.kind === 'gapEnd' && nx.x - e.x < 1e-5) {
+                    const c = (e.x + nx.x) / 2, sc = 1 + Math.abs(c);
+                    const vL = vtSafe(fn, c - 1e-9 * sc), vR = vtSafe(fn, c + 1e-9 * sc);
+                    if ((!isNaN(vL) && Math.abs(vL) > 1e3) || (!isNaN(vR) && Math.abs(vR) > 1e3)) {
+                        merged.push({ x: c, kind: 'pole' });
+                    }
+                    k++;
+                } else {
+                    merged.push(e);
+                }
+            }
+            let list = [];
+            merged.forEach(e => {
+                const last = list[list.length - 1];
+                if (last && last.kind === 'pole' && e.kind === 'pole' && Math.abs(last.x - e.x) < 1e-6) return;
+                if (last && last.kind !== 'gapStart' && last.kind !== 'gapEnd' && e.kind !== 'gapStart' && e.kind !== 'gapEnd' && Math.abs(last.x - e.x) < 1e-6) return;
+                list.push(e);
+            });
+
+            let startNode, endNode;
+            if (isNaN(ys[0])) {
+                const idx = list.findIndex(e => e.kind === 'gapEnd');
+                if (idx < 0) return { empty: true };
+                startNode = { x: list[idx].x, kind: 'edge' };
+                list = list.slice(idx + 1);
+            } else {
+                startNode = { x: lo, kind: loInf ? 'inf' : 'edge' };
+            }
+            if (isNaN(ys[N])) {
+                let idx = -1;
+                for (let k = list.length - 1; k >= 0; k--) if (list[k].kind === 'gapStart') { idx = k; break; }
+                if (idx < 0) return { empty: true };
+                endNode = { x: list[idx].x, kind: 'edge' };
+                list = list.slice(0, idx);
+            } else {
+                endNode = { x: hi, kind: hiInf ? 'inf' : 'edge' };
+            }
+
+            const nodes = [startNode];
+            for (let k = 0; k < list.length; k++) {
+                const e = list[k];
+                if (e.kind === 'gapStart') {
+                    const nx = list[k + 1];
+                    if (nx && nx.kind === 'gapEnd') {
+                        nodes.push({ x: e.x, kind: 'edge', gapAfter: true });
+                        nodes.push({ x: nx.x, kind: 'edge', gapBefore: true });
+                        k++;
+                    }
+                } else if (e.kind !== 'gapEnd') {
+                    nodes.push({ x: e.x, kind: e.kind });
+                }
+            }
+            nodes.push(endNode);
+
+            // Giá trị (giới hạn) hai phía tại mỗi nút. NaN = không có giá trị phía đó.
+            nodes.forEach((nd, k) => {
+                const isFirst = k === 0, isLast = k === nodes.length - 1;
+                let hasL = !isFirst && !nd.gapBefore;
+                let hasR = !isLast && !nd.gapAfter;
+                if (nd.kind === 'inf') {
+                    const L = vtLimitInfinity(fn, isFirst ? -1 : 1);
+                    nd.left = hasL ? L : NaN;
+                    nd.right = hasR ? L : NaN;
+                } else if (nd.kind === 'pole') {
+                    nd.left = vtProbe(fn, nd.x, -1);
+                    nd.right = vtProbe(fn, nd.x, 1);
+                } else {
+                    let v = vtSafe(fn, nd.x);
+                    if (nd.kind === 'edge') {
+                        if (isNaN(v)) v = hasR ? vtProbe(fn, nd.x, 1) : vtProbe(fn, nd.x, -1);
+                        else {
+                            const pv = hasR ? vtProbe(fn, nd.x, 1) : vtProbe(fn, nd.x, -1);
+                            if (pv === Infinity || pv === -Infinity) v = pv;
+                        }
+                    }
+                    nd.left = hasL ? v : NaN;
+                    nd.right = hasR ? v : NaN;
+                }
+            });
+
+            // Dấu của y' trên từng khoảng
+            const intervals = [];
+            for (let k = 0; k < nodes.length - 1; k++) {
+                const a = nodes[k], b = nodes[k + 1];
+                if (a.gapAfter) { intervals.push({ undef: true }); continue; }
+                const aInf = a.kind === 'inf', bInf = b.kind === 'inf';
+                let cands;
+                if (aInf && bInf) cands = [1.7, -3.1];
+                else if (aInf) cands = [b.x - 1.7, b.x - 3.1];
+                else if (bInf) cands = [a.x + 1.7, a.x + 3.1];
+                else cands = [a.x + 0.43 * (b.x - a.x), a.x + 0.71 * (b.x - a.x)];
+                let s = 0;
+                for (const xm of cands) {
+                    const d = numericalDerivative(fn, xm, 1e-6);
+                    if (isFinite(d) && Math.abs(d) > 1e-9) { s = d > 0 ? 1 : -1; break; }
+                }
+                intervals.push({ sign: s });
+            }
+
+            return { nodes, intervals, usePi, note, fn };
+        }
+
+        function vtOpenAt(nd, fn) {
+            return nd.kind === 'inf' || nd.kind === 'pole' || nd.kind === 'crit' || nd.kind === 'corner' || isNaN(vtSafe(fn, nd.x));
+        }
+
+        function vtIntervalText(a, b, data) {
+            const lb = vtOpenAt(a, data.fn) ? '(' : '[';
+            const rb = vtOpenAt(b, data.fn) ? ')' : ']';
+            const la = a.kind === 'inf' ? '-∞' : fmtXLabel(a.x, data.usePi);
+            const lb2 = b.kind === 'inf' ? '+∞' : fmtXLabel(b.x, data.usePi);
+            return vtText(lb + la + '; ' + lb2 + rb);
+        }
+
+        function vtDomainText(data) {
+            const nodes = data.nodes, fn = data.fn;
+            const segs = [];
+            let cur = { a: nodes[0] };
+            let onlyPoles = true;
+            for (let k = 0; k < nodes.length; k++) {
+                const nd = nodes[k];
+                if (k > 0 && k < nodes.length - 1) {
+                    if (nd.kind === 'pole') {
+                        cur.b = nd; segs.push(cur); cur = { a: nd };
+                    } else if (nd.gapAfter) {
+                        onlyPoles = false;
+                        cur.b = nd; segs.push(cur); cur = null;
+                    } else if (nd.gapBefore) {
+                        cur = { a: nd };
+                    }
+                }
+            }
+            if (cur) { cur.b = nodes[nodes.length - 1]; segs.push(cur); }
+            const poles = nodes.filter((nd, k) => k > 0 && k < nodes.length - 1 && nd.kind === 'pole');
+            if (onlyPoles && nodes[0].kind === 'inf' && nodes[nodes.length - 1].kind === 'inf') {
+                if (poles.length === 0) return 'D = ℝ';
+                return vtText('D = ℝ \\ {' + poles.map(p => fmtXLabel(p.x, data.usePi)).join('; ') + '}');
+            }
+            return 'D = ' + segs.map(sg => vtIntervalText(sg.a, sg.b, data)).join(' ∪ ');
+        }
+
+        function buildVariationSvg(data) {
+            const nodes = data.nodes, iv = data.intervals, n = nodes.length, usePi = data.usePi;
+            const LBL = 70, PADX = 50, COLW = 124, HX = 40, HD = 46, HY = 136;
+            const W = LBL + PADX * 2 + (n - 1) * COLW, H = HX + HD + HY;
+            const px = k => LBL + PADX + k * COLW;
+            const yTop = HX + HD + 26, yBot = HX + HD + HY - 26;
+            const C = { line: '#64748b', faint: '#475569', text: '#e2e8f0', plus: '#34d399', minus: '#fb7185', arrow: '#38bdf8' };
+            const text = (x, y, t, o) => {
+                o = o || {};
+                return '<text x="' + x + '" y="' + y + '" text-anchor="' + (o.anchor || 'middle') + '" dominant-baseline="central" fill="' + (o.fill || C.text) + '" font-size="' + (o.size || 13) + '" font-weight="' + (o.weight || 600) + '" font-family="Inter, ui-monospace, monospace">' + t + '</text>';
+            };
+            const line = (x1, y1, x2, y2, o) => {
+                o = o || {};
+                return '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" stroke="' + (o.stroke || C.line) + '" stroke-width="' + (o.w || 1.4) + '"' + (o.dash ? ' stroke-dasharray="' + o.dash + '"' : '') + (o.marker ? ' marker-end="url(#vtArr)"' : '') + '/>';
+            };
+
+            // Mức (độ cao) của từng giá trị trong hàng y: xếp theo thứ tự lớn nhỏ
+            const vals = [];
+            nodes.forEach(nd => {
+                if (!isNaN(nd.left)) vals.push(nd.left);
+                if (!isNaN(nd.right)) vals.push(nd.right);
+            });
+            vals.sort((a, b) => (a === b ? 0 : (a < b ? -1 : 1)));
+            const uniq = [];
+            vals.forEach(v => {
+                const last = uniq[uniq.length - 1];
+                if (last === undefined || !(last === v || Math.abs(last - v) <= 1e-6 * (1 + Math.abs(last)))) uniq.push(v);
+            });
+            const yOf = (v) => {
+                if (uniq.length <= 1) return (yTop + yBot) / 2;
+                let idx = uniq.findIndex(u => u === v || Math.abs(u - v) <= 1e-6 * (1 + Math.abs(u)));
+                if (idx < 0) idx = 0;
+                return yBot - (idx / (uniq.length - 1)) * (yBot - yTop);
+            };
+
+            let s = '<defs>'
+                + '<marker id="vtArr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="' + C.arrow + '"/></marker>'
+                + '<pattern id="vtHatch" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="9" stroke="#64748b" stroke-width="1.5"/></pattern>'
+                + '</defs>';
+
+            s += '<rect x="1" y="1" width="' + (W - 2) + '" height="' + (H - 2) + '" rx="8" fill="rgba(15,23,42,0.55)" stroke="' + C.line + '" stroke-width="1.5"/>';
+            s += line(1, HX, W - 1, HX) + line(1, HX + HD, W - 1, HX + HD) + line(LBL, 1, LBL, H - 1);
+            s += text(LBL / 2, HX / 2, 'x', { size: 15, fill: '#fbbf24' });
+            s += text(LBL / 2, HX + HD / 2, "y'", { size: 15, fill: '#fbbf24' });
+            s += text(LBL / 2, HX + HD + HY / 2, 'y', { size: 15, fill: '#fbbf24' });
+
+            // Khoảng không xác định
+            iv.forEach((it, k) => {
+                if (it.undef) s += '<rect x="' + px(k) + '" y="' + HX + '" width="' + COLW + '" height="' + (HD + HY) + '" fill="url(#vtHatch)" opacity="0.55"/>';
+            });
+
+            // Hàng x + đường kẻ + ký hiệu tại từng nút
+            nodes.forEach((nd, k) => {
+                const label = nd.kind === 'inf' ? (k === 0 ? '-∞' : '+∞') : fmtXLabel(nd.x, usePi);
+                s += text(px(k), HX / 2, vtText(label));
+                const x = px(k);
+                if (nd.kind === 'pole') {
+                    s += line(x - 2.5, HX, x - 2.5, H - 1.5, { w: 1.6 }) + line(x + 2.5, HX, x + 2.5, H - 1.5, { w: 1.6 });
+                } else if (nd.gapAfter || nd.gapBefore) {
+                    s += line(x, HX, x, H - 1.5, { w: 1.8 });
+                } else if (nd.kind === 'crit') {
+                    s += line(x, HX, x, H - 1.5, { stroke: C.faint, dash: '3 4' });
+                    s += text(x, HX + HD / 2, '0');
+                } else if (nd.kind === 'corner') {
+                    s += line(x, HX, x, H - 1.5, { stroke: C.faint, dash: '3 4' });
+                    s += line(x - 2.5, HX + 8, x - 2.5, HX + HD - 8, { w: 1.6 }) + line(x + 2.5, HX + 8, x + 2.5, HX + HD - 8, { w: 1.6 });
+                }
+            });
+
+            // Dấu của y'
+            iv.forEach((it, k) => {
+                if (it.undef) return;
+                const cx = (px(k) + px(k + 1)) / 2, cy = HX + HD / 2;
+                if (it.sign > 0) s += text(cx, cy, '+', { size: 20, fill: C.plus, weight: 700 });
+                else if (it.sign < 0) s += text(cx, cy, '−', { size: 20, fill: C.minus, weight: 700 });
+                else s += text(cx, cy, '0');
+            });
+
+            // Giá trị y tại các nút + vị trí đầu/cuối mũi tên
+            const geo = nodes.map(() => ({}));
+            nodes.forEach((nd, k) => {
+                const hasL = !isNaN(nd.left), hasR = !isNaN(nd.right);
+                const split = nd.kind === 'pole' || nd.gapAfter || nd.gapBefore;
+                const cx = px(k);
+                if (split) {
+                    if (hasL) {
+                        const t = vtText(fmtNum(nd.left)), tw = t.length * 8 + 6;
+                        s += text(cx - 8, yOf(nd.left), t, { anchor: 'end' });
+                        geo[k].L = { arrow: cx - 8 - tw - 3, y: yOf(nd.left) };
+                    }
+                    if (hasR) {
+                        const t = vtText(fmtNum(nd.right)), tw = t.length * 8 + 6;
+                        s += text(cx + 8, yOf(nd.right), t, { anchor: 'start' });
+                        geo[k].R = { arrow: cx + 8 + tw + 3, y: yOf(nd.right) };
+                    }
+                } else if (hasL || hasR) {
+                    const v = hasL ? nd.left : nd.right;
+                    const t = vtText(fmtNum(v)), tw = t.length * 8 + 6, y = yOf(v);
+                    s += text(cx, y, t);
+                    if (hasL) geo[k].L = { arrow: cx - tw / 2 - 3, y: y };
+                    if (hasR) geo[k].R = { arrow: cx + tw / 2 + 3, y: y };
+                }
+            });
+
+            // Mũi tên đồng biến / nghịch biến
+            iv.forEach((it, k) => {
+                if (it.undef) return;
+                const A = geo[k].R, B = geo[k + 1].L;
+                if (!A || !B || B.arrow - A.arrow < 6) return;
+                s += line(A.arrow, A.y, B.arrow, B.y, { stroke: C.arrow, w: 1.9, marker: true });
+            });
+
+            return '<svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" style="display:block;margin:0 auto;max-width:none">' + s + '</svg>';
+        }
+
+        function buildVariationSummary(data) {
+            const nodes = data.nodes, iv = data.intervals, fn = data.fn;
+            const inc = [], dec = [], ext = [];
+            iv.forEach((it, k) => {
+                if (it.undef) return;
+                const txt = vtIntervalText(nodes[k], nodes[k + 1], data);
+                if (it.sign > 0) inc.push(txt);
+                else if (it.sign < 0) dec.push(txt);
+            });
+            for (let k = 1; k < nodes.length - 1; k++) {
+                const nd = nodes[k];
+                if (nd.kind !== 'crit' && nd.kind !== 'corner') continue;
+                const a = iv[k - 1], b = iv[k];
+                if (!a || !b || a.undef || b.undef) continue;
+                const xl = vtText(fmtXLabel(nd.x, data.usePi)), yl = vtText(fmtNum(nd.left));
+                if (a.sign > 0 && b.sign < 0) ext.push('Cực đại tại x = ' + xl + ', y<sub>CĐ</sub> = ' + yl);
+                else if (a.sign < 0 && b.sign > 0) ext.push('Cực tiểu tại x = ' + xl + ', y<sub>CT</sub> = ' + yl);
+            }
+            const row = (label, content) => '<div><span class="text-slate-400">' + label + '</span> ' + content + '</div>';
+            let h = '';
+            h += row('Tập xác định:', '<span class="font-mono text-slate-200">' + escapeHtml(vtDomainText(data)) + '</span>');
+            h += row('Đồng biến trên:', '<span class="font-mono text-emerald-300">' + (inc.length ? escapeHtml(inc.join(' và ')) : 'không có') + '</span>');
+            h += row('Nghịch biến trên:', '<span class="font-mono text-rose-300">' + (dec.length ? escapeHtml(dec.join(' và ')) : 'không có') + '</span>');
+            if (ext.length) h += row('Cực trị:', '<span class="text-amber-200">' + ext.join(' &nbsp;|&nbsp; ') + '</span>');
+            if (data.note) h += '<div class="text-[11px] text-slate-500 pt-1">' + escapeHtml(data.note) + '</div>';
+            return '<div class="mt-3 space-y-1 leading-relaxed">' + h + '</div>';
+        }
+
+        function renderVariationTable() {
+            const body = document.getElementById('variationBody');
+            const sel = document.getElementById('variationSelect');
+            if (!body || !sel) return;
+            if (functionsData.length === 0) {
+                sel.innerHTML = '';
+                sel.style.display = 'none';
+                body.innerHTML = '<div class="text-center text-slate-500 py-6">Chưa có hàm số nào. Hãy vẽ một hàm số rồi mở lại bảng biến thiên.</div>';
+                return;
+            }
+            if (variationFnIdx >= functionsData.length) variationFnIdx = 0;
+            sel.innerHTML = functionsData.map((f, i) => '<option value="' + i + '"' + (i === variationFnIdx ? ' selected' : '') + '>y = ' + escapeHtml(f.rawExpr) + '</option>').join('');
+            sel.style.display = functionsData.length > 1 ? '' : 'none';
+
+            const item = functionsData[variationFnIdx];
+            let data;
+            try {
+                data = computeVariationData(item);
+            } catch (err) {
+                console.error('Variation table error', err);
+                data = { empty: true };
+            }
+            if (!data || data.empty || !data.nodes || data.nodes.length < 2) {
+                body.innerHTML = '<div class="text-center text-slate-500 py-6">Không lập được bảng biến thiên cho hàm số này.</div>';
+                return;
+            }
+            body.innerHTML = '<div class="overflow-x-auto pb-1">' + buildVariationSvg(data) + '</div>' + buildVariationSummary(data);
+        }
+
+        function onVariationSelect(sel) {
+            variationFnIdx = parseInt(sel.value, 10) || 0;
+            renderVariationTable();
+            sel.blur();
+        }
+
+        function toggleVariationTable(force) {
+            const panel = document.getElementById('variationPanel');
+            if (!panel) return;
+            variationOpen = typeof force === 'boolean' ? force : !variationOpen;
+            panel.classList.toggle('hidden', !variationOpen);
+            const btn = document.getElementById('btnVarTable');
+            if (btn) {
+                btn.classList.toggle('bg-amber-500/20', variationOpen);
+                btn.classList.toggle('border-amber-500/50', variationOpen);
+                btn.classList.toggle('border-transparent', !variationOpen);
+            }
+            if (variationOpen) renderVariationTable();
+        }
+
+        applyIntersectionBtnStyle();
+
+        // ==========================================
+        // PHÍM TẮT
+        // ==========================================
+        const TOOL_SHORTCUTS = ['pan', 'add_point', 'tangent', 'delete'];
+        const SHORTCUT_LIST = [
+            ['1 – 4', 'Chọn công cụ: Di chuyển / Chấm điểm / Tiếp tuyến / Xóa điểm'],
+            ['+  /  -', 'Phóng to / Thu nhỏ'],
+            ['0  hoặc  Home', 'Về gốc tọa độ, tỉ lệ chuẩn'],
+            ['← ↑ → ↓', 'Di chuyển hệ trục (giữ Shift để di chuyển nhanh)'],
+            ['N', 'Thêm hàm số mới (hộp thoại)'],
+            ['/', 'Nhảy tới ô nhập hàm số'],
+            ['K', 'Tự động tìm cực trị'],
+            ['S', 'Tìm tâm đối xứng của đồ thị'],
+            ['B', 'Mở / đóng Bảng biến thiên'],
+            ['G', 'Hiện / ẩn giao điểm các đồ thị'],
+            ['Kéo điểm', 'Dời một điểm (tự bám vào đồ thị và giao điểm)'],
+            ['C', 'Mở / đóng khung Khảo sát & Công thức'],
+            ['Ctrl + Z', 'Hoàn tác'],
+            ['Shift + Delete', 'Xóa hết (có thể hoàn tác bằng Ctrl + Z)'],
+            ['Esc', 'Đóng bảng đang mở / quay về công cụ Di chuyển'],
+            ['?', 'Xem bảng phím tắt này']
+        ];
+
+        function toggleShortcutHelp(forceOpen) {
+            let el = document.getElementById('shortcutHelp');
+            if (el) {
+                if (forceOpen !== true) el.remove();
+                return;
+            }
+            if (forceOpen === false) return;
+            el = document.createElement('div');
+            el.id = 'shortcutHelp';
+            el.className = 'fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4';
+            el.innerHTML = `
+                <div class="glass-panel rounded-2xl shadow-2xl border border-cyan-500/30 w-full max-w-md max-h-[90vh] overflow-y-auto p-5">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-sm font-bold text-cyan-300"><i class="fa-regular fa-keyboard mr-2"></i>Phím tắt</h3>
+                        <button type="button" id="shortcutHelpClose" class="text-slate-400 hover:text-white text-lg leading-none">&times;</button>
+                    </div>
+                    <div class="space-y-2">
+                        ${SHORTCUT_LIST.map(([k, d]) => `
+                            <div class="flex items-start gap-3 text-xs text-slate-300">
+                                <kbd class="shrink-0 min-w-[6.5rem] px-2 py-1 rounded-lg bg-slate-900 border border-slate-600 text-cyan-200 font-semibold text-center">${k}</kbd>
+                                <span class="pt-1">${d}</span>
+                            </div>`).join('')}
+                    </div>
+                    <p class="text-[11px] text-slate-500 mt-3">Phím tắt không hoạt động khi bạn đang gõ chữ trong ô nhập.</p>
+                </div>`;
+            el.addEventListener('pointerdown', (e) => { if (e.target === el) el.remove(); });
+            document.body.appendChild(el);
+            document.getElementById('shortcutHelpClose').addEventListener('click', () => el.remove());
+        }
+
+        function isTypingTarget(t) {
+            if (!t) return false;
+            const tag = (t.tagName || '').toUpperCase();
+            return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable;
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.isComposing) return;
+
+            // Đang gõ trong ô nhập: chỉ xử lý Esc để thoát ô
+            if (isTypingTarget(e.target)) {
+                if (e.key === 'Escape') e.target.blur();
+                return;
+            }
+            // Hộp thoại (appPrompt/appConfirm...) đang mở: để hộp thoại tự xử lý
+            if (typeof currentModal !== 'undefined' && currentModal) return;
+
+            const key = e.key;
+            const code = e.code;
+
+            // Ctrl/Cmd + Z: hoàn tác
+            if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && code === 'KeyZ') {
+                e.preventDefault();
+                undoLastAction();
+                return;
+            }
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+            // Bảng phím tắt đang mở
+            if (document.getElementById('shortcutHelp')) {
+                if (key === 'Escape' || key === '?') { e.preventDefault(); toggleShortcutHelp(false); }
+                return;
+            }
+
+            // Shift + Delete / Backspace: xóa hết
+            if (e.shiftKey && (key === 'Delete' || key === 'Backspace')) {
+                e.preventDefault();
+                clearAllData();
+                return;
+            }
+
+            // Phím mũi tên: di chuyển hệ trục
+            if (key.startsWith('Arrow')) {
+                e.preventDefault();
+                const step = e.shiftKey ? 200 : 60;
+                stopInertia();
+                if (key === 'ArrowLeft')  view.originX += step;
+                if (key === 'ArrowRight') view.originX -= step;
+                if (key === 'ArrowUp')    view.originY += step;
+                if (key === 'ArrowDown')  view.originY -= step;
+                render();
+                return;
+            }
+
+            if (key === '?') { e.preventDefault(); toggleShortcutHelp(true); return; }
+            if (key === '/') {
+                e.preventDefault();
+                const inp = document.getElementById('aiCommandInput');
+                if (inp) inp.focus();
+                return;
+            }
+            if (key === '+' || key === '=') { e.preventDefault(); zoomView(1.2); return; }
+            if (key === '-' || key === '_') { e.preventDefault(); zoomView(0.8); return; }
+            if (key === 'Home' || (!e.shiftKey && (code === 'Digit0' || code === 'Numpad0'))) {
+                e.preventDefault();
+                resetView();
+                return;
+            }
+
+            if (key === 'Escape') {
+                const panel = document.getElementById('formulaChatPanel');
+                if (variationOpen) toggleVariationTable(false);
+                else if (panel && !panel.classList.contains('hidden')) toggleFormulaChat();
+                else if (currentTool !== 'pan') setToolMode('pan');
+                return;
+            }
+
+            // Các phím còn lại không dùng Shift
+            if (e.shiftKey) return;
+
+            const m = code.match(/^(?:Digit|Numpad)([1-9])$/);
+            if (m) {
+                const mode = TOOL_SHORTCUTS[parseInt(m[1], 10) - 1];
+                if (mode) { e.preventDefault(); setToolMode(mode); }
+                return;
+            }
+
+            switch (code) {
+                case 'KeyN': e.preventDefault(); promptAddFunction(); break;
+                case 'KeyK': e.preventDefault(); autoFindKeyPoints(); break;
+                case 'KeyS': e.preventDefault(); findSymmetryCenter(); break;
+                case 'KeyB': e.preventDefault(); toggleVariationTable(); break;
+                case 'KeyG': e.preventDefault(); toggleIntersections(); break;
+                case 'KeyC': e.preventDefault(); toggleFormulaChat(); break;
+            }
+        });
+
+        // Gắn gợi ý phím tắt vào tooltip của các nút công cụ
+        TOOL_SHORTCUTS.forEach((mode, i) => {
+            const btn = document.getElementById('tool-' + mode);
+            if (btn) btn.title = ((btn.title ? btn.title + ' ' : '') + '(phím ' + (i + 1) + ')').trim();
+        });
+        (function () {
+            const undoBtn = document.getElementById('btnUndo');
+            if (undoBtn) undoBtn.title = 'Hoàn tác (Ctrl+Z)';
+        })();
+
+
+        
+        // ==========================================
+        // THU / MỞ BẢNG BÊN PHẢI (SIDEBAR TOGGLE)
+        // ==========================================
+        let rightSidebarCollapsed = false;
+
+        function setRightSidebarCollapsed(collapsed) {
+            const aside = document.getElementById('right-sidebar');
+            const icon = document.getElementById('sidebarToggleIcon');
+            if (!aside) return;
+            rightSidebarCollapsed = collapsed;
+            aside.style.transform = collapsed ? 'translateX(calc(100% + 1rem))' : 'translateX(0)';
+            if (icon) icon.className = 'fa-solid text-sm ' + (collapsed ? 'fa-chevron-left' : 'fa-chevron-right');
+            try { localStorage.setItem('sidebarCollapsed_2d', collapsed ? '1' : '0'); } catch (e) {}
+        }
+
+        function toggleRightSidebar() {
+            setRightSidebarCollapsed(!rightSidebarCollapsed);
+        }
+
+        window.addEventListener('load', () => {
+            let saved = false;
+            try { saved = localStorage.getItem('sidebarCollapsed_2d') === '1'; } catch (e) {}
+            if (saved) setRightSidebarCollapsed(true);
+        });
 
         window.onload = () => {
             resize();
