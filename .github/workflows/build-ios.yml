@@ -35,12 +35,14 @@ jobs:
         run: |
           cp scripts/SharePlugin.swift node_modules/@capacitor/share/ios/Sources/SharePlugin/SharePlugin.swift
           cp scripts/LegacyFilesystemImplementation.swift node_modules/@capacitor/filesystem/ios/Sources/FilesystemPlugin/LegacyFilesystemImplementation.swift
+          cp scripts/FilesystemPlugin.swift node_modules/@capacitor/filesystem/ios/Sources/FilesystemPlugin/FilesystemPlugin.swift
 
       - name: Sync Capacitor iOS
         run: |
           npx cap sync ios
           cp scripts/SharePlugin.swift node_modules/@capacitor/share/ios/Sources/SharePlugin/SharePlugin.swift
           cp scripts/LegacyFilesystemImplementation.swift node_modules/@capacitor/filesystem/ios/Sources/FilesystemPlugin/LegacyFilesystemImplementation.swift
+          cp scripts/FilesystemPlugin.swift node_modules/@capacitor/filesystem/ios/Sources/FilesystemPlugin/FilesystemPlugin.swift
 
 
       - name: Build iOS Archive (Unsigned)
