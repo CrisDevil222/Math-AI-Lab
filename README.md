@@ -11,23 +11,18 @@
 
 ## ✨ Tính năng nổi bật
 
-### 1. 🧊 Hình học không gian 3D tương tác (`ungdunghinhoc3d.html`)
+### 1. 🧊 Hình học không gian 3D tương tác
 - **Dựng hình đa dạng**: Khối chóp, lăng trụ, hình trụ, hình nón, mặt cầu, các thiết diện và mặt phẳng cắt.
 - **Tương tác 3D mượt mà**: Xoay đa chiều 360°, thu phóng, kéo thả camera, chọn điểm, đo góc, khoảng cách và tính thể tích.
 - **Trợ lý AI thông minh**: Ra lệnh tạo hình học bằng tiếng Việt tự nhiên (hỗ trợ mô hình `openai/gpt-oss-120b` với cơ chế kiểm soát prompt an toàn, chống crash).
 - **Lưu trữ & Chia sẻ**: Xuất/nhập file dữ liệu JSON, chia sẻ bản vẽ qua các ứng dụng mạng xã hội hoặc lưu trữ đám mây.
 
-### 2. 📈 Khảo sát Đồ thị Hàm số 2D (`dothi2d.html`)
+### 2. 📈 Khảo sát Đồ thị Hàm số 2D
 - **Vẽ đồ thị chính xác cao**: Hỗ trợ đa dạng hàm số (đa thức, phân thức, lượng giác, mũ, logarit, trị tuyệt đối...).
 - **Thuật toán chia đôi khoảng thông minh**: Tự động nhận diện điểm gián đoạn và tiệm cận đứng, triệt tiêu hiện tượng đứt nét ở các hàm dốc đứng ($x^3, x^5, \tan x...$).
 - **Điểm bám tự động (Snap Point)**: Rê chuột hoặc chạm tay để tự động "hít" bám điểm gần nhất trên đồ thị, hiển thị tọa độ thời gian thực.
 - **Trôi quán tính & Thu phóng mượt mà**: Trải nghiệm vuốt kéo (pan inertia) và phóng to/thu nhỏ (smooth zoom) như ứng dụng bản đồ cao cấp.
 - **Công cụ giải tích**: Tự động tính đạo hàm $y'$, $y''$, tìm cực trị, điểm uốn và tiếp tuyến tại điểm.
-
-### 3. 🔄 Tích hợp Kiểm tra Cập nhật Trực tiếp
-- Nút **"Cập nhật"** ngay tại thanh điều hướng màn hình chính giúp người dùng kiểm tra phiên bản mới từ GitHub Releases với 1 chạm.
-- Badge phiên bản hiển thị trực quan (`v1.0.2`) giúp dễ dàng theo dõi phiên bản app đang sử dụng.
-
 ---
 
 ## 📲 Hướng dẫn Cài đặt
