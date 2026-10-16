@@ -9,10 +9,6 @@ fileprivate extension CAPPluginCall {
     func getArrayOpt(_ key: String) -> [Any]? {
         return (options as? [String: Any])?[key] as? [Any]
     }
-    func rejectError(_ message: String, _ code: String? = nil, _ error: Error? = nil) {
-        let err = CAPPluginCallError(message: message, code: code, error: error, data: [:] as [String: Any])
-        errorHandler?(err)
-    }
 }
 
 @objc(SharePlugin)
@@ -52,20 +48,20 @@ public class SharePlugin: CAPPlugin, CAPBridgedPlugin {
         }
 
         if items.count == 0 {
-            call.rejectError("Must provide at least url, text or files")
+            call.resolve(["error": "Must provide at least url, text or files"])
             return
         }
 
-        DispatchQueue.main.async { [weak self] in
+        DispatchQueue.main.async {
             let actionController = UIActivityViewController(activityItems: items, applicationActivities: nil)
 
-            if title != nil {
+            if let title = title {
                 actionController.setValue(title, forKey: "subject")
             }
 
             actionController.completionWithItemsHandler = { (activityType, completed, _ returnedItems, activityError) in
-                if activityError != nil {
-                    call.rejectError("Error sharing item", nil, activityError)
+                if let activityError = activityError {
+                    call.resolve(["error": activityError.localizedDescription])
                     return
                 }
 
@@ -74,14 +70,24 @@ public class SharePlugin: CAPPlugin, CAPBridgedPlugin {
                         "activityType": activityType?.rawValue ?? ""
                     ])
                 } else {
-                    call.rejectError("Share canceled")
+                    call.resolve([
+                        "activityType": ""
+                    ])
                 }
             }
 
-            var presenter = self?.bridge?.viewController
+            var presenter: UIViewController? = nil
+            let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            for scene in scenes {
+                if let keyWindow = scene.windows.first(where: { $0.isKeyWindow }) {
+                    presenter = keyWindow.rootViewController
+                    break
+                }
+            }
+
             while let presented = presenter?.presentedViewController {
                 if presented is UIActivityViewController {
-                    call.rejectError("Can't share while sharing is in progress")
+                    call.resolve(["error": "Can't share while sharing is in progress"])
                     return
                 }
                 presenter = presented

@@ -32,10 +32,16 @@ jobs:
         run: npm install
 
       - name: Patch Capacitor Share for Swift SPM
-        run: cp scripts/SharePlugin.swift node_modules/@capacitor/share/ios/Sources/SharePlugin/SharePlugin.swift
+        run: |
+          cp scripts/SharePlugin.swift node_modules/@capacitor/share/ios/Sources/SharePlugin/SharePlugin.swift
+          echo "=== Patched SharePlugin.swift verify ==="
+          head -n 25 node_modules/@capacitor/share/ios/Sources/SharePlugin/SharePlugin.swift
 
       - name: Sync Capacitor iOS
-        run: npx cap sync ios
+        run: |
+          npx cap sync ios
+          cp scripts/SharePlugin.swift node_modules/@capacitor/share/ios/Sources/SharePlugin/SharePlugin.swift
+
 
       - name: Build iOS Archive (Unsigned)
         run: |
