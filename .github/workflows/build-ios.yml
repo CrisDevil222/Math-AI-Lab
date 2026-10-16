@@ -31,6 +31,9 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
+      - name: Patch Capacitor Share for Swift SPM
+        run: cp scripts/SharePlugin.swift node_modules/@capacitor/share/ios/Sources/SharePlugin/SharePlugin.swift
+
       - name: Sync Capacitor iOS
         run: npx cap sync ios
 
