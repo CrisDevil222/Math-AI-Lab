@@ -17,6 +17,11 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Select Xcode 16 (Required for Capacitor 8)
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '^16'
+
       - name: Setup Node.js (>=22 for Capacitor 8)
         uses: actions/setup-node@v4
         with:
