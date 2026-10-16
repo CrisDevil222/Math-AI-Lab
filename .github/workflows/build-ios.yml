@@ -34,15 +34,17 @@ jobs:
       - name: Patch Capacitor Plugins for Swift SPM
         run: |
           cp scripts/SharePlugin.swift node_modules/@capacitor/share/ios/Sources/SharePlugin/SharePlugin.swift
-          cp scripts/LegacyFilesystemImplementation.swift node_modules/@capacitor/filesystem/ios/Sources/FilesystemPlugin/LegacyFilesystemImplementation.swift
+          rm -f node_modules/@capacitor/filesystem/ios/Sources/FilesystemPlugin/*.swift
           cp scripts/FilesystemPlugin.swift node_modules/@capacitor/filesystem/ios/Sources/FilesystemPlugin/FilesystemPlugin.swift
+          ls -la node_modules/@capacitor/filesystem/ios/Sources/FilesystemPlugin/
 
       - name: Sync Capacitor iOS
         run: |
           npx cap sync ios
           cp scripts/SharePlugin.swift node_modules/@capacitor/share/ios/Sources/SharePlugin/SharePlugin.swift
-          cp scripts/LegacyFilesystemImplementation.swift node_modules/@capacitor/filesystem/ios/Sources/FilesystemPlugin/LegacyFilesystemImplementation.swift
+          rm -f node_modules/@capacitor/filesystem/ios/Sources/FilesystemPlugin/*.swift
           cp scripts/FilesystemPlugin.swift node_modules/@capacitor/filesystem/ios/Sources/FilesystemPlugin/FilesystemPlugin.swift
+
 
 
       - name: Build iOS Archive (Unsigned)
