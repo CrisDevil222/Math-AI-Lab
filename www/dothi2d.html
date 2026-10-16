@@ -292,6 +292,18 @@
                 <span>Xóa Hết</span>
             </button>
             <div class="w-px h-6 bg-slate-700 mx-1"></div>
+            <!-- Nút Lưu dự án -->
+            <button onclick="saveProjectToFile()" title="Lưu đồ thị vào file (Ctrl+S)" class="tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-emerald-400 hover:bg-slate-800 transition-all whitespace-nowrap">
+                <i class="fa-solid fa-floppy-disk"></i>
+                <span>Lưu</span>
+            </button>
+            <!-- Nút Mở/Nhập dự án -->
+            <button onclick="triggerLoadProject()" title="Nhập file đồ thị đã lưu" class="tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-sky-400 hover:bg-slate-800 transition-all whitespace-nowrap">
+                <i class="fa-solid fa-folder-open"></i>
+                <span>Mở</span>
+            </button>
+            <input type="file" id="importProjectFile" accept=".json" style="display:none" onchange="loadProjectFromFile(event)">
+            <div class="w-px h-6 bg-slate-700 mx-1"></div>
             <button id="btnVarTable" onclick="toggleVariationTable()" title="Bảng biến thiên (phím B)" class="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-transparent text-xs font-semibold text-amber-300 hover:bg-slate-800 transition-all whitespace-nowrap">
                 <i class="fa-solid fa-table-list"></i>
                 <span>Bảng Biến Thiên</span>
@@ -651,7 +663,6 @@
         // ==========================================
         // TÍNH TOÁN & CHUYỂN ĐỔI CHUỖI TOÁN HỌC
         // ==========================================
-        // Chuẩn hóa chuỗi người dùng nhập: X/Y viết hoa, SIN/Cos..., ký tự toán học lạ
         function normalizeMathInput(str) {
             return String(str || '')
                 .replace(/[−–—]/g, '-')
@@ -762,7 +773,6 @@
             `);
         }
 
-        // Đạo hàm bậc 1: f'(x)
         function numericalDerivative(fn, x, h = 1e-5) {
             const y1 = fn(x + h);
             const y0 = fn(x - h);
@@ -770,7 +780,6 @@
             return (y1 - y0) / (2 * h);
         }
 
-        // Đạo hàm bậc 2: f''(x)
         function numericalSecondDerivative(fn, x, h = 1e-4) {
             const y1 = fn(x + h);
             const y0 = fn(x);
@@ -899,7 +908,6 @@
             const width = canvas.width;
             const height = canvas.height;
 
-            // 1. Vẽ các đường đặc biệt: Tiệm cận & Tiếp tuyến
             specialLines.forEach(line => {
                 ctx.lineWidth = 1.8;
                 ctx.strokeStyle = line.color || '#f59e0b';
@@ -938,7 +946,6 @@
                 ctx.setLineDash([]);
             });
 
-            // 2. Vẽ đồ thị hàm số và các nhánh đạo hàm
             functionsData.forEach(item => {
                 if (!item.visible) return;
 
@@ -951,7 +958,6 @@
                     endPx = Math.min(width, toCanvasX(item.domain.max));
                 }
 
-                // Hàm con trợ giúp vẽ một đường cong liên tục an toàn
                 const drawLineSegment = (evalFunc, strokeColor, lineWidth, lineDash = []) => {
                     ctx.lineWidth = lineWidth;
                     ctx.strokeStyle = strokeColor;
@@ -963,8 +969,6 @@
                     let prevXm = NaN;
                     let prevYm = NaN;
 
-                    // Kiểm tra đoạn [xa, xb] có liên tục không (chia đôi dần).
-                    // Dốc đứng nhưng liên tục -> nối; tiệm cận/gián đoạn -> ngắt.
                     const isContinuous = (xa, ya, xb, yb, depth) => {
                         if (Math.abs(toCanvasY(ya) - toCanvasY(yb)) <= height * 0.5) return true;
                         if (depth >= 10) return false;
@@ -988,7 +992,6 @@
 
                         const py = toCanvasY(y);
 
-                        // Chỉ ngắt khi quá xa màn hình (canvas tự cắt phần ngoài khung)
                         if (Math.abs(py) > 1e6) {
                             isDrawing = false;
                             prevPy = NaN;
@@ -1013,20 +1016,16 @@
                     ctx.setLineDash([]);
                 };
 
-                // Vẽ Đạo hàm bậc 2 (y'') - Màu Fuchsia, nét chấm gạch
                 if (item.showY2) {
                     drawLineSegment((x) => numericalSecondDerivative(item.parsedFn, x), '#e879f9', 2, [3, 4]);
                 }
 
-                // Vẽ Đạo hàm bậc 1 (y') - Màu Amber/Gold, nét đứt
                 if (item.showY1) {
                     drawLineSegment((x) => numericalDerivative(item.parsedFn, x), '#fbbf24', 2.2, [6, 4]);
                 }
 
-                // Vẽ hàm số chính y = f(x) - Nét liền nổi bật
                 drawLineSegment((x) => item.parsedFn(x), item.color, 2.8, []);
 
-                // Đánh dấu mút đoạn
                 if (item.domain && isFinite(item.domain.min) && isFinite(item.domain.max)) {
                     [item.domain.min, item.domain.max].forEach(xEndpoint => {
                         const yEndpoint = item.parsedFn(xEndpoint);
@@ -1045,7 +1044,6 @@
                 }
             });
 
-            // 2b. Vẽ giao điểm giữa các đồ thị
             ctx.setLineDash([]);
             currentIntersections.forEach(it => {
                 const px = toCanvasX(it.x);
@@ -1065,7 +1063,6 @@
                 ctx.fill();
             });
 
-            // 3. Vẽ các điểm đánh dấu
             pointsData.forEach(p => {
                 const px = toCanvasX(p.x);
                 const py = toCanvasY(p.y);
@@ -1104,7 +1101,6 @@
                 labelsContainer.appendChild(label);
             });
 
-            // Nhãn giao điểm: hiện hết nếu ít, còn nhiều thì chỉ hiện điểm đang rê chuột tới
             const showAllIx = currentIntersections.length <= 8;
             currentIntersections.forEach(it => {
                 if (!showAllIx && ixKey(it) !== hoverIntersectionKey) return;
@@ -1122,9 +1118,6 @@
             });
         }
 
-        // ==========================================
-        // CHUYỂN ĐỘNG MƯỢT KIỂU DESMOS / GEOGEBRA
-        // ==========================================
         let renderQueued = false;
         function scheduleRender() {
             if (renderQueued) return;
@@ -1132,7 +1125,6 @@
             requestAnimationFrame(() => { renderQueued = false; render(); });
         }
 
-        // --- Rê chuột: bám sát điểm gần nhất trên đường cong ---
         const HOVER_SNAP_PX = 28;
         let lastMouseCanvas = null;
 
@@ -1175,7 +1167,6 @@
             if (px < 0 || px > canvas.width || py < 0 || py > canvas.height) return;
             const color = hoverCurvePoint.color || '#38bdf8';
 
-            // Quầng sáng + chấm
             ctx.beginPath();
             ctx.arc(px, py, 11, 0, Math.PI * 2);
             ctx.fillStyle = color + '33';
@@ -1188,7 +1179,6 @@
             ctx.strokeStyle = '#ffffff';
             ctx.stroke();
 
-            // Nhãn tọa độ
             const text = `(${hoverCurvePoint.x.toFixed(2)}, ${hoverCurvePoint.y.toFixed(2)})`;
             ctx.font = 'bold 12px Inter, sans-serif';
             const w = ctx.measureText(text).width + 14;
@@ -1212,7 +1202,6 @@
             ctx.textBaseline = 'alphabetic';
         }
 
-        // --- Quán tính khi kéo (pan inertia) ---
         let panVel = { x: 0, y: 0 };
         let panLastT = 0;
         let inertiaId = null;
@@ -1240,7 +1229,6 @@
             inertiaId = requestAnimationFrame(step);
         }
 
-        // --- Zoom mượt, bám đúng vị trí con trỏ ---
         let zoomAnim = null;
         let zoomAnimId = null;
 
@@ -1273,7 +1261,6 @@
             updateLabels();
             drawHoverMarker();
 
-            // Hiển thị chú thích đạo hàm nếu có ít nhất 1 hàm đang bật y' hoặc y''
             const hasDerivActive = functionsData.some(f => f.showY1 || f.showY2);
             const legendEl = document.getElementById('derivativeLegend');
             if (hasDerivActive) {
@@ -1283,9 +1270,6 @@
             }
         }
 
-        // ==========================================
-        // CÔNG CỤ TÌM TIỆM CẬN (ĐỨNG, NGANG, XIÊN)
-        // ==========================================
         function detectAsymptotes(expr, color) {
             let s = normalizeMathInput(expr);
             if (s.startsWith('y=') || s.startsWith('y =')) {
@@ -1371,9 +1355,6 @@
             }
         }
 
-        // ==========================================
-        // TÌM CỰC TRỊ & BÁO KHI KHÔNG CÓ CỰC TRỊ
-        // ==========================================
         function autoFindKeyPoints() {
             if (functionsData.length === 0) {
                 appAlert("Hãy nhập ít nhất một hàm số trước!");
@@ -1425,12 +1406,8 @@
                 showNoExtremaNotification(activeItem.rawExpr);
                 return;
             }
-
         }
 
-        // ==========================================
-        // TÌM TÂM ĐỐI XỨNG (tách riêng khỏi tìm cực trị)
-        // ==========================================
         function showInfoToast(html) {
             let toast = document.getElementById('infoToast');
             if (!toast) {
@@ -1463,14 +1440,11 @@
             const scanMax = Math.min(20, dmax);
             const cands = [];
 
-            // Ứng viên 1: tâm của đoạn xác định, gốc tọa độ
             if (isFinite(dmin) && isFinite(dmax)) cands.push((dmin + dmax) / 2);
             cands.push(0);
 
-            // Ứng viên 2: tiệm cận đứng
             specialLines.forEach(l => { if (l.isVertical) cands.push(l.x0); });
 
-            // Ứng viên 3: điểm uốn (y'' đổi dấu)
             const step = 0.04;
             let lastS = numericalSecondDerivative(fn, scanMin);
             for (let x = scanMin + step; x <= scanMax; x += step) {
@@ -1488,7 +1462,6 @@
                 lastS = s;
             }
 
-            // Kiểm tra f(x0+t) + f(x0-t) = 2*y0 với mọi t
             const found = [];
             cands.forEach(x0 => {
                 if (!isFinite(x0)) return;
@@ -1542,9 +1515,6 @@
             container.prepend(alertTag);
         }
 
-        // ==========================================
-        // QUẢN LÝ DỮ LIỆU & TOOLBAR
-        // ==========================================
         function setToolMode(mode) {
             currentTool = mode;
             document.querySelectorAll('.tool-btn').forEach(btn => {
@@ -1602,7 +1572,7 @@
                         color: '#f59e0b'
                     });
                     addPoint(`M`, mathX, mathY, '#f59e0b');
-                    pointsData[pointsData.length - 1].lineId = lineId; // kéo điểm M thì tiếp tuyến đi theo
+                    pointsData[pointsData.length - 1].lineId = lineId;
                     renderPointsList();
                     render();
                 }
@@ -1626,7 +1596,7 @@
         }
 
         function onMouseDown(e) {
-            if (e.pointerType === 'touch') return; // Bỏ qua nếu là sự kiện sinh ra từ touch
+            if (e.pointerType === 'touch') return;
             const rect = canvas.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
             const mouseY = e.clientY - rect.top;
@@ -1669,12 +1639,10 @@
 
             updateHoverState(mouseX, mouseY);
 
-            // Gợi ý kéo được điểm
             if (!isDragging && (currentTool === 'pan' || currentTool === 'add_point')) {
                 canvas.style.cursor = findPointAt(mouseX, mouseY, 12) ? 'grab' : (currentTool === 'pan' ? canvas.style.cursor : 'crosshair');
             }
 
-            // Rê chuột tới giao điểm: hiện tọa độ
             let hk = '';
             for (const it of currentIntersections) {
                 if (Math.hypot(toCanvasX(it.x) - mouseX, toCanvasY(it.y) - mouseY) < 10) { hk = ixKey(it); break; }
@@ -1710,7 +1678,6 @@
             }
         }
 
-        // --- CẢM ỨNG (TOUCH EVENTS) ---
         let lastPinchDistance = null;
         let lastTouchPan = null;
 
@@ -1731,7 +1698,7 @@
         }
 
         function onTouchStart(e) {
-            e.preventDefault(); // Chống cuộn trang, chống mousedown giả
+            e.preventDefault();
             if (e.touches.length === 1) {
                 const rect = canvas.getBoundingClientRect();
                 const mouseX = e.touches[0].clientX - rect.left;
@@ -1749,11 +1716,10 @@
                     isDragging = true;
                     lastTouchPan = { x: mouseX, y: mouseY };
                 } else {
-                    // Radius lớn hơn để dễ chạm
                     triggerToolAt(mouseX, mouseY, 24);
                 }
             } else if (e.touches.length === 2 && currentTool === 'pan') {
-                isDragging = false; // Tắt chế độ kéo 1 ngón
+                isDragging = false;
                 lastPinchDistance = getTouchDistance(e.touches);
                 lastTouchPan = getTouchCenter(e.touches);
             }
@@ -1881,8 +1847,8 @@
                 parsedFn: fn,
                 color: assignedColor,
                 visible: true,
-                showY1: false, // Bật/tắt y'
-                showY2: false  // Bật/tắt y''
+                showY1: false,
+                showY2: false
             });
 
             detectAsymptotes(exprToCompile, assignedColor);
@@ -2123,8 +2089,103 @@
         }
 
         // ==========================================
-        // XỬ LÝ NHẬP LỆNH VẼ ĐỒ THỊ BẰNG AI
+        // TÍNH NĂNG LƯU VÀ NHẬP DỰ ÁN (SAVE & LOAD)
         // ==========================================
+        function saveProjectToFile() {
+            const projectData = {
+                version: "1.0.3",
+                app: "DoThi2D",
+                timestamp: new Date().toISOString(),
+                view: {
+                    originX: view.originX,
+                    originY: view.originY,
+                    scale: view.scale
+                },
+                functions: functionsData.map(f => ({
+                    expr: f.rawExpr,
+                    color: f.color,
+                    domain: f.domain,
+                    showY1: f.showY1,
+                    showY2: f.showY2,
+                    visible: f.visible
+                })),
+                points: pointsData,
+                lines: specialLines
+            };
+
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(projectData, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            
+            const dateStr = new Date().toISOString().slice(0, 10);
+            downloadAnchor.setAttribute("download", `dothi2d_project_${dateStr}.json`);
+            
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        function triggerLoadProject() {
+            const fileInput = document.getElementById('importProjectFile');
+            if (fileInput) {
+                fileInput.value = '';
+                fileInput.click();
+            }
+        }
+
+        function loadProjectFromFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const projectData = JSON.parse(e.target.result);
+                    if (!projectData || !projectData.functions) {
+                        appAlert("File không hợp lệ hoặc không đúng định dạng dự án Đồ Thị 2D!");
+                        return;
+                    }
+
+                    pushUndo();
+
+                    if (projectData.view) {
+                        view.originX = projectData.view.originX ?? view.originX;
+                        view.originY = projectData.view.originY ?? view.originY;
+                        view.scale = projectData.view.scale ?? view.scale;
+                    }
+
+                    functionsData = [];
+                    pointsData = [];
+                    specialLines = [];
+                    pointNameIdx = 0;
+
+                    (projectData.functions || []).forEach(f => {
+                        addFunction(f.expr, f.color, f.domain);
+                        const item = functionsData[functionsData.length - 1];
+                        if (item) {
+                            item.showY1 = !!f.showY1;
+                            item.showY2 = !!f.showY2;
+                            item.visible = f.visible !== false;
+                        }
+                    });
+
+                    pointsData = projectData.points || [];
+                    specialLines = projectData.lines || [];
+
+                    renderFunctionsList();
+                    renderPointsList();
+                    renderTangentsList();
+                    render();
+
+                    showInfoToast(`<i class="fa-solid fa-circle-check text-emerald-400"></i> Đã mở dự án thành công!`);
+                } catch (err) {
+                    console.error(err);
+                    appAlert("Lỗi khi đọc file JSON: " + err.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
         async function handleCommandSubmit() {
             const input = document.getElementById('aiCommandInput');
             const text = input.value.trim();
@@ -2209,9 +2270,6 @@ Chỉ trả về JSON thuần túy theo cấu trúc:
             }
         }
 
-        // ==========================================
-        // CHATBOT KHẢO SÁT & CÔNG THỨC TOÁN
-        // ==========================================
         function toggleFormulaChat() {
             document.getElementById('formulaChatPanel').classList.toggle('hidden');
         }
@@ -2376,9 +2434,6 @@ Quy định phản hồi:
             console.error("Touch init error", e);
         }
 
-        // ==========================================
-        // GIAO ĐIỂM GIỮA CÁC ĐỒ THỊ
-        // ==========================================
         const IX_COLOR = '#fde047';
         let lastIntersectionText = null;
 
@@ -2386,7 +2441,6 @@ Quy định phản hồi:
             return Math.round(it.x * 1e4) + '|' + Math.round(it.y * 1e4);
         }
 
-        // Tìm giao điểm của các hàm trên đoạn [xL, xR]: quét đổi dấu rồi chia đôi
         function findIntersectionsOf(fns, xL, xR, N, cap) {
             const out = [];
             if (!fns || fns.length < 2 || !(xR > xL)) return out;
@@ -2435,7 +2489,6 @@ Quy định phản hồi:
                                     const xm = (l + r) / 2;
                                     let ya, yb;
                                     try { ya = fns[p](xm); yb = fns[q](xm); } catch (e) { ya = NaN; yb = NaN; }
-                                    // Loại bỏ trường hợp đổi dấu do tiệm cận đứng (hai giá trị không bằng nhau)
                                     if (isFinite(ya) && isFinite(yb) && Math.abs(ya - yb) <= 1e-6 * (1 + Math.abs(ya))) {
                                         add(xm, ya, p, q);
                                     }
@@ -2493,9 +2546,6 @@ Quy định phản hồi:
             render();
         }
 
-        // ==========================================
-        // KÉO THẢ ĐIỂM TRÊN ĐỒ THỊ
-        // ==========================================
         function findPointAt(mx, my, radius) {
             for (let i = pointsData.length - 1; i >= 0; i--) {
                 const p = pointsData[i];
@@ -2539,7 +2589,7 @@ Quy định phản hồi:
             if (!p) { pointDrag = null; return; }
             if (!pointDrag.moved) {
                 if (Math.hypot(mx - pointDrag.startX, my - pointDrag.startY) < 3) return;
-                pushUndo(); // chỉ lưu bước hoàn tác khi thực sự kéo
+                pushUndo();
                 pointDrag.moved = true;
             }
             const tx = mx - pointDrag.offX, ty = my - pointDrag.offY;
@@ -2547,7 +2597,6 @@ Quy định phản hồi:
 
             const line = p.lineId ? specialLines.find(l => l.id === p.lineId) : null;
             if (line && functionsData[0]) {
-                // Điểm tiếp xúc: chạy dọc đồ thị, tiếp tuyến đi theo
                 const fn = functionsData[0].parsedFn;
                 const yy = fn(nx);
                 const k = numericalDerivative(fn, nx);
@@ -2556,7 +2605,6 @@ Quy định phản hồi:
                     line.x0 = nx; line.y0 = yy; line.k = k;
                 }
             } else {
-                // Ưu tiên bám giao điểm, sau đó bám đồ thị
                 let snapped = false;
                 for (const it of currentIntersections) {
                     if (Math.hypot(toCanvasX(it.x) - tx, toCanvasY(it.y) - ty) < 12) {
@@ -2582,9 +2630,6 @@ Quy định phản hồi:
             scheduleRender();
         }
 
-        // ==========================================
-        // BẢNG BIẾN THIÊN
-        // ==========================================
         function escapeHtml(s) {
             return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         }
@@ -2626,7 +2671,6 @@ Quy định phản hồi:
             return (typeof v === 'number' && isFinite(v)) ? v : NaN;
         }
 
-        // Đổi dấu của f: nghiệm (bỏ qua) hay tiệm cận đứng (giá trị bùng nổ)
         function vtRefineSignChange(fn, l, r) {
             let a = l, b = r, fl = vtSafe(fn, l);
             for (let it = 0; it < 80; it++) {
@@ -2640,7 +2684,6 @@ Quy định phản hồi:
             return { pole: big > 1e3, x: (a + b) / 2 };
         }
 
-        // Nghiệm của f' (đổi dấu): cực trị hoặc điểm gấp khúc
         function vtRefineDerivRoot(fn, l, r, dl) {
             let a = l, b = r;
             for (let it = 0; it < 60; it++) {
@@ -2664,7 +2707,6 @@ Quy định phản hồi:
             return { x, kind: corner ? 'corner' : 'crit' };
         }
 
-        // Cực đại của |f| trên [l, r] (để nhận ra tiệm cận đứng bậc chẵn, ví dụ 1/x^2)
         function vtPeakMagnitude(fn, l, r) {
             const g = (x) => { const v = vtSafe(fn, x); return isNaN(v) ? Infinity : Math.abs(v); };
             let a = l, b = r;
@@ -2750,7 +2792,6 @@ Quy định phản hồi:
                 }
             }
 
-            // Đổi dấu của y' (bỏ qua mẫu y' = 0 để không sót điểm nằm đúng trên lưới)
             let dPrevSign = 0, dPrevIdx = -1;
             for (let i = 0; i <= N; i++) {
                 if (isNaN(ys[i]) || isNaN(ds[i])) { dPrevSign = 0; dPrevIdx = -1; continue; }
@@ -2764,7 +2805,6 @@ Quy định phản hồi:
                 dPrevIdx = i;
             }
 
-            // Tiệm cận đứng bậc chẵn: |f| lớn lên cực đại mà không đổi dấu
             for (let i = 1; i < N; i++) {
                 const a = ys[i - 1], b = ys[i], c = ys[i + 1];
                 if (isNaN(a) || isNaN(b) || isNaN(c)) continue;
@@ -2780,7 +2820,6 @@ Quy định phản hồi:
 
             events.sort((u, v) => u.x - v.x);
 
-            // Gộp cặp gapStart/gapEnd sát nhau (một điểm không xác định): tiệm cận hay lỗ thủng
             const merged = [];
             for (let k = 0; k < events.length; k++) {
                 const e = events[k], nx = events[k + 1];
@@ -2838,7 +2877,6 @@ Quy định phản hồi:
             }
             nodes.push(endNode);
 
-            // Giá trị (giới hạn) hai phía tại mỗi nút. NaN = không có giá trị phía đó.
             nodes.forEach((nd, k) => {
                 const isFirst = k === 0, isLast = k === nodes.length - 1;
                 let hasL = !isFirst && !nd.gapBefore;
@@ -2864,7 +2902,6 @@ Quy định phản hồi:
                 }
             });
 
-            // Dấu của y' trên từng khoảng
             const intervals = [];
             for (let k = 0; k < nodes.length - 1; k++) {
                 const a = nodes[k], b = nodes[k + 1];
@@ -2941,7 +2978,6 @@ Quy định phản hồi:
                 return '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" stroke="' + (o.stroke || C.line) + '" stroke-width="' + (o.w || 1.4) + '"' + (o.dash ? ' stroke-dasharray="' + o.dash + '"' : '') + (o.marker ? ' marker-end="url(#vtArr)"' : '') + '/>';
             };
 
-            // Mức (độ cao) của từng giá trị trong hàng y: xếp theo thứ tự lớn nhỏ
             const vals = [];
             nodes.forEach(nd => {
                 if (!isNaN(nd.left)) vals.push(nd.left);
@@ -2971,12 +3007,10 @@ Quy định phản hồi:
             s += text(LBL / 2, HX + HD / 2, "y'", { size: 15, fill: '#fbbf24' });
             s += text(LBL / 2, HX + HD + HY / 2, 'y', { size: 15, fill: '#fbbf24' });
 
-            // Khoảng không xác định
             iv.forEach((it, k) => {
                 if (it.undef) s += '<rect x="' + px(k) + '" y="' + HX + '" width="' + COLW + '" height="' + (HD + HY) + '" fill="url(#vtHatch)" opacity="0.55"/>';
             });
 
-            // Hàng x + đường kẻ + ký hiệu tại từng nút
             nodes.forEach((nd, k) => {
                 const label = nd.kind === 'inf' ? (k === 0 ? '-∞' : '+∞') : fmtXLabel(nd.x, usePi);
                 s += text(px(k), HX / 2, vtText(label));
@@ -2994,7 +3028,6 @@ Quy định phản hồi:
                 }
             });
 
-            // Dấu của y'
             iv.forEach((it, k) => {
                 if (it.undef) return;
                 const cx = (px(k) + px(k + 1)) / 2, cy = HX + HD / 2;
@@ -3003,7 +3036,6 @@ Quy định phản hồi:
                 else s += text(cx, cy, '0');
             });
 
-            // Giá trị y tại các nút + vị trí đầu/cuối mũi tên
             const geo = nodes.map(() => ({}));
             nodes.forEach((nd, k) => {
                 const hasL = !isNaN(nd.left), hasR = !isNaN(nd.right);
@@ -3029,7 +3061,6 @@ Quy định phản hồi:
                 }
             });
 
-            // Mũi tên đồng biến / nghịch biến
             iv.forEach((it, k) => {
                 if (it.undef) return;
                 const A = geo[k].R, B = geo[k + 1].L;
@@ -3119,9 +3150,6 @@ Quy định phản hồi:
 
         applyIntersectionBtnStyle();
 
-        // ==========================================
-        // PHÍM TẮT
-        // ==========================================
         const TOOL_SHORTCUTS = ['pan', 'add_point', 'tangent', 'delete'];
         const SHORTCUT_LIST = [
             ['1 – 4', 'Chọn công cụ: Di chuyển / Chấm điểm / Tiếp tuyến / Xóa điểm'],
@@ -3134,8 +3162,7 @@ Quy định phản hồi:
             ['S', 'Tìm tâm đối xứng của đồ thị'],
             ['B', 'Mở / đóng Bảng biến thiên'],
             ['G', 'Hiện / ẩn giao điểm các đồ thị'],
-            ['Kéo điểm', 'Dời một điểm (tự bám vào đồ thị và giao điểm)'],
-            ['C', 'Mở / đóng khung Khảo sát & Công thức'],
+            ['Ctrl + S', 'Lưu dự án đồ thị'],
             ['Ctrl + Z', 'Hoàn tác'],
             ['Shift + Delete', 'Xóa hết (có thể hoàn tác bằng Ctrl + Z)'],
             ['Esc', 'Đóng bảng đang mở / quay về công cụ Di chuyển'],
@@ -3181,18 +3208,21 @@ Quy định phản hồi:
         document.addEventListener('keydown', (e) => {
             if (e.isComposing) return;
 
-            // Đang gõ trong ô nhập: chỉ xử lý Esc để thoát ô
             if (isTypingTarget(e.target)) {
                 if (e.key === 'Escape') e.target.blur();
                 return;
             }
-            // Hộp thoại (appPrompt/appConfirm...) đang mở: để hộp thoại tự xử lý
             if (typeof currentModal !== 'undefined' && currentModal) return;
 
             const key = e.key;
             const code = e.code;
 
-            // Ctrl/Cmd + Z: hoàn tác
+            if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && code === 'KeyS') {
+                e.preventDefault();
+                saveProjectToFile();
+                return;
+            }
+
             if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && code === 'KeyZ') {
                 e.preventDefault();
                 undoLastAction();
@@ -3200,20 +3230,17 @@ Quy định phản hồi:
             }
             if (e.ctrlKey || e.metaKey || e.altKey) return;
 
-            // Bảng phím tắt đang mở
             if (document.getElementById('shortcutHelp')) {
                 if (key === 'Escape' || key === '?') { e.preventDefault(); toggleShortcutHelp(false); }
                 return;
             }
 
-            // Shift + Delete / Backspace: xóa hết
             if (e.shiftKey && (key === 'Delete' || key === 'Backspace')) {
                 e.preventDefault();
                 clearAllData();
                 return;
             }
 
-            // Phím mũi tên: di chuyển hệ trục
             if (key.startsWith('Arrow')) {
                 e.preventDefault();
                 const step = e.shiftKey ? 200 : 60;
@@ -3249,7 +3276,6 @@ Quy định phản hồi:
                 return;
             }
 
-            // Các phím còn lại không dùng Shift
             if (e.shiftKey) return;
 
             const m = code.match(/^(?:Digit|Numpad)([1-9])$/);
@@ -3269,7 +3295,6 @@ Quy định phản hồi:
             }
         });
 
-        // Gắn gợi ý phím tắt vào tooltip của các nút công cụ
         TOOL_SHORTCUTS.forEach((mode, i) => {
             const btn = document.getElementById('tool-' + mode);
             if (btn) btn.title = ((btn.title ? btn.title + ' ' : '') + '(phím ' + (i + 1) + ')').trim();
@@ -3279,11 +3304,6 @@ Quy định phản hồi:
             if (undoBtn) undoBtn.title = 'Hoàn tác (Ctrl+Z)';
         })();
 
-
-        
-        // ==========================================
-        // THU / MỞ BẢNG BÊN PHẢI (SIDEBAR TOGGLE)
-        // ==========================================
         let rightSidebarCollapsed = false;
 
         function setRightSidebarCollapsed(collapsed) {

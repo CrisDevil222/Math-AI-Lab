@@ -12,6 +12,7 @@
 - **Tìm Giao Điểm Đa Đồ Thị (Nút & Phím tắt `G`)**: Thuật toán chia đôi đổi dấu tự động phát hiện mọi giao điểm khi vẽ từ 2 đồ thị trở lên, vẽ vòng tròn vàng tại giao điểm và hiển thị tọa độ khi rê chuột.
 - **Kéo Thả Điểm Trực Tiếp (Interactive Drag & Drop)**: Hỗ trợ kéo di chuyển điểm trên đồ thị; khi kéo điểm tiếp xúc $M$ của tiếp tuyến thì đường tiếp tuyến tự động xoay và cập nhật phương trình theo thời gian thực.
 - **Thuật toán chia đôi khoảng liên tục `isContinuous`**: Triệt tiêu hiện tượng đứt nét ở các hàm dốc đứng ($x^3, x^5, \tan x...$).
+- **Lưu & Mở Dự Án Đồ Thị (.json)**: Bổ sung 2 nút Lưu (phím tắt `Ctrl + S`) và Mở trực tiếp trên thanh công cụ để xuất/nhập file dự án đồ thị `.json` tiện lợi.
 - **Rê chuột bám điểm (Snap Point)**, trôi quán tính (`pan inertia`) và phóng to/thu nhỏ mượt mà (`smooth zoom`).
 
 ### 2. Phân hệ Hình học Không gian 3D (`ungdunghinhoc3d.html`)
