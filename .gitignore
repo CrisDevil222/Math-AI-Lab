@@ -11,3 +11,13 @@ release/
 .idea/
 *.log
 .DS_Store
+
+# iOS
+ios/App/Pods/
+ios/App/build/
+ios/App/.build/
+ios/App/DerivedData/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+

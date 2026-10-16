@@ -62,14 +62,23 @@
                 <i class="fa-solid fa-shapes"></i>
             </div>
             <div>
-                <span class="font-extrabold text-base tracking-wide text-white block leading-tight">MATH AI LAB</span>
+                <div class="flex items-center gap-2">
+                    <span class="font-extrabold text-base tracking-wide text-white block leading-tight">MATH AI LAB</span>
+                    <span class="px-2 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-400/40 text-[10px] font-bold text-cyan-300">v1.0.2</span>
+                </div>
                 <span class="text-[11px] text-cyan-400 font-semibold tracking-wider uppercase">Nền Tảng Toán Trực Quan</span>
             </div>
         </div>
 
-        <div class="glass-panel px-3.5 py-1.5 rounded-full flex items-center gap-2 border border-slate-700/60 text-xs">
-            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span class="text-slate-300 font-medium">Groq AI Online</span>
+        <div class="flex items-center gap-2.5">
+            <button onclick="checkAppUpdate(true)" id="btnCheckUpdate" class="glass-panel px-3.5 py-1.5 rounded-full flex items-center gap-1.5 border border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/20 text-xs font-semibold transition-all shadow-sm active:scale-95">
+                <i class="fa-solid fa-arrows-rotate text-[11px]"></i>
+                <span id="updateBtnText">Cập nhật</span>
+            </button>
+            <div class="glass-panel px-3.5 py-1.5 rounded-full flex items-center gap-2 border border-slate-700/60 text-xs">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span class="text-slate-300 font-medium">Groq AI Online</span>
+            </div>
         </div>
     </header>
 
@@ -157,7 +166,7 @@
     <!-- Footer -->
     <footer class="w-full px-6 py-6 max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 border-t border-slate-800/50">
         <div>
-            <span>© 2026 Math Visual AI Lab. Thiết kế và phát triển.</span>
+            <span>© 2026 Math Visual AI Lab. Phiên bản <span class="text-cyan-400 font-mono font-bold">v1.0.2</span>.</span>
         </div>
         <div class="flex items-center gap-4">
             <span class="hover:text-slate-400 transition-colors">HTML5 Canvas</span>
@@ -168,5 +177,112 @@
         </div>
     </footer>
 
+    <!-- Modal Thông Báo Cập Nhật -->
+    <div id="updateModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+        <div class="glass-panel w-full max-w-md p-6 rounded-2xl border border-slate-700/80 shadow-2xl flex flex-col gap-4 text-left">
+            <div class="flex items-center justify-between border-b border-slate-700/60 pb-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-sm font-bold">
+                        <i class="fa-solid fa-cloud-arrow-down"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-bold text-white leading-tight">Cập Nhật Ứng Dụng</h3>
+                        <span id="updateModalSubtitle" class="text-[11px] text-cyan-400 font-mono">Phiên bản hiện tại: v1.0.2</span>
+                    </div>
+                </div>
+                <button onclick="closeUpdateModal()" class="text-slate-500 hover:text-slate-300 transition-colors p-1">
+                    <i class="fa-solid fa-xmark text-base"></i>
+                </button>
+            </div>
+
+            <div id="updateModalContent" class="text-xs text-slate-300 leading-relaxed whitespace-pre-line max-h-60 overflow-y-auto pr-1">
+                Đang kiểm tra máy chủ GitHub...
+            </div>
+
+            <div class="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-800/80">
+                <button type="button" onclick="closeUpdateModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-all">Đóng</button>
+                <a id="btnDownloadUpdate" href="#" target="_blank" class="hidden px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white text-xs font-bold transition-all shadow-md flex items-center gap-1.5">
+                    <i class="fa-solid fa-download"></i>
+                    <span>Tải bản mới</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const CURRENT_APP_VERSION = "v1.0.2";
+        const GITHUB_REPO = "CrisDevil222/Math-AI-Lab";
+
+        function showUpdateModal(title, subtitle, content, downloadUrl = null) {
+            const modal = document.getElementById('updateModal');
+            document.getElementById('updateModalSubtitle').textContent = subtitle;
+            document.getElementById('updateModalContent').textContent = content;
+            const dlBtn = document.getElementById('btnDownloadUpdate');
+            if (downloadUrl) {
+                dlBtn.href = downloadUrl;
+                dlBtn.classList.remove('hidden');
+            } else {
+                dlBtn.classList.add('hidden');
+            }
+            modal.classList.remove('hidden');
+        }
+
+        function closeUpdateModal() {
+            document.getElementById('updateModal').classList.add('hidden');
+        }
+
+        async function checkAppUpdate(isManual = false) {
+            const btn = document.getElementById('btnCheckUpdate');
+            const icon = btn ? btn.querySelector('i') : null;
+            const text = document.getElementById('updateBtnText');
+            
+            if (icon) icon.classList.add('animate-spin');
+            if (text) text.textContent = 'Đang kiểm tra...';
+            if (btn) btn.disabled = true;
+
+            try {
+                const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
+                    headers: { 'Accept': 'application/vnd.github.v3+json' }
+                });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                const latestTag = data.tag_name || "";
+                
+                const isNewer = latestTag && latestTag !== CURRENT_APP_VERSION && latestTag > CURRENT_APP_VERSION;
+                
+                if (isNewer) {
+                    const releaseUrl = data.html_url || `https://github.com/${GITHUB_REPO}/releases/latest`;
+                    const notes = data.body || "Đã có bản cập nhật mới trên GitHub với nhiều cải tiến và sửa lỗi.";
+                    showUpdateModal(
+                        "Đã có phiên bản mới!",
+                        `Phiên bản mới: ${latestTag} (Hiện tại: ${CURRENT_APP_VERSION})`,
+                        `Thông tin cập nhật:\n\n${notes}`,
+                        releaseUrl
+                    );
+                } else {
+                    if (isManual) {
+                        showUpdateModal(
+                            "Bạn đang dùng bản mới nhất!",
+                            `Phiên bản: ${CURRENT_APP_VERSION}`,
+                            `Ứng dụng Math AI Lab của bạn hiện đang là phiên bản mới nhất (${CURRENT_APP_VERSION}). Chưa có bản cập nhật mới nào.`
+                        );
+                    }
+                }
+            } catch (err) {
+                if (isManual) {
+                    showUpdateModal(
+                        "Kiểm tra cập nhật",
+                        `Phiên bản hiện tại: ${CURRENT_APP_VERSION}`,
+                        `Không thể kết nối đến máy chủ GitHub để kiểm tra phiên bản mới.\nVui lòng kiểm tra lại kết nối Internet của thiết bị.`,
+                        `https://github.com/${GITHUB_REPO}/releases`
+                    );
+                }
+            } finally {
+                if (icon) icon.classList.remove('animate-spin');
+                if (text) text.textContent = 'Cập nhật';
+                if (btn) btn.disabled = false;
+            }
+        }
+    </script>
 </body>
 </html>

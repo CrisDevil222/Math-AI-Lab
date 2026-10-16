@@ -204,7 +204,10 @@
                 <i class="fa-solid fa-pen-ruler"></i>
             </div>
             <div>
-                <h1 class="font-bold text-base text-slate-100 tracking-wide leading-tight">Vẽ Hình Học 3D</h1>
+                <div class="flex items-center gap-2">
+                    <h1 class="font-bold text-base text-slate-100 tracking-wide leading-tight">Vẽ Hình Học 3D</h1>
+                    <span class="px-2 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-400/40 text-[10px] font-bold text-cyan-300">v1.0.2</span>
+                </div>
                 <p class="text-xs text-cyan-400 font-medium">Hỗ Trợ Đường Tròn, Vector & Giao Diện Tương Tác</p>
             </div>
         </div>
@@ -539,6 +542,8 @@
                 titleEl.querySelector('span').textContent = title || "Nhập thông tin";
                 msgEl.textContent = message || "";
                 inputEl.value = defaultValue;
+                inputEl.style.display = 'block';
+                cancelBtn.style.display = 'inline-flex';
                 modal.classList.remove('hidden');
                 inputEl.focus();
                 inputEl.select();
@@ -576,8 +581,8 @@
             });
         }
 
-        // Hộp thoại thông báo / xác nhận: dùng lại modal của appPrompt, ẩn ô nhập
-        function _appMessageModal(title, message, withCancel) {
+        // Global alert/confirm helpers for EXE / WebView compatibility
+        window.appAlert = function(message, opts = {}) {
             return new Promise((resolve) => {
                 const modal = document.getElementById('customPromptModal');
                 const titleEl = document.getElementById('customPromptTitle');
@@ -585,28 +590,90 @@
                 const inputEl = document.getElementById('customPromptInput');
                 const okBtn = document.getElementById('customPromptOkBtn');
                 const cancelBtn = document.getElementById('customPromptCancelBtn');
-                if (!modal) { showError(message); resolve(!withCancel); return; }
 
-                titleEl.querySelector('span').textContent = title;
-                msgEl.textContent = message || "";
+                titleEl.querySelector('span').textContent = opts.title || 'Thông báo';
+                msgEl.textContent = message || '';
+                inputEl.value = '';
                 inputEl.style.display = 'none';
-                cancelBtn.style.display = withCancel ? '' : 'none';
+                cancelBtn.style.display = 'none';
                 modal.classList.remove('hidden');
+                okBtn.textContent = opts.okLabel || 'Đóng';
+                okBtn.focus();
 
-                const done = (val) => {
+                const cleanup = () => {
                     modal.classList.add('hidden');
-                    inputEl.style.display = '';
-                    cancelBtn.style.display = '';
                     okBtn.onclick = null;
                     cancelBtn.onclick = null;
-                    resolve(val);
+                    inputEl.onkeydown = null;
                 };
-                okBtn.onclick = () => done(true);
-                cancelBtn.onclick = () => done(false);
+
+                okBtn.onclick = () => {
+                    cleanup();
+                    resolve(true);
+                };
+
+                cancelBtn.onclick = () => {
+                    cleanup();
+                    resolve(false);
+                };
+
+                inputEl.onkeydown = (e) => {
+                    if (e.key === 'Enter' || e.key === 'Escape') {
+                        e.preventDefault();
+                        cleanup();
+                        resolve(true);
+                    }
+                };
             });
-        }
-        function appAlert(message, title) { return _appMessageModal(title || "Thông báo", message, false); }
-        function appConfirm(message, title) { return _appMessageModal(title || "Xác nhận", message, true); }
+        };
+
+        window.appConfirm = function(message, opts = {}) {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('customPromptModal');
+                const titleEl = document.getElementById('customPromptTitle');
+                const msgEl = document.getElementById('customPromptMessage');
+                const inputEl = document.getElementById('customPromptInput');
+                const okBtn = document.getElementById('customPromptOkBtn');
+                const cancelBtn = document.getElementById('customPromptCancelBtn');
+
+                titleEl.querySelector('span').textContent = opts.title || 'Xác nhận';
+                msgEl.textContent = message || '';
+                inputEl.value = '';
+                inputEl.style.display = 'none';
+                cancelBtn.style.display = 'inline-flex';
+                modal.classList.remove('hidden');
+                okBtn.textContent = opts.okLabel || 'Đồng ý';
+                cancelBtn.textContent = opts.cancelLabel || 'Hủy';
+                okBtn.focus();
+
+                const cleanup = () => {
+                    modal.classList.add('hidden');
+                    okBtn.onclick = null;
+                    cancelBtn.onclick = null;
+                    inputEl.onkeydown = null;
+                };
+
+                okBtn.onclick = () => {
+                    cleanup();
+                    resolve(true);
+                };
+
+                cancelBtn.onclick = () => {
+                    cleanup();
+                    resolve(false);
+                };
+
+                inputEl.onkeydown = (e) => {
+                    if (e.key === 'Escape') {
+                        e.preventDefault();
+                        cleanup();
+                        resolve(false);
+                    }
+                };
+            });
+        };
+
+        window.appPrompt = appPrompt;
 
         // App State
         let scene, camera, renderer, controls;
@@ -2159,6 +2226,18 @@
             const { jsonMode = false, temperature = 0.2 } = options;
             const url = "https://api.groq.com/openai/v1/chat/completions";
             let lastErr = null;
+
+            const safeMessages = messages.map((msg, index) => {
+                if (!msg || typeof msg.content !== 'string') return msg;
+                if (jsonMode && index === 0) {
+                    return {
+                        ...msg,
+                        content: msg.content + "\nTrả về CHỈ JSON thuần, không markdown, không code block."
+                    };
+                }
+                return msg;
+            });
+
             for (let attempt = 0; attempt <= maxRetries; attempt++) {
                 try {
                     const response = await fetch(url, {
@@ -2169,9 +2248,11 @@
                         },
                         body: JSON.stringify({
                             model: "openai/gpt-oss-120b",
-                            messages,
+                            messages: safeMessages,
                             temperature,
-                            ...(jsonMode ? { response_format: { type: "json_object" } } : {})
+                            // Groq/OpenAI-compatible endpoint này không chấp nhận response_format=json_object
+                            // với model openai/gpt-oss-120b đôi khi báo lỗi "messages must contain the word 'json'..."
+                            // nên dùng JSON prompt rõ ràng thay cho response_format.
                         })
                     });
                     const data = await response.json();
@@ -2181,6 +2262,10 @@
                         response.status === 503 ||
                         /overloaded|unavailable/i.test(errMsg)
                     );
+
+                    if (!data || !Array.isArray(data.choices)) {
+                        throw new Error("AI không trả về dữ liệu hợp lệ. Vui lòng thử lại.");
+                    }
 
                     if (isRateLimited) {
                         const retryAfterHeader = response.headers.get('retry-after');
@@ -2352,7 +2437,7 @@ QUY TẮC BẮT BUỘC:
 
             try {
                 const messages = [{ role: "system", content: systemPrompt }, ...formulaChatHistory];
-                const data = await callGroqWithRetry(GROQ_API_KEY_CHAT, messages, { temperature: 0.1 });
+                const data = await callGroqWithRetry(GROQ_API_KEY_CHAT, messages, { jsonMode: false, temperature: 0.2 });
                 
                 let replyText = data.choices[0].message.content;
                 replyText = formatMathSymbols(replyText);

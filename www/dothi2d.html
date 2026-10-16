@@ -115,6 +115,31 @@
         }
     </style>
     <script src="config.js"></script>
+    <script>
+        // Thông báo lỗi dạng toast (cùng phong cách app), tự ẩn sau 5 giây
+        function showError(msg) {
+            let el = document.getElementById('app-error-toast');
+            if (!el) {
+                el = document.createElement('div');
+                el.id = 'app-error-toast';
+                el.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);max-width:640px;width:90%;' +
+                    'background:rgba(15,23,42,0.96);color:#e2e8f0;border:1px solid rgba(244,63,94,0.6);border-radius:14px;' +
+                    'box-shadow:0 10px 30px rgba(0,0,0,0.5);padding:12px 16px;z-index:99999;font-size:14px;' +
+                    'display:flex;gap:10px;align-items:flex-start;transition:opacity .3s;pointer-events:auto;';
+                el.onclick = () => { el.style.opacity = '0'; setTimeout(() => el.style.display = 'none', 300); };
+                document.body.appendChild(el);
+            }
+            const safe = String(msg).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+            el.innerHTML = '<span style="color:#fb7185;font-size:18px;line-height:1">⚠</span>' +
+                '<div><div style="font-weight:700;color:#fda4af;margin-bottom:2px">Đã xảy ra lỗi</div><div>' + safe + '</div></div>';
+            el.style.display = 'flex';
+            el.style.opacity = '1';
+            clearTimeout(el._t);
+            el._t = setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.style.display = 'none', 300); }, 5000);
+        }
+        window.addEventListener('error', e => showError(e.message));
+        window.addEventListener('unhandledrejection', e => showError((e.reason && e.reason.message) || e.reason));
+    </script>
 </head>
 <body class="w-screen relative select-none" style="height: 100vh; height: 100dvh;">
 
@@ -133,7 +158,10 @@
                 <i class="fa-solid fa-chart-line"></i>
             </div>
             <div>
-                <h1 class="font-bold text-base text-slate-100 tracking-wide leading-tight">Khảo Sát Đồ Thị 2D</h1>
+                <div class="flex items-center gap-2">
+                    <h1 class="font-bold text-base text-slate-100 tracking-wide leading-tight">Khảo Sát Đồ Thị 2D</h1>
+                    <span class="px-2 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-400/40 text-[10px] font-bold text-cyan-300">v1.0.2</span>
+                </div>
                 <p class="text-xs text-cyan-400 font-medium">Hỗ Trợ Tiệm Cận, Đạo Hàm y', y'' & Tiếp Tuyến</p>
             </div>
         </div>
@@ -467,6 +495,7 @@
         let currentTool = 'pan';
         let isDragging = false;
         let lastMousePos = { x: 0, y: 0 };
+        let hoverCurvePoint = null;
 
         let view = {
             originX: 0,
@@ -860,37 +889,55 @@
                     ctx.beginPath();
 
                     let isDrawing = false;
-                    let prevY = NaN;
+                    let prevPy = NaN;
+                    let prevXm = NaN;
+                    let prevYm = NaN;
 
-                    for (let px = startPx; px <= endPx; px += 1) {
-                        const x = toMathX(px);
+                    // Kiểm tra đoạn [xa, xb] có liên tục không (chia đôi dần).
+                    // Dốc đứng nhưng liên tục -> nối; tiệm cận/gián đoạn -> ngắt.
+                    const isContinuous = (xa, ya, xb, yb, depth) => {
+                        if (Math.abs(toCanvasY(ya) - toCanvasY(yb)) <= height * 0.5) return true;
+                        if (depth >= 10) return false;
+                        const xm = (xa + xb) / 2;
+                        const ym = evalFunc(xm);
+                        if (!isFinite(ym)) return false;
+                        return isContinuous(xa, ya, xm, ym, depth + 1) &&
+                               isContinuous(xm, ym, xb, yb, depth + 1);
+                    };
+
+                    for (let px = startPx; px <= endPx + 0.5; px += 1) {
+                        const pxc = Math.min(px, endPx);
+                        const x = toMathX(pxc);
                         const y = evalFunc(x);
 
-                        if (isNaN(y) || Math.abs(y) > 1e4) {
+                        if (!isFinite(y)) {
                             isDrawing = false;
-                            prevY = NaN;
+                            prevPy = NaN;
                             continue;
                         }
 
                         const py = toCanvasY(y);
 
-                        if (!isNaN(prevY) && Math.abs(py - prevY) > height * 0.7) {
+                        // Chỉ ngắt khi quá xa màn hình (canvas tự cắt phần ngoài khung)
+                        if (Math.abs(py) > 1e6) {
                             isDrawing = false;
-                        }
-
-                        if (py < -height || py > height * 2) {
-                            isDrawing = false;
-                            prevY = py;
+                            prevPy = NaN;
                             continue;
                         }
 
+                        if (isDrawing && Math.abs(py - prevPy) > height * 0.5) {
+                            if (!isContinuous(prevXm, prevYm, x, y, 0)) isDrawing = false;
+                        }
+
                         if (!isDrawing) {
-                            ctx.moveTo(px, py);
+                            ctx.moveTo(pxc, py);
                             isDrawing = true;
                         } else {
-                            ctx.lineTo(px, py);
+                            ctx.lineTo(pxc, py);
                         }
-                        prevY = py;
+                        prevPy = py;
+                        prevXm = x;
+                        prevYm = y;
                     }
                     ctx.stroke();
                     ctx.setLineDash([]);
@@ -961,10 +1008,155 @@
             });
         }
 
+        // ==========================================
+        // CHUYỂN ĐỘNG MƯỢT KIỂU DESMOS / GEOGEBRA
+        // ==========================================
+        let renderQueued = false;
+        function scheduleRender() {
+            if (renderQueued) return;
+            renderQueued = true;
+            requestAnimationFrame(() => { renderQueued = false; render(); });
+        }
+
+        // --- Rê chuột: bám sát điểm gần nhất trên đường cong ---
+        const HOVER_SNAP_PX = 28;
+        let lastMouseCanvas = null;
+
+        function updateHoverState(mouseX, mouseY) {
+            lastMouseCanvas = { x: mouseX, y: mouseY };
+            let best = null;
+            let bestDist = HOVER_SNAP_PX;
+
+            functionsData.forEach(item => {
+                if (!item.visible || typeof item.parsedFn !== 'function') return;
+                const x0 = toMathX(mouseX - HOVER_SNAP_PX);
+                const x1 = toMathX(mouseX + HOVER_SNAP_PX);
+                for (let px = mouseX - HOVER_SNAP_PX; px <= mouseX + HOVER_SNAP_PX; px += 0.5) {
+                    const x = toMathX(px);
+                    if (item.domain) {
+                        if (isFinite(item.domain.min) && x < item.domain.min) continue;
+                        if (isFinite(item.domain.max) && x > item.domain.max) continue;
+                    }
+                    let y;
+                    try { y = item.parsedFn(x); } catch (err) { continue; }
+                    if (typeof y !== 'number' || !isFinite(y) || Math.abs(y) > 1e4) continue;
+                    const d = Math.hypot(px - mouseX, toCanvasY(y) - mouseY);
+                    if (d < bestDist) { bestDist = d; best = { x: x, y: y, color: item.color }; }
+                }
+            });
+
+            const prev = hoverCurvePoint;
+            hoverCurvePoint = best;
+            const moved = (!prev !== !best) || (best && prev && (prev.x !== best.x || prev.color !== best.color));
+            if (!isDragging) {
+                if (moved) scheduleRender();
+                if (currentTool === 'pan') canvas.style.cursor = best ? 'crosshair' : 'grab';
+            }
+        }
+
+        function drawHoverMarker() {
+            if (!hoverCurvePoint || isDragging) return;
+            const px = toCanvasX(hoverCurvePoint.x);
+            const py = toCanvasY(hoverCurvePoint.y);
+            if (px < 0 || px > canvas.width || py < 0 || py > canvas.height) return;
+            const color = hoverCurvePoint.color || '#38bdf8';
+
+            // Quầng sáng + chấm
+            ctx.beginPath();
+            ctx.arc(px, py, 11, 0, Math.PI * 2);
+            ctx.fillStyle = color + '33';
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(px, py, 5.5, 0, Math.PI * 2);
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#ffffff';
+            ctx.stroke();
+
+            // Nhãn tọa độ
+            const text = `(${hoverCurvePoint.x.toFixed(2)}, ${hoverCurvePoint.y.toFixed(2)})`;
+            ctx.font = 'bold 12px Inter, sans-serif';
+            const w = ctx.measureText(text).width + 14;
+            const h = 22;
+            let bx = px + 14;
+            let by = py - h - 12;
+            if (bx + w > canvas.width) bx = px - w - 14;
+            if (by < 0) by = py + 14;
+
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.rect(bx, by, w, h);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = '#f1f5f9';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, bx + 7, by + h / 2);
+            ctx.textBaseline = 'alphabetic';
+        }
+
+        // --- Quán tính khi kéo (pan inertia) ---
+        let panVel = { x: 0, y: 0 };
+        let panLastT = 0;
+        let inertiaId = null;
+
+        function stopInertia() {
+            if (inertiaId) cancelAnimationFrame(inertiaId);
+            inertiaId = null;
+            panVel = { x: 0, y: 0 };
+        }
+
+        function startInertia() {
+            if (Math.hypot(panVel.x, panVel.y) < 0.4) return;
+            let last = performance.now();
+            const step = (now) => {
+                const dt = Math.min(now - last, 32) / 16.67;
+                last = now;
+                view.originX += panVel.x * dt;
+                view.originY += panVel.y * dt;
+                const f = Math.pow(0.93, dt);
+                panVel.x *= f; panVel.y *= f;
+                render();
+                if (Math.hypot(panVel.x, panVel.y) > 0.08) inertiaId = requestAnimationFrame(step);
+                else inertiaId = null;
+            };
+            inertiaId = requestAnimationFrame(step);
+        }
+
+        // --- Zoom mượt, bám đúng vị trí con trỏ ---
+        let zoomAnim = null;
+        let zoomAnimId = null;
+
+        function smoothZoom(pivotX, pivotY, factor) {
+            const base = zoomAnim ? zoomAnim.target : view.scale;
+            const target = THREE_CLAMP(base * factor, view.minScale, view.maxScale);
+            zoomAnim = { target, px: pivotX, py: pivotY };
+            if (zoomAnimId) return;
+            const step = () => {
+                if (!zoomAnim) { zoomAnimId = null; return; }
+                const diff = zoomAnim.target - view.scale;
+                let next = view.scale + diff * 0.25;
+                if (Math.abs(diff) / view.scale < 0.002) next = zoomAnim.target;
+                const k = next / view.scale;
+                view.originX = zoomAnim.px - (zoomAnim.px - view.originX) * k;
+                view.originY = zoomAnim.py - (zoomAnim.py - view.originY) * k;
+                view.scale = next;
+                if (lastMouseCanvas) updateHoverState(lastMouseCanvas.x, lastMouseCanvas.y);
+                render();
+                if (next === zoomAnim.target) { zoomAnim = null; zoomAnimId = null; }
+                else zoomAnimId = requestAnimationFrame(step);
+            };
+            zoomAnimId = requestAnimationFrame(step);
+        }
+
         function render() {
             drawGridAndAxes();
             drawCurves();
             updateLabels();
+            drawHoverMarker();
 
             // Hiển thị chú thích đạo hàm nếu có ít nhất 1 hàm đang bật y' hoặc y''
             const hasDerivActive = functionsData.some(f => f.showY1 || f.showY2);
@@ -1233,7 +1425,10 @@
             const mouseY = e.clientY - rect.top;
 
             if (currentTool === 'pan') {
+                stopInertia();
                 isDragging = true;
+                hoverCurvePoint = null;
+                panLastT = performance.now();
                 lastMousePos = { x: mouseX, y: mouseY };
                 canvas.style.cursor = 'grabbing';
             } else {
@@ -1250,14 +1445,19 @@
             const mX = toMathX(mouseX);
             const mY = toMathY(mouseY);
             document.getElementById('coordDisplay').textContent = `(${mX.toFixed(2)}, ${mY.toFixed(2)})`;
+            updateHoverState(mouseX, mouseY);
 
             if (isDragging && currentTool === 'pan') {
                 const dx = mouseX - lastMousePos.x;
                 const dy = mouseY - lastMousePos.y;
                 view.originX += dx;
                 view.originY += dy;
+                const now = performance.now();
+                const dt = Math.max(now - panLastT, 1) / 16.67;
+                panVel = { x: panVel.x * 0.4 + (dx / dt) * 0.6, y: panVel.y * 0.4 + (dy / dt) * 0.6 };
+                panLastT = now;
                 lastMousePos = { x: mouseX, y: mouseY };
-                render();
+                scheduleRender();
             }
         }
 
@@ -1265,7 +1465,10 @@
             if (e && e.pointerType === 'touch') return;
             if (isDragging) {
                 isDragging = false;
-                if (currentTool === 'pan') canvas.style.cursor = 'grab';
+                if (currentTool === 'pan') {
+                    canvas.style.cursor = 'grab';
+                    if (performance.now() - panLastT < 80) startInertia();
+                }
             }
         }
 
@@ -1367,8 +1570,9 @@
             const mouseX = e.clientX - rect.left;
             const mouseY = e.clientY - rect.top;
 
-            const zoomFactor = e.deltaY < 0 ? 1.12 : 0.89;
-            zoomAtPoint(mouseX, mouseY, zoomFactor);
+            stopInertia();
+            const zoomFactor = Math.exp(-THREE_CLAMP(e.deltaY, -120, 120) * 0.0015);
+            smoothZoom(mouseX, mouseY, zoomFactor);
         }
 
         function zoomAtPoint(pivotX, pivotY, factor) {
@@ -1383,7 +1587,7 @@
         }
 
         function zoomView(factor) {
-            zoomAtPoint(canvas.width / 2, canvas.height / 2, factor);
+            smoothZoom(canvas.width / 2, canvas.height / 2, factor);
         }
 
         function resetView() {
@@ -1609,10 +1813,6 @@
         // XỬ LÝ NHẬP LỆNH VẼ ĐỒ THỊ BẰNG AI
         // ==========================================
         async function handleCommandSubmit() {
-            if (!GROQ_API_KEY_DRAW) {
-                appAlert("Chưa cấu hình API Key. Vui lòng cập nhật file config.js");
-                return;
-            }
             const input = document.getElementById('aiCommandInput');
             const text = input.value.trim();
             if (!text) return;
@@ -1624,6 +1824,11 @@
                 pushUndo();
                 addFunction(cleanExpr, null, domain);
                 input.value = '';
+                return;
+            }
+
+            if (!directMath && !GROQ_API_KEY_DRAW) {
+                appAlert("Chưa cấu hình API Key. Vui lòng cập nhật file config.js");
                 return;
             }
 
@@ -1853,6 +2058,7 @@ Quy định phản hồi:
         window.addEventListener('mousemove', onMouseMove);
         window.addEventListener('mouseup', onMouseUp);
         canvas.addEventListener('wheel', onWheel, { passive: false });
+        canvas.addEventListener('mouseleave', () => { hoverCurvePoint = null; lastMouseCanvas = null; scheduleRender(); });
 
         try {
             canvas.addEventListener('touchstart', onTouchStart, { passive: false });
