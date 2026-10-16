@@ -1,6 +1,6 @@
 # Math AI Lab - Ghi chú phát hành
 
-## Phiên bản v1.0.2
+## Phiên bản v1.0.3
 
 ### 1. Phân hệ Khảo sát Đồ thị 2D (`dothi2d.html`)
 - **Nút Thu/Mở thanh bên phải (Sidebar Collapse/Expand)**: Tích hợp nút trượt thu gọn thanh công cụ bên phải sang mép màn hình, giải phóng 100% không gian đồ thị.

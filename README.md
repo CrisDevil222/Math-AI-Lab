@@ -30,7 +30,7 @@
 Truy cập trang [Releases mới nhất](../../releases/latest) để tải về gói cài đặt phù hợp với thiết bị của bạn:
 
 ### 🤖 Cho điện thoại Android (`.apk`)
-1. Tải về file `MathAILab-v1.0.2.apk`.
+1. Tải về file `MathAILab-v1.0.3.apk`.
 2. Mở file và chọn **Cài đặt**.
 3. *(Nếu có thông báo bảo mật: Bật tùy chọn **Cho phép cài đặt ứng dụng từ nguồn này**).*
 
@@ -39,7 +39,7 @@ Truy cập trang [Releases mới nhất](../../releases/latest) để tải về
 - **Cách 1 - Sideloadly (Khuyên dùng trên Windows/Mac)**:
   1. Tải phần mềm [Sideloadly](https://sideloadly.io/) về máy tính.
   2. Kết nối iPhone/iPad với máy tính qua cáp sạc.
-  3. Kéo thả file `MathAILab-iOS-v1.0.2.ipa` vào giao diện Sideloadly.
+  3. Kéo thả file `MathAILab-iOS-v1.0.3.ipa` vào giao diện Sideloadly.
   4. Nhập Apple ID miễn phí của bạn và bấm **Start**. App sẽ được cài vào iPhone sau khoảng 1-2 phút.
   5. Trên iPhone: Vào **Cài đặt** > **Cài đặt chung** > **Quản lý VPN & Thiết bị** > Tin cậy chứng chỉ của Apple ID để mở app.
 - **Cách 2 - AltStore / TrollStore**: Cài đặt trực tiếp nếu thiết bị của bạn đã được cấu hình sẵn.

@@ -65,18 +65,24 @@ jobs:
           mkdir -p build/Payload
           cp -r "$APP_DIR"/*.app build/Payload/
           cd build
-          zip -r MathAILab-iOS-v1.0.2.ipa Payload
-          ls -lh MathAILab-iOS-v1.0.2.ipa
+          TAG_NAME="${{ github.ref_name }}"
+          if [ -z "$TAG_NAME" ] || [ "$TAG_NAME" = "main" ]; then
+            TAG_NAME="v1.0.3"
+          fi
+          IPA_NAME="MathAILab-iOS-${TAG_NAME}.ipa"
+          zip -r "$IPA_NAME" Payload
+          ls -lh "$IPA_NAME"
+          echo "IPA_NAME=$IPA_NAME" >> $GITHUB_ENV
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MathAILab-iOS-v1.0.2.ipa
-          path: build/MathAILab-iOS-v1.0.2.ipa
+          name: ${{ env.IPA_NAME }}
+          path: build/${{ env.IPA_NAME }}
 
       - name: Upload to GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload ${{ github.ref_name }} build/MathAILab-iOS-v1.0.2.ipa --clobber
+          gh release upload ${{ github.ref_name }} "build/${{ env.IPA_NAME }}" --clobber
