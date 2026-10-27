@@ -37,6 +37,18 @@
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
+        /* Thanh công cụ: các nhóm nút */
+        .tb-group {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+            padding: 0.2rem;
+            border-radius: 0.9rem;
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid rgba(100, 116, 139, 0.18);
+        }
+
         /* 3D Vertex Label Styles */
         .vertex-label {
             position: absolute;
@@ -98,6 +110,24 @@
             z-index: 9;
         }
 
+        /* Chế độ xem 2D như vẽ trên giấy */
+        body.paper-mode .vertex-label {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            color: #000 !important;
+            font-size: 17px;
+            font-weight: 700;
+            padding: 0 2px;
+        }
+        body.paper-mode .edge-length-label,
+        body.paper-mode .marker-name-label {
+            background: rgba(255, 255, 255, 0.85) !important;
+            color: #000 !important;
+            border: none !important;
+            font-weight: 600;
+        }
+
         /* Custom scrollbar */
         ::-webkit-scrollbar {
             width: 4px;
@@ -106,6 +136,31 @@
             background: rgba(100, 116, 139, 0.5);
             border-radius: 2px;
         }
+    
+        /* Tối ưu kích cỡ chữ ô nhập lệnh khi mở bàn phím ảo không bao giờ bị thu nhỏ */
+        #aiCommandInput {
+            font-size: 15px !important;
+            line-height: 1.4 !important;
+        }
+        #aiCommandInput::placeholder {
+            font-size: 13px !important;
+        }
+        body.keyboard-active .fixed.bottom-4,
+        body.keyboard-active #aiCommandBox {
+            zoom: 1 !important;
+            bottom: 6px !important;
+            max-width: 96vw !important;
+            width: 96vw !important;
+        }
+        body.keyboard-active #topBarWrap {
+            opacity: 0.25 !important;
+            pointer-events: none !important;
+        }
+        body.keyboard-active aside#right-sidebar {
+            opacity: 0.1 !important;
+            pointer-events: none !important;
+        }
+
     </style>
     <style>
         /* Tùy chỉnh kích thước khung chat chatbot */
@@ -176,6 +231,37 @@
         }
     </script>
     <script src="config.js"></script>
+    <style>
+        /* ===== Thanh công cụ VẼ / CHỤP trên chế độ 2D (giấy) ===== */
+        #paperToolbar .ink-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+        #paperToolbar .ink-sep { grid-column: 1 / -1; height: 1px; background: rgba(100, 116, 139, 0.3); margin: 3px 0; }
+        #paperToolbar .ink-label { grid-column: 1 / -1; font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #64748b; text-align: center; }
+        .ink-btn {
+            height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; gap: 6px;
+            font-size: 13px; color: #cbd5e1; background: rgba(30, 41, 59, 0.55);
+            border: 1px solid rgba(100, 116, 139, 0.25); cursor: pointer; transition: all .12s;
+        }
+        .ink-btn:hover { background: rgba(51, 65, 85, 0.85); }
+        .ink-btn.active { background: rgba(6, 182, 212, 0.22); color: #67e8f9; border-color: rgba(34, 211, 238, 0.65); }
+        .ink-btn:disabled { opacity: .35; cursor: not-allowed; }
+        .ink-btn.wide { grid-column: 1 / -1; font-size: 12px; font-weight: 600; }
+        .ink-btn.cap { background: rgba(16, 185, 129, 0.18); color: #6ee7b7; border-color: rgba(16, 185, 129, 0.5); }
+        .ink-btn.cap:hover { background: rgba(16, 185, 129, 0.32); }
+        .ink-btn.danger { color: #fda4af; }
+        .ink-color {
+            height: 26px; border-radius: 9999px; border: 2px solid rgba(255, 255, 255, 0.25);
+            background: var(--c); cursor: pointer; transition: transform .1s;
+        }
+        .ink-color:hover { transform: scale(1.08); }
+        .ink-color.active { border-color: #fff; box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.9); }
+        .ink-btn .ink-w { display: block; width: 22px; border-radius: 9999px; background: currentColor; }
+        #inkSnapRect {
+            position: fixed; display: none; z-index: 35; pointer-events: none;
+            border: 2px dashed #0ea5e9; background: rgba(14, 165, 233, 0.12);
+        }
+        #inkFlash { position: fixed; inset: 0; display: none; z-index: 90; background: #fff; pointer-events: none; opacity: 0; }
+    </style>
+    <script src="settings.js"></script>
 </head>
 <body class="w-screen relative select-none" style="height: 100vh; height: 100dvh;">
 
@@ -184,6 +270,57 @@
 
     <!-- 3D Vertex Labels Container -->
     <div id="labels-container" class="absolute top-0 left-0 w-full h-full pointer-events-none"></div>
+
+    <!-- Lớp nét vẽ trên chế độ 2D (giấy) -->
+    <canvas id="paperInk" class="absolute top-0 left-0 pointer-events-none" style="z-index:8;display:none"></canvas>
+    <div id="inkSnapRect"></div>
+    <div id="inkFlash"></div>
+
+    <!-- Thanh công cụ VẼ / CHỤP khi ở chế độ Xem 2D (giấy) -->
+    <div id="paperToolbar" class="hidden fixed left-4 z-30 glass-panel rounded-2xl p-2 shadow-2xl border border-slate-700/70 select-none"
+         style="top:8.25rem; width:108px; max-height:calc(100dvh - 15rem); overflow-y:auto;">
+        <div class="text-[10px] font-bold text-cyan-300 uppercase tracking-wider text-center mb-1.5">
+            <i class="fa-solid fa-pen-ruler mr-1"></i>Vẽ trên 2D
+        </div>
+        <div class="ink-grid">
+            <button type="button" class="ink-btn" data-ink-tool="pan" onclick="inkSetTool('pan')" title="Di chuyển hình (phím 1)"><i class="fa-solid fa-hand"></i></button>
+            <button type="button" class="ink-btn" data-ink-tool="pen" onclick="inkSetTool('pen')" title="Bút vẽ tự do (phím 2)"><i class="fa-solid fa-pen"></i></button>
+            <button type="button" class="ink-btn" data-ink-tool="line" onclick="inkSetTool('line')" title="Đường thẳng (phím 3, giữ Shift để thẳng 0°/45°/90°)"><i class="fa-solid fa-slash"></i></button>
+            <button type="button" class="ink-btn" data-ink-tool="arrow" onclick="inkSetTool('arrow')" title="Mũi tên (phím 4)"><i class="fa-solid fa-arrow-right-long"></i></button>
+            <button type="button" class="ink-btn" data-ink-tool="rect" onclick="inkSetTool('rect')" title="Hình chữ nhật (phím 5, giữ Shift = hình vuông)"><i class="fa-regular fa-square"></i></button>
+            <button type="button" class="ink-btn" data-ink-tool="ellipse" onclick="inkSetTool('ellipse')" title="Elip / hình tròn (phím 6, giữ Shift = hình tròn)"><i class="fa-regular fa-circle"></i></button>
+            <button type="button" class="ink-btn" data-ink-tool="text" onclick="inkSetTool('text')" title="Viết chữ (phím 7)"><i class="fa-solid fa-font"></i></button>
+            <button type="button" class="ink-btn" data-ink-tool="erase" onclick="inkSetTool('erase')" title="Tẩy nét vẽ (phím 8)"><i class="fa-solid fa-eraser"></i></button>
+            <button type="button" class="ink-btn wide" id="inkDashBtn" onclick="inkToggleDash()" title="Nét đứt cho đường / hình / bút (phím D)"><span style="letter-spacing:2px;font-weight:800">– – –</span><span>Nét đứt</span></button>
+
+            <div class="ink-sep"></div>
+            <div class="ink-label">Màu</div>
+            <button type="button" class="ink-color" data-ink-color="#000000" style="--c:#000000" onclick="inkSetColor('#000000')" title="Đen"></button>
+            <button type="button" class="ink-color" data-ink-color="#dc2626" style="--c:#dc2626" onclick="inkSetColor('#dc2626')" title="Đỏ"></button>
+            <button type="button" class="ink-color" data-ink-color="#2563eb" style="--c:#2563eb" onclick="inkSetColor('#2563eb')" title="Xanh dương"></button>
+            <button type="button" class="ink-color" data-ink-color="#16a34a" style="--c:#16a34a" onclick="inkSetColor('#16a34a')" title="Xanh lá"></button>
+            <button type="button" class="ink-color" data-ink-color="#ea580c" style="--c:#ea580c" onclick="inkSetColor('#ea580c')" title="Cam"></button>
+            <button type="button" class="ink-color" data-ink-color="#7c3aed" style="--c:#7c3aed" onclick="inkSetColor('#7c3aed')" title="Tím"></button>
+
+            <div class="ink-sep"></div>
+            <div class="ink-label">Độ dày nét</div>
+            <button type="button" class="ink-btn" data-ink-width="0" onclick="inkSetWidth(0)" title="Mảnh"><span class="ink-w" style="height:2px"></span></button>
+            <button type="button" class="ink-btn" data-ink-width="1" onclick="inkSetWidth(1)" title="Vừa"><span class="ink-w" style="height:4px"></span></button>
+            <button type="button" class="ink-btn wide" data-ink-width="2" onclick="inkSetWidth(2)" title="Dày"><span class="ink-w" style="height:7px"></span></button>
+
+            <div class="ink-sep"></div>
+            <button type="button" class="ink-btn" id="inkUndoBtn" onclick="inkUndo()" title="Hoàn tác nét vẽ (Ctrl+Z)"><i class="fa-solid fa-rotate-left"></i></button>
+            <button type="button" class="ink-btn" id="inkRedoBtn" onclick="inkRedo()" title="Làm lại (Ctrl+Y)"><i class="fa-solid fa-rotate-right"></i></button>
+            <button type="button" class="ink-btn wide danger" id="inkClearBtn" onclick="inkClearAll()" title="Xóa toàn bộ nét vẽ"><i class="fa-solid fa-trash-can"></i><span>Xóa hết</span></button>
+
+            <div class="ink-sep"></div>
+            <div class="ink-label">Chụp ảnh</div>
+            <button type="button" class="ink-btn wide cap" onclick="paperCapture('download')" title="Chụp cả khung hình 2D (kèm nét vẽ) và lưu PNG (phím C)"><i class="fa-solid fa-camera"></i><span>Chụp (PNG)</span></button>
+            <button type="button" class="ink-btn wide cap" data-ink-tool="snap" onclick="inkSetTool('snap')" title="Kéo chọn một vùng rồi chụp riêng vùng đó (phím 9)"><i class="fa-solid fa-crop-simple"></i><span>Chụp vùng</span></button>
+            <button type="button" class="ink-btn wide cap" onclick="paperCapture('copy')" title="Sao chép ảnh vào bộ nhớ tạm để dán (Ctrl+V) vào Word, Zalo..."><i class="fa-regular fa-copy"></i><span>Sao chép</span></button>
+        </div>
+    </div>
+
 
     <!-- Custom Modal Dialog (Thay thế window.prompt bị lỗi trong EXE) -->
     <div id="customPromptModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm pointer-events-auto">
@@ -210,15 +347,23 @@
             <div>
                 <div class="flex items-center gap-2">
                     <h1 class="font-bold text-base text-slate-100 tracking-wide leading-tight">Vẽ Hình Học 3D</h1>
-                    <span class="px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-mono text-[10px] font-bold border border-cyan-500/30">v1.0.3</span>
+                    <span class="px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-mono text-[10px] font-bold border border-cyan-500/30">v1.0.4</span>
                 </div>
                 <p class="text-xs text-cyan-400 font-medium">Hỗ Trợ Đường Tròn, Vector & Giao Diện Tương Tác</p>
             </div>
+            <button onclick="openSettingsModal()" title="Cài đặt độ phân giải & giao diện" class="ml-1 w-8 h-8 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-cyan-300 flex items-center justify-center text-xs transition-colors border border-slate-700/60 shadow">
+                <i class="fa-solid fa-gear"></i>
+            </button>
         </div>
     </header>
-
     <!-- Nút chuyển sang Đồ Thị 2D -->
-    <div class="absolute top-[4.75rem] left-4 z-20 pointer-events-auto">
+    <div class="absolute top-[4.75rem] left-4 z-20 pointer-events-auto flex items-center gap-2">
+        <a href="index.html" 
+           title="Quay về Màn hình chính"
+           class="glass-panel px-3.5 py-2 rounded-xl flex items-center gap-2 border border-slate-700/60 text-slate-300 hover:text-cyan-300 hover:border-cyan-500/40 text-xs font-semibold hover:bg-slate-800/80 transition-all shadow-lg group">
+            <i class="fa-solid fa-house text-sm text-cyan-400 group-hover:scale-110 transition-transform"></i>
+            <span>Trang Chủ</span>
+        </a>
         <a href="dothi2d.html" 
            title="Mở giao diện vẽ Đồ Thị Hàm Số 2D"
            class="glass-panel px-3.5 py-2 rounded-xl flex items-center gap-2 border border-cyan-500/40 text-cyan-300 text-xs font-semibold hover:bg-cyan-500/10 hover:border-cyan-400 transition-all shadow-lg group">
@@ -253,9 +398,14 @@
             <h2 class="text-xs font-bold text-emerald-300 uppercase tracking-wider flex items-center gap-2">
                 <i class="fa-solid fa-square-root-variable"></i> Hỏi Công Thức
             </h2>
-            <button onclick="toggleFormulaChat()" class="text-slate-500 hover:text-slate-300 transition-colors">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
+            <div class="flex items-center gap-1">
+                <button onclick="clearChatHistory()" title="Xóa lịch sử chat" class="text-slate-500 hover:text-rose-400 transition-colors">
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>
+                <button onclick="toggleFormulaChat()" class="text-slate-500 hover:text-slate-300 transition-colors">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
         </div>
         <div id="formulaChatMessages" class="flex-1 min-h-[220px] max-h-[28rem] overflow-y-auto px-3 py-3 space-y-2 text-xs">
             <div class="text-slate-400 bg-slate-800/50 border border-slate-700/40 rounded-xl px-3 py-2 leading-relaxed">
@@ -273,9 +423,17 @@
         </div>
     </div>
 
-    <!-- Toolbar -->
-    <div class="absolute top-4 left-1/2 -translate-x-1/2 z-20">
-        <div class="glass-panel p-1.5 rounded-2xl flex items-center space-x-1 shadow-2xl border border-slate-700/60 overflow-x-auto max-w-[94vw]">
+    <!-- Thanh công cụ: có nút thu/mở, tự canh giữa khoảng trống giữa tiêu đề và bảng bên phải -->
+    <div id="topBarWrap" class="absolute top-4 z-20 flex justify-center pointer-events-none" style="left: 18rem; width: 50vw;">
+        <div id="topBarInner" class="flex flex-col items-center gap-2 w-full">
+            <div class="flex items-start gap-2 max-w-full">
+                <button id="topBarToggle" type="button" onclick="toggleTopBar()" title="Thu gọn / mở rộng thanh công cụ (phím T)"
+                        class="glass-panel pointer-events-auto shrink-0 h-10 px-3 rounded-xl border border-slate-600/60 text-cyan-300 hover:bg-cyan-500/15 shadow-xl flex items-center justify-center gap-2 text-xs font-semibold transition-colors">
+                    <i id="topBarToggleIcon" class="fa-solid fa-chevron-up text-sm"></i>
+                    <span id="topBarToggleText" style="display:none">Công cụ</span>
+                </button>
+                <div id="topBarTools" class="glass-panel pointer-events-auto min-w-0 p-1.5 rounded-2xl flex flex-wrap items-center justify-center gap-1.5 shadow-2xl border border-slate-700/60">
+                    <div class="tb-group">
             <button onclick="setToolMode('rotate')" id="tool-rotate" class="tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 transition-all whitespace-nowrap">
                 <i class="fa-solid fa-rotate"></i>
                 <span>Xoay View</span>
@@ -308,12 +466,14 @@
                 <i class="fa-solid fa-trash-can text-rose-400"></i>
                 <span>Xóa Đỉnh</span>
             </button>
-            <div class="w-px h-6 bg-slate-700 mx-1"></div>
+                    </div>
+                    <div class="tb-group">
             <button onclick="undoLastAction()" id="btnUndo" disabled class="tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-800 transition-all whitespace-nowrap">
                 <i class="fa-solid fa-rotate-left text-sky-400"></i>
                 <span>Hoàn Tác</span>
             </button>
-            <div class="w-px h-6 bg-slate-700 mx-1"></div>
+                    </div>
+                    <div class="tb-group">
             <button onclick="saveDrawingToFile()" title="Lưu bản vẽ hiện tại thành tệp .json" class="tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800 transition-all whitespace-nowrap">
                 <i class="fa-solid fa-floppy-disk text-teal-400"></i>
                 <span>Lưu</span>
@@ -322,14 +482,25 @@
                 <i class="fa-solid fa-folder-open text-yellow-400"></i>
                 <span>Mở</span>
             </button>
-            <input type="file" id="loadFileInput" accept="application/json,.json" class="hidden" onchange="loadDrawingFromFile(event)">
-        </div>
-    </div>
-
-    <!-- Quick Instruction Tooltip -->
-    <div class="absolute top-20 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
-        <div id="mode-instruction" class="glass-panel px-4 py-1.5 rounded-full text-xs text-cyan-300 font-medium shadow-md border border-cyan-500/30 animate-pulse">
-            Chế độ: Xoay góc nhìn 3D (Ấn giữ chuột trái để xoay, cuộn chuột để phóng to/thu nhỏ)
+            <button onclick="saveSceneImage()" title="Lưu ảnh hình vẽ 3D hiện tại (PNG)" class="tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800 transition-all whitespace-nowrap">
+                <i class="fa-solid fa-image text-emerald-400"></i>
+                <span>Lưu Ảnh</span>
+            </button>
+                        <input type="file" id="loadFileInput" accept="application/json,.json" class="hidden" onchange="loadDrawingFromFile(event)">
+                    </div>
+                    <div class="tb-group">
+            <button id="btnPaper" type="button" onclick="togglePaperMode()" title="Xem hình 2D như vẽ trên giấy: nét liền / nét đứt, nền trắng (phím P)" class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800 transition-all whitespace-nowrap">
+                <i class="fa-solid fa-file-lines text-white"></i>
+                <span id="btnPaperText">Xem 2D (giấy)</span>
+            </button>
+                    </div>
+                </div>
+            </div>
+            <div class="pointer-events-none max-w-full">
+                <div id="mode-instruction" class="glass-panel px-4 py-1.5 rounded-2xl text-xs text-cyan-300 font-medium shadow-md border border-cyan-500/30 animate-pulse text-center">
+                    Chế độ: Xoay góc nhìn 3D (Ấn giữ chuột trái để xoay, cuộn chuột để phóng to/thu nhỏ)
+                </div>
+            </div>
         </div>
     </div>
 
@@ -501,6 +672,17 @@
                     </button>
                 </div>
 
+<div class="grid grid-cols-3 gap-1.5 mt-2">
+    <button onclick="constructPerpendicularBisector()" class="py-2 px-1.5 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/40 text-[11px] text-purple-300 font-semibold transition-all flex items-center justify-center gap-1" title="Dựng đường trung trực của đoạn thẳng">
+        <i class="fa-solid fa-compass"></i> Trung Trực
+    </button>
+    <button onclick="constructPerpendicularLine()" class="py-2 px-1.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/40 text-[11px] text-indigo-300 font-semibold transition-all flex items-center justify-center gap-1" title="Hạ đường vuông góc từ điểm xuống đường thẳng">
+        <i class="fa-solid fa-angles-down"></i> Vuông Góc
+    </button>
+    <button onclick="constructParallelLine()" class="py-2 px-1.5 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/40 text-[11px] text-teal-300 font-semibold transition-all flex items-center justify-center gap-1" title="Dựng đường thẳng song song qua một điểm">
+        <i class="fa-solid fa-bars"></i> Song Song
+    </button>
+</div>
                 <div class="grid grid-cols-2 gap-2">
                     <button onclick="promptEditRightAngleLabel()" class="py-2 px-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/40 text-xs text-rose-300 font-semibold transition-all flex items-center justify-center gap-1.5" title="Đặt tên/nhãn cho góc vuông">
                         <i class="fa-solid fa-square-full"></i> Tên Góc ⊥
@@ -528,7 +710,17 @@
     </aside>
 
     <!-- Ô NHẬP LỆNH AI CỐ ĐỊNH Ở ĐÁY MÀN HÌNH -->
-    <div class="fixed bottom-4 left-1/2 -translate-x-1/2 w-[92%] max-w-3xl z-30 glass-panel p-3 rounded-2xl border border-slate-700/80 shadow-2xl flex flex-col gap-2">
+    <div id="aiCommandBox" class="fixed bottom-4 left-1/2 -translate-x-1/2 w-[92%] max-w-3xl z-30 glass-panel p-3 rounded-2xl border border-slate-700/80 shadow-2xl flex flex-col gap-2">
+        <!-- Lịch sử lệnh vẽ -->
+        <div id="cmdHistoryPanel" class="hidden absolute bottom-full left-0 right-0 mb-2 glass-panel rounded-2xl border border-cyan-500/30 shadow-2xl flex flex-col max-h-64">
+            <div class="flex items-center justify-between px-4 py-2 border-b border-slate-700/50">
+                <span class="text-xs font-bold text-cyan-300 uppercase tracking-wider"><i class="fa-solid fa-clock-rotate-left mr-1.5"></i>Lịch sử lệnh vẽ</span>
+                <button type="button" onclick="clearCommandHistory()" class="text-[11px] text-slate-400 hover:text-rose-400 font-semibold flex items-center gap-1">
+                    <i class="fa-solid fa-trash-can"></i> Xóa lịch sử
+                </button>
+            </div>
+            <div id="cmdHistoryList" class="overflow-y-auto p-2 space-y-1"></div>
+        </div>
         <div class="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs border-b border-slate-700/50">
             <span class="text-[11px] text-slate-400 font-medium whitespace-nowrap mr-1"><i class="fa-solid fa-superscript text-cyan-400"></i> Số mũ:</span>
             <button type="button" onclick="insertSymbol('x^')" class="px-2 py-0.5 rounded-lg bg-cyan-950/70 hover:bg-cyan-900 text-cyan-300 font-bold border border-cyan-700/60 shadow-sm">x^</button>
@@ -554,7 +746,16 @@
                    onkeydown="if(event.key === 'Enter') sendAiCommand()"
                    class="flex-1 bg-slate-900/80 border border-slate-700 text-white placeholder-slate-500 text-xs px-3 py-2 rounded-xl outline-none focus:border-cyan-500 transition-colors">
             
-            <button id="btnSubmitAI" onclick="sendAiCommand()" 
+            <button type="button" onclick="toggleCommandHistory()" title="Lịch sử lệnh vẽ (hoặc bấm ↑ / ↓ trong ô nhập)" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-cyan-300 text-xs px-3 py-2 rounded-xl transition-all flex items-center justify-center">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+            </button>
+            <button type="button" onclick="reportLastAiIssue()" title="Báo AI vẽ sai / chưa đúng ý (ghi vào nhật ký)" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-amber-300 text-xs px-3 py-2 rounded-xl transition-all flex items-center justify-center">
+                <i class="fa-solid fa-flag"></i>
+            </button>
+            <button type="button" onclick="downloadAiLog()" title="Tải nhật ký các câu AI làm chưa tốt (file .txt)" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-emerald-300 text-xs px-3 py-2 rounded-xl transition-all flex items-center justify-center gap-1">
+                <i class="fa-solid fa-file-arrow-down"></i><span id="aiLogCount" class="text-[10px] text-amber-300 font-bold"></span>
+            </button>
+            <button id="btnSubmitAI" onclick="sendAiCommand()"
                     class="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 whitespace-nowrap">
                 <i class="fa-solid fa-robot"></i>
                 <span>Vẽ AI</span>
@@ -563,6 +764,54 @@
     </div>
 
     <script>
+        function updateConstrainedVertices() {
+    verticesData.forEach(v => {
+        if (!v.constraint) return;
+        
+        // 1. Ràng buộc điểm là trung điểm của 2 đỉnh khác
+        if (v.constraint.type === 'midpoint') {
+            const p1 = verticesData.find(item => item.id === v.constraint.aId);
+            const p2 = verticesData.find(item => item.id === v.constraint.bId);
+            if (p1 && p2) {
+                v.point.copy(p1.point).add(p2.point).multiplyScalar(0.5);
+                v.mesh.position.copy(v.point);
+            }
+        } 
+        // 2. Ràng buộc điểm hình chiếu vuông góc luôn nằm trên cạnh AB
+        else if (v.constraint.type === 'projection_on_edge') {
+            const A = verticesData.find(item => item.id === v.constraint.aId);
+            const B = verticesData.find(item => item.id === v.constraint.bId);
+            const S = verticesData.find(item => item.id === v.constraint.pointId);
+            if (A && B && S) {
+                const AB = B.point.clone().sub(A.point);
+                const AS = S.point.clone().sub(A.point);
+                const lenSq = AB.lengthSq();
+                if (lenSq > 1e-6) {
+                    let t = AS.dot(AB) / lenSq;
+                    t = Math.max(0, Math.min(1, t)); // Giới hạn đoạn thẳng AB
+                    v.point.copy(A.point).add(AB.multiplyScalar(t));
+                    v.mesh.position.copy(v.point);
+                }
+            }
+        }
+    });
+    // Đồng bộ lại toàn bộ cạnh, mặt và nhãn hiển thị
+    if (typeof applyGeometryUpdateAfterScale === 'function') {
+        applyGeometryUpdateAfterScale();
+    }
+}
+
+// Tự động gọi hàm ràng buộc liên tục mỗi khi chuyển động khung hình 3D
+const originalAnimate = window.animate || function(){};
+// Chèn trực tiếp vào vòng lặp render của Three.js
+function enhancedAnimate() {
+    requestAnimationFrame(enhancedAnimate);
+    if (typeof controls !== 'undefined') controls.update();
+    updateConstrainedVertices(); // Cập nhật ràng buộc hình học động
+    if (typeof renderer !== 'undefined' && typeof scene !== 'undefined' && typeof camera !== 'undefined') {
+        renderer.render(scene, camera);
+    }
+}
         // Modal Prompt Helper (Thay thế hoàn toàn window.prompt cho WebView / EXE)
         function appPrompt(title, message, defaultValue = "") {
             return new Promise((resolve) => {
@@ -573,14 +822,28 @@
                 const okBtn = document.getElementById('customPromptOkBtn');
                 const cancelBtn = document.getElementById('customPromptCancelBtn');
 
+                if (!modal || !inputEl || !okBtn) {
+                    // Fallback nếu modal lỗi
+                    const res = window.prompt(message || title, defaultValue);
+                    resolve(res);
+                    return;
+                }
+
                 titleEl.querySelector('span').textContent = title || "Nhập thông tin";
                 msgEl.textContent = message || "";
-                inputEl.value = defaultValue;
+                
+                // BẮT BUỘC phục hồi lại hiển thị cho input và nút Hủy
                 inputEl.style.display = 'block';
+                inputEl.value = defaultValue || "";
                 cancelBtn.style.display = 'inline-flex';
+                okBtn.textContent = 'Xác nhận';
+                
                 modal.classList.remove('hidden');
-                inputEl.focus();
-                inputEl.select();
+
+                setTimeout(() => {
+                    inputEl.focus();
+                    inputEl.select();
+                }, 50);
 
                 const cleanup = () => {
                     modal.classList.add('hidden');
@@ -589,13 +852,17 @@
                     inputEl.onkeydown = null;
                 };
 
-                okBtn.onclick = () => {
+                okBtn.onclick = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     const val = inputEl.value;
                     cleanup();
                     resolve(val);
                 };
 
-                cancelBtn.onclick = () => {
+                cancelBtn.onclick = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     cleanup();
                     resolve(null);
                 };
@@ -603,11 +870,13 @@
                 inputEl.onkeydown = (e) => {
                     if (e.key === 'Enter') {
                         e.preventDefault();
+                        e.stopPropagation();
                         const val = inputEl.value;
                         cleanup();
                         resolve(val);
                     } else if (e.key === 'Escape') {
                         e.preventDefault();
+                        e.stopPropagation();
                         cleanup();
                         resolve(null);
                     }
@@ -821,33 +1090,292 @@
 
         function createAxisLabelSprite(text, colorHex, scale = 0.7) {
             const canvas = document.createElement('canvas');
-            canvas.width = 64;
-            canvas.height = 64;
+            canvas.width = 128;
+            canvas.height = 128;
             const ctx = canvas.getContext('2d');
             ctx.fillStyle = colorHex;
-            ctx.font = 'bold 46px Inter, sans-serif';
+            ctx.font = 'bold 96px Inter, sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(text, 32, 34);
+            ctx.fillText(text, 64, 68);
             const texture = new THREE.CanvasTexture(canvas);
-            const material = new THREE.SpriteMaterial({ map: texture, depthTest: false, sizeAttenuation: true });
+            texture.minFilter = THREE.LinearFilter;
+            // sizeAttenuation=false: kích thước trên màn hình không đổi khi zoom (cỡ thật do updateAxisLabels đặt mỗi khung hình)
+            const material = new THREE.SpriteMaterial({ map: texture, depthTest: false, sizeAttenuation: false });
             const sprite = new THREE.Sprite(material);
             sprite.scale.set(scale, scale, scale);
             return sprite;
         }
 
-        function addAxisWithLabel(direction, colorInt, label, colorHex, length = 9, labelScale = 0.7) {
-            const points = [new THREE.Vector3(0, 0, 0), direction.clone().multiplyScalar(length)];
+        // Cỡ chữ X, Y, Z tính theo pixel màn hình (giữ nguyên khi zoom)
+        const AXIS_LABEL_PX = 48;
+        const AXIS_LABEL_MAX_T = 2300;
+        const axisLabels = [];
+        const axisLineObjs = [];
+
+        function updateAxisLabels() {
+            if (paperMode) return;
+            if (!axisLabels.length || !camera || !renderer) return;
+            const h = renderer.domElement.clientHeight || window.innerHeight;
+            const W = renderer.domElement.clientWidth || window.innerWidth;
+            const s = (AXIS_LABEL_PX / h) * 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+            const dist = controls ? camera.position.distanceTo(controls.target) : 10;
+
+            // Đặt nhãn ở điểm XA NHẤT trên trục mà vẫn còn nằm trong màn hình (gần như vô cực nhưng vẫn thấy được)
+            camera.updateMatrixWorld();
+            const pv = new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+            const mx = Math.max(0.3, 1 - (AXIS_LABEL_PX * 0.7) / (W / 2));
+            const my = Math.max(0.3, 1 - (AXIS_LABEL_PX * 0.7) / (h / 2));
+            const T = AXIS_LABEL_MAX_T;
+
+            axisLabels.forEach(a => {
+                a.sprite.scale.set(s, s, 1);
+                const c0 = new THREE.Vector4(0, 0, 0, 1).applyMatrix4(pv);
+                const c1 = new THREE.Vector4(a.dir.x, a.dir.y, a.dir.z, 0).applyMatrix4(pv);
+                let lo = 0, hi = T, ok = true;
+                // Mỗi ràng buộc dạng A + B·t <= 0 (t = khoảng cách dọc trục)
+                const cons = (A, B) => {
+                    if (Math.abs(B) < 1e-12) { if (A > 0) ok = false; return; }
+                    const t = -A / B;
+                    if (B > 0) hi = Math.min(hi, t); else lo = Math.max(lo, t);
+                };
+                cons(c0.x - mx * c0.w, c1.x - mx * c1.w);
+                cons(-c0.x - mx * c0.w, -c1.x - mx * c1.w);
+                cons(c0.y - my * c0.w, c1.y - my * c1.w);
+                cons(-c0.y - my * c0.w, -c1.y - my * c1.w);
+                cons(0.05 - c0.w, -c1.w);                 // phải nằm phía trước camera
+                const t = (ok && lo <= hi) ? hi : Math.max(10, dist * 1.6);
+                a.sprite.position.copy(a.dir).multiplyScalar(t);
+            });
+        }
+
+        // ---- Lưới "vô hạn": vẽ bằng shader, các đường lưới mờ dần theo khoảng cách nên không thấy mép ----
+        const infiniteGridMats = [];
+
+        function makeInfiniteGridMaterial(opacity) {
+            const mat = new THREE.ShaderMaterial({
+                transparent: true,
+                depthWrite: false,
+                side: THREE.DoubleSide,
+                polygonOffset: true,
+                polygonOffsetFactor: 2,
+                polygonOffsetUnits: 2,
+                extensions: { derivatives: true },
+                uniforms: {
+                    uTarget: { value: new THREE.Vector3() },
+                    uFade: { value: 120 },
+                    uOpacity: { value: opacity },
+                    uLine: { value: new THREE.Color(0x475569) },
+                    uMajor: { value: new THREE.Color(0x64748b) },
+                    uAxis: { value: new THREE.Color(0x38bdf8) }
+                },
+                vertexShader: `
+                    varying vec2 vLocal;
+                    varying vec3 vWorld;
+                    void main() {
+                        vLocal = position.xy;
+                        vec4 w = modelMatrix * vec4(position, 1.0);
+                        vWorld = w.xyz;
+                        gl_Position = projectionMatrix * viewMatrix * w;
+                    }`,
+                fragmentShader: `
+                    varying vec2 vLocal;
+                    varying vec3 vWorld;
+                    uniform vec3 uTarget;
+                    uniform float uFade;
+                    uniform float uOpacity;
+                    uniform vec3 uLine;
+                    uniform vec3 uMajor;
+                    uniform vec3 uAxis;
+
+                    float gridLine(vec2 p, float size) {
+                        vec2 q = p / size;
+                        vec2 g = abs(fract(q - 0.5) - 0.5) / max(fwidth(q), vec2(1e-5));
+                        return 1.0 - min(min(g.x, g.y), 1.0);
+                    }
+
+                    void main() {
+                        float fw = max(fwidth(vLocal.x), fwidth(vLocal.y));
+                        float g1 = gridLine(vLocal, 1.0) * (1.0 - smoothstep(0.25, 0.6, fw));
+                        float g5 = gridLine(vLocal, 5.0) * (1.0 - smoothstep(0.25, 0.6, fw / 5.0));
+                        float g25 = gridLine(vLocal, 25.0) * (1.0 - smoothstep(0.25, 0.6, fw / 25.0));
+                        vec2 aw = abs(vLocal) / max(fwidth(vLocal), vec2(1e-5));
+                        float ax = 1.0 - min(min(aw.x, aw.y), 1.0);
+
+                        float major = max(g5, g25);
+                        float minor = g1;
+                        float fade = 1.0 - smoothstep(uFade * 0.35, uFade, distance(vWorld, uTarget));
+
+                        vec3 col = uLine;
+                        float a = minor * 0.75;
+                        col = mix(col, uMajor, step(0.001, major));
+                        a = max(a, major * 0.95);
+                        col = mix(col, uAxis, ax);
+                        a = max(a, ax * 0.95);
+
+                        a *= fade * uOpacity;
+                        if (a < 0.003) discard;
+                        gl_FragColor = vec4(col, a);
+                    }`
+            });
+            infiniteGridMats.push(mat);
+            return mat;
+        }
+
+        function createInfiniteGrids() {
+            const geo = new THREE.PlaneGeometry(4000, 4000);
+            // Mặt đất (XZ)
+            const floor = new THREE.Mesh(geo, makeInfiniteGridMaterial(0.9));
+            floor.rotation.x = -Math.PI / 2;
+            floor.renderOrder = -2;
+            floor.frustumCulled = false;
+            scene.add(floor);
+            // Mặt đứng (XY, tức mặt x–z của hệ trục hiển thị)
+            const wall = new THREE.Mesh(geo, makeInfiniteGridMaterial(0.55));
+            wall.renderOrder = -2;
+            wall.frustumCulled = false;
+            scene.add(wall);
+            // Mặt đứng thứ hai (Oyz: x = 0)
+            const side = new THREE.Mesh(geo, makeInfiniteGridMaterial(0.45));
+            side.rotation.y = Math.PI / 2;
+            side.renderOrder = -2;
+            side.frustumCulled = false;
+            scene.add(side);
+        }
+
+        // Cập nhật độ mờ theo khoảng cách camera (zoom xa thì lưới trải rộng hơn)
+        function updateInfiniteGrids() {
+            if (!infiniteGridMats.length || !controls || !camera) return;
+            const dist = camera.position.distanceTo(controls.target);
+            const fade = Math.max(80, dist * 7);
+            infiniteGridMats.forEach(m => {
+                m.uniforms.uTarget.value.copy(controls.target);
+                m.uniforms.uFade.value = fade;
+            });
+        }
+
+        function addAxisWithLabel(direction, colorInt, label, colorHex, length = 9, labelScale = 0.7, lineLength = null) {
+            const points = [new THREE.Vector3(0, 0, 0), direction.clone().multiplyScalar(lineLength || length)];
             const line = makeThickLine(points, colorInt, LINE_WIDTH.axis);
             scene.add(line);
+            axisLineObjs.push(line);
 
             const labelSprite = createAxisLabelSprite(label, colorHex, labelScale);
             labelSprite.position.copy(direction.clone().multiplyScalar(length + 0.6));
             scene.add(labelSprite);
+            axisLabels.push({ sprite: labelSprite, dir: direction.clone() });
 
             return { line, labelSprite };
         }
+      // =========================================================================
+// BỘ CÔNG CỤ DỰNG HÌNH CHUẨN (CONSTRUCTIONS: Trung trực, Vuông góc, Song song...)
+// =========================================================================
 
+// 1. Dựng đường trung trực của đoạn thẳng AB
+async function constructPerpendicularBisector() {
+    const input = await appPrompt("Dựng đường trung trực", "Nhập 2 đỉnh của đoạn thẳng (VD: A B):", "A B");
+    if (!input) return;
+    const names = input.trim().split(/\s+/);
+    const vA = verticesData.find(v => v.name === names[0]);
+    const vB = verticesData.find(v => v.name === names[1]);
+    if (!vA || !vB) {
+        await appAlert("Không tìm thấy đỉnh!");
+        return;
+    }
+
+    pushUndoSnapshot();
+    // Tìm trung điểm M của AB
+    const midPos = vA.point.clone().add(vB.point).multiplyScalar(0.5);
+    const mName = getNextVertexName();
+    const vM = addVertex(mName, midPos);
+    vM.constraint = { type: 'midpoint', aId: vA.id, bId: vB.id };
+
+    // Tạo điểm phụ thứ 2 để vẽ đường thẳng vuông góc đi qua M
+    const AB = vB.point.clone().sub(vA.point);
+    // Tìm một vector vuông góc với AB trên mặt phẳng ngang hoặc không gian
+    let perpDir = new THREE.Vector3(-AB.z, 0, AB.x);
+    if (perpDir.lengthSq() < 1e-4) perpDir = new THREE.Vector3(0, 1, 0);
+    perpDir.normalize().multiplyScalar(2.0);
+
+    const pName = getNextVertexName();
+    const vP = addVertex(pName, midPos.clone().add(perpDir));
+    
+    // Nối trung trực MP
+    addEdge(vM.id, vP.id, false, true);
+    await appAlert(`Đã dựng thành công đường trung trực qua trung điểm ${mName} của đoạn ${vA.name}${vB.name}!`);
+}
+
+// 2. Dựng đường thẳng đi qua điểm P và vuông góc với đường thẳng AB
+async function constructPerpendicularLine() {
+    const input = await appPrompt("Dựng đường vuông góc", "Nhập tên điểm P và 2 điểm của đường thẳng AB (VD: C A B):", "C A B");
+    if (!input) return;
+    const names = input.trim().split(/\s+/);
+    if (names.length !== 3) {
+        await appAlert("Cần nhập đúng 3 tên đỉnh (Điểm cần kẻ và 2 điểm của đường thẳng)!");
+        return;
+    }
+    const vP = verticesData.find(v => v.name === names[0]);
+    const vA = verticesData.find(v => v.name === names[1]);
+    const vB = verticesData.find(v => v.name === names[2]);
+    if (!vP || !vA || !vB) {
+        await appAlert("Không tìm thấy các đỉnh đã nhập!");
+        return;
+    }
+
+    pushUndoSnapshot();
+    // Tính hình chiếu vuông góc H của P lên đường thẳng AB
+    const AB = vB.point.clone().sub(vA.point);
+    const AP = vP.point.clone().sub(vA.point);
+    const lenSq = AB.lengthSq();
+    if (lenSq < 1e-6) {
+        await appAlert("Độ dài đoạn thẳng AB quá nhỏ!");
+        return;
+    }
+    const t = AP.dot(AB) / lenSq;
+    const footPos = vA.point.clone().add(AB.clone().multiplyScalar(t));
+
+    const hName = getNextVertexName();
+    const vH = addVertex(hName, footPos);
+    
+    // Nối đoạn PH (đường vuông góc)
+    addEdge(vP.id, vH.id, true, true);
+    
+    // Đánh dấu góc vuông tại H
+    const rKey = `${vA.name}_${hName}_${vP.name}`;
+    rightAngleCustomLabels[rKey] = "⊥";
+    refreshRightAngleMarkers();
+
+    await appAlert(`Đã hạ đường vuông góc ${vP.name}${hName} xuống đường thẳng ${vA.name}${vB.name}!`);
+}
+
+// 3. Dựng đường thẳng đi qua P và song song với đường thẳng AB
+async function constructParallelLine() {
+    const input = await appPrompt("Dựng đường song song", "Nhập tên điểm P và 2 điểm của đường thẳng AB (VD: C A B):", "C A B");
+    if (!input) return;
+    const names = input.trim().split(/\s+/);
+    if (names.length !== 3) {
+        await appAlert("Cần nhập đúng 3 tên đỉnh!");
+        return;
+    }
+    const vP = verticesData.find(v => v.name === names[0]);
+    const vA = verticesData.find(v => v.name === names[1]);
+    const vB = verticesData.find(v => v.name === names[2]);
+    if (!vP || !vA || !vB) {
+        await appAlert("Không tìm thấy đỉnh!");
+        return;
+    }
+
+    pushUndoSnapshot();
+    // Vector chỉ phương của AB
+    const AB = vB.point.clone().sub(vA.point);
+    // Tạo điểm Q sao cho PQ song song và bằng AB
+    const qPos = vP.point.clone().add(AB);
+    const qName = getNextVertexName();
+    const vQ = addVertex(qName, qPos);
+
+    addEdge(vP.id, vQ.id, false, true);
+    await appAlert(`Đã dựng thành công đường thẳng đi qua ${vP.name} và song song với ${vA.name}${vB.name}!`);
+}
         async function saveDrawingToFile() {
             const state = serializeState();
             const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
@@ -932,12 +1460,12 @@
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x0b1120);
 
-            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 3000);
             camera.position.set(6, 5, 8);
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setPixelRatio(window.getAppSettings ? getEffectivePixelRatio(getAppSettings().resolution) : Math.min(window.devicePixelRatio, 2));
             container.appendChild(renderer.domElement);
 
             controls = new THREE.OrbitControls(camera, renderer.domElement);
@@ -951,28 +1479,17 @@
             sun.position.set(10, 18, 12);
             scene.add(sun);
 
-            const planeGeo = new THREE.PlaneGeometry(100, 100);
+            const planeGeo = new THREE.PlaneGeometry(4000, 4000);   
             planeGeo.rotateX(-Math.PI / 2);
             const planeMat = new THREE.MeshBasicMaterial({ visible: false });
             gridPlane = new THREE.Mesh(planeGeo, planeMat);
             scene.add(gridPlane);
 
-            const gridHelper = new THREE.GridHelper(GRID_SIZE, GRID_SIZE, 0x38bdf8, 0x475569);
-            gridHelper.position.y = 0;
-            gridHelper.material.transparent = true;
-            gridHelper.material.opacity = 0.9;
-            scene.add(gridHelper);
+            createInfiniteGrids();
 
-            gridHelperZ = new THREE.GridHelper(GRID_SIZE, GRID_SIZE, 0x38bdf8, 0x475569);
-            gridHelperZ.rotation.x = Math.PI / 2;
-            gridHelperZ.position.z = 0;
-            gridHelperZ.material.transparent = true;
-            gridHelperZ.material.opacity = 0.55;
-            scene.add(gridHelperZ);
-
-            addAxisWithLabel(new THREE.Vector3(1, 0, 0), 0xef4444, 'X', '#ef4444', GRID_HALF, 1.1);
-            addAxisWithLabel(new THREE.Vector3(0, 1, 0), 0x38bdf8, 'Z', '#38bdf8', GRID_HALF, 1.1);
-            addAxisWithLabel(new THREE.Vector3(0, 0, -1), 0x22c55e, 'Y', '#22c55e', GRID_HALF, 1.1);
+            addAxisWithLabel(new THREE.Vector3(1, 0, 0), 0xef4444, 'X', '#ef4444', GRID_HALF, 1.1, 2400);
+            addAxisWithLabel(new THREE.Vector3(0, 1, 0), 0x38bdf8, 'Z', '#38bdf8', GRID_HALF, 1.1, 2400);
+            addAxisWithLabel(new THREE.Vector3(0, 0, -1), 0x22c55e, 'Y', '#22c55e', GRID_HALF, 1.1, 2400);
 
             raycaster = new THREE.Raycaster();
             mouse = new THREE.Vector2();
@@ -988,10 +1505,71 @@
                 console.error("Touch init error", e);
             }
 
-            animate();
+            // Gọi vòng lặp động tích hợp sẵn thay vì hàm animate cũ
+            enhancedAnimate();
+        }
+
+        // ==========================================
+        // CẬP NHẬT VÒNG LẶP ĐỘNG (DYNAMIC CONSTRAINTS LOOP)
+        // ==========================================
+        function updateConstrainedVertices() {
+            verticesData.forEach(v => {
+                if (!v.constraint) return;
+                
+                // 1. Ràng buộc điểm là trung điểm của 2 đỉnh khác
+                if (v.constraint.type === 'midpoint') {
+                    const p1 = verticesData.find(item => item.id === v.constraint.aId);
+                    const p2 = verticesData.find(item => item.id === v.constraint.bId);
+                    if (p1 && p2) {
+                        v.point.copy(p1.point).add(p2.point).multiplyScalar(0.5);
+                        v.mesh.position.copy(v.point);
+                    }
+                } 
+                // 2. Ràng buộc điểm hình chiếu vuông góc luôn nằm trên cạnh AB
+                else if (v.constraint.type === 'projection_on_edge') {
+                    const A = verticesData.find(item => item.id === v.constraint.aId);
+                    const B = verticesData.find(item => item.id === v.constraint.bId);
+                    const S = verticesData.find(item => item.id === v.constraint.pointId);
+                    if (A && B && S) {
+                        const AB = B.point.clone().sub(A.point);
+                        const AS = S.point.clone().sub(A.point);
+                        const lenSq = AB.lengthSq();
+                        if (lenSq > 1e-6) {
+                            let t = AS.dot(AB) / lenSq;
+                            t = Math.max(0, Math.min(1, t)); 
+                            v.point.copy(A.point).add(AB.multiplyScalar(t));
+                            v.mesh.position.copy(v.point);
+                        }
+                    }
+                }
+            });
+            if (typeof applyGeometryUpdateAfterScale === 'function') {
+                applyGeometryUpdateAfterScale();
+            }
+        }
+
+        function enhancedAnimate() {
+            requestAnimationFrame(enhancedAnimate);
+            controls.update();
+            if (paperMode) { applyPaperShear(); applyPaperStyleFrame(); }
+            updateInfiniteGrids();
+            updateAxisLabels();
+            tickEdgeAnims();
+            updateHiddenEdges();
+            
+            // Cập nhật vị trí các điểm phụ thuộc ràng buộc theo thời gian thực
+            updateConstrainedVertices();
+            
+            updateLabels();
+            renderer.render(scene, camera);
+            if (typeof inkFrame === 'function') inkFrame();
         }
 
         function setToolMode(mode) {
+            if (paperMode && mode !== 'rotate') {
+                if (typeof showBuildToast === 'function') showBuildToast('Đang ở chế độ xem 2D (giấy): dùng bảng "Vẽ trên 2D" bên trái để vẽ / viết lên hình, hoặc bấm "Về 3D" để chỉnh sửa hình.', 3500);
+                return;
+            }
             currentTool = mode;
             
             document.querySelectorAll('.tool-btn').forEach(btn => {
@@ -1073,8 +1651,9 @@
                 }
                 e.midpoint.copy(v1.point).add(v2.point).multiplyScalar(0.5);
 
-                if (e.lengthLabelEl) {
-                    e.lengthLabelEl.textContent = v1.point.distanceTo(v2.point).toFixed(1);
+                if (e.lengthLabelEl && !e.lengthLabelEl.dataset.custom) {
+                    const dist = v1.point.distanceTo(v2.point);
+                    e.lengthLabelEl.textContent = e.lengthLabelEl.dataset.auto ? formatLengthNice(dist) : dist.toFixed(1);
                 }
             });
 
@@ -1085,7 +1664,7 @@
                     const dir = vTo.point.clone().sub(vFrom.point);
                     const len = dir.length();
                     if (len > 1e-4) {
-                        dir.normalize();
+                        dir.normalize
                         vec.arrowHelper.position.copy(vFrom.point);
                         vec.arrowHelper.setDirection(dir);
                         vec.arrowHelper.setLength(len, Math.min(0.5, len * 0.3), Math.min(0.3, len * 0.18));
@@ -1141,10 +1720,117 @@
             if (ind) ind.textContent = '100%';
         }
 
-        let pointerDownPos = null;
+       let pointerDownPos = null;
         let pointerDownTime = 0;
+        let isVertexDragging = false;
+        let draggedVertex = null;
+        const vertexDragPlane = new THREE.Plane();
 
+        // 1. Tìm điểm trên cạnh theo khoảng cách màn hình 2D (Screen-Space Hit-test)
+        function findPointOnEdge(mouseScreen, rect, maxPx) {
+            const toScreen = (p) => {
+                const t = p.clone().project(camera);
+                return new THREE.Vector2((t.x * 0.5 + 0.5) * rect.width, (-(t.y * 0.5) + 0.5) * rect.height);
+            };
+
+            let best = null;
+            let bestDist = maxPx;
+
+            edgesData.forEach(e => {
+                const v1 = verticesData.find(v => v.id === e.v1Id);
+                const v2 = verticesData.find(v => v.id === e.v2Id);
+                if (!v1 || !v2) return;
+
+                const s1 = toScreen(v1.point);
+                const s2 = toScreen(v2.point);
+
+                // Chiếu tọa độ chuột lên đoạn thẳng s1-s2 trên màn hình
+                const lineVec = s2.clone().sub(s1);
+                const lenSq = lineVec.lengthSq();
+                if (lenSq < 1e-4) return;
+
+                let t = mouseScreen.clone().sub(s1).dot(lineVec) / lenSq;
+                t = Math.max(0, Math.min(1, t));
+
+                const projScreen = s1.clone().add(lineVec.multiplyScalar(t));
+                const dist = mouseScreen.distanceTo(projScreen);
+
+                // Nếu click gần trung điểm của cạnh trong phạm vi 18px thì tự hút vào chính giữa
+                if (Math.abs(t - 0.5) < 0.08) t = 0.5;
+
+                // Bỏ qua nếu bấm quá sát 2 đầu mút để tránh bị trùng đỉnh
+                const d1 = mouseScreen.distanceTo(s1);
+                const d2 = mouseScreen.distanceTo(s2);
+                if (d1 < 18 || d2 < 18) return;
+
+                if (dist < bestDist) {
+                    bestDist = dist;
+                    best = new THREE.Vector3().lerpVectors(v1.point, v2.point, t);
+                }
+            });
+
+            return best;
+        }
+
+        // 2. Xử lý chạm/click chọn đỉnh hoặc chọn cạnh
+        function handleTap(event) {
+            const rect = renderer.domElement.getBoundingClientRect();
+            let closestVertex = null;
+            let minDist = event.pointerType === 'touch' ? 30 : 18;
+
+            const mouseScreen = new THREE.Vector2(
+                event.clientX - rect.left,
+                event.clientY - rect.top
+            );
+
+            // Tìm đỉnh gần nhất
+            if (currentTool !== 'add_vertex') {
+                verticesData.forEach(v => {
+                    const tempV = v.point.clone().project(camera);
+                    const screenX = (tempV.x * 0.5 + 0.5) * rect.width;
+                    const screenY = (-(tempV.y * 0.5) + 0.5) * rect.height;
+                    const dist = Math.hypot(screenX - mouseScreen.x, screenY - mouseScreen.y);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        closestVertex = v;
+                    }
+                });
+            }
+
+            if (closestVertex) {
+                handleVertexClick(closestVertex);
+            } else if (currentTool === 'add_vertex') {
+                mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+                raycaster.setFromCamera(mouse, camera);
+
+                // 1. Ưu tiên kiểm tra click vào cạnh (Screen-space 24px)
+                const onEdge = findPointOnEdge(mouseScreen, rect, 24);
+                if (onEdge) {
+                    pushUndoSnapshot();
+                    addVertex(getNextVertexName(), onEdge);
+                    return;
+                }
+
+                // 2. Chấm trên mặt phẳng Oxy nếu không bấm trúng cạnh
+                const intersects = raycaster.intersectObject(gridPlane);
+                if (intersects.length > 0) {
+                    const p = intersects[0].point;
+                    p.y = 0;
+                    pushUndoSnapshot();
+                    addVertex(getNextVertexName(), p);
+                }
+            }
+        }
+
+        // 3. Sự kiện chuột/chạm duy nhất, hợp nhất kéo đỉnh và điều khiển
         function onPointerDown(event) {
+            const rect = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+
+            // Chế độ Kéo To/Nhỏ
             if (currentTool === 'scale') {
                 if (verticesData.length === 0) return;
                 isScalingActive = true;
@@ -1155,17 +1841,60 @@
                 return;
             }
 
-            if (currentTool === 'rotate') return;
+            // Chế độ Xoay (rotate): Cho phép click giữ vào đỉnh để kéo đỉnh trực tiếp
+            if (currentTool === 'rotate') {
+                const vertexMeshes = verticesData.map(v => v.mesh).filter(Boolean);
+                const intersects = raycaster.intersectObjects(vertexMeshes);
+                if (intersects.length > 0) {
+                    draggedVertex = verticesData.find(v => v.mesh === intersects[0].object);
+                    if (draggedVertex) {
+                        if (draggedVertex.constraint) delete draggedVertex.constraint;
+                        isVertexDragging = true;
+                        if (controls) controls.enabled = false;
+                        pushUndoSnapshot();
 
+                        const camDir = new THREE.Vector3();
+                        camera.getWorldDirection(camDir);
+                        vertexDragPlane.setFromNormalAndCoplanarPoint(camDir.negate(), draggedVertex.point);
+                        return;
+                    }
+                }
+                return; // Nếu không chạm vào đỉnh thì OrbitControls tự quay góc nhìn
+            }
+
+            // Lưu vị trí và thời gian để nhận diện tap/click cho các công cụ khác (add_vertex, add_edge...)
             pointerDownPos = { x: event.clientX, y: event.clientY };
             pointerDownTime = Date.now();
         }
 
         function onPointerMove(event) {
+            // Kéo đỉnh
+            if (isVertexDragging && draggedVertex) {
+                const rect = renderer.domElement.getBoundingClientRect();
+                mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+                raycaster.setFromCamera(mouse, camera);
+
+                const targetPos = new THREE.Vector3();
+                if (raycaster.ray.intersectPlane(vertexDragPlane, targetPos)) {
+                    draggedVertex.point.copy(targetPos);
+                    draggedVertex.mesh.position.copy(draggedVertex.point);
+
+                    if (typeof updateConstrainedVertices === 'function') {
+                        updateConstrainedVertices();
+                    }
+                    if (typeof applyGeometryUpdateAfterScale === 'function') {
+                        applyGeometryUpdateAfterScale();
+                    }
+                }
+                return;
+            }
+
+            // Kéo phóng to/thu nhỏ
             if (isScalingActive && currentTool === 'scale') {
                 const deltaY = scaleStartY - event.clientY;
                 let factor = 1 + (deltaY * 0.008);
-                factor = Math.max(0.2, Math.min( factor, 5.0 ));
+                factor = Math.max(0.2, Math.min(factor, 5.0));
 
                 initialVertexPositions.forEach(item => {
                     const offsetX = (item.origPos.x - shapeCentroid.x) * factor;
@@ -1184,9 +1913,17 @@
         }
 
         function onPointerUp(event) {
+            if (isVertexDragging) {
+                isVertexDragging = false;
+                draggedVertex = null;
+                if (controls) controls.enabled = true;
+                return;
+            }
+
             if (isScalingActive) {
                 isScalingActive = false;
                 initialVertexPositions = [];
+                return;
             }
 
             if (currentTool === 'rotate' || currentTool === 'scale') return;
@@ -1197,7 +1934,8 @@
                 const dist = Math.hypot(dx, dy);
                 const dt = Date.now() - pointerDownTime;
 
-                if (dist < 15 && dt < 400) {
+                // Xác định nhấp chuột/chạm hợp lệ
+                if (dist < 15 && dt < 500) {
                     handleTap(event);
                 }
                 pointerDownPos = null;
@@ -1300,7 +2038,8 @@
 
         async function handleVertexClick(vObj) {
             if (currentTool === 'delete') {
-                removeVertex(vObj.id);
+                try { removeVertex(vObj.id); }
+                catch (err) { console.error('Lỗi xóa đỉnh:', err); showError && showError('Lỗi xóa đỉnh: ' + err.message); }
                 return;
             }
 
@@ -1810,8 +2549,12 @@
 
         function pushUndoSnapshot() {
             redoStack.length = 0;   // có thao tác mới thì không làm lại được nữa
-            undoStack.push(serializeState());
-            if (undoStack.length > MAX_UNDO) undoStack.shift();
+            try {
+                undoStack.push(serializeState());
+                if (undoStack.length > MAX_UNDO) undoStack.shift();
+            } catch (err) {
+                console.warn('Không lưu được bước hoàn tác:', err);
+            }
             const btn = document.getElementById('btnUndo');
             if (btn) btn.disabled = false;
         }
@@ -1917,6 +2660,7 @@
 
         function undoLastAction() {
             if (undoStack.length === 0) return;
+            noteUndoAfterAi();
             redoStack.push(serializeState());
             const prevState = undoStack.pop();
             restoreState(prevState);
@@ -2067,19 +2811,59 @@
         }
 
         async function renameVertex(vId) {
-            const v = verticesData.find(v => v.id === vId);
-            if (!v) return;
-            const newName = await appPrompt('Đổi tên đỉnh', 'Nhập tên mới cho đỉnh:', v.name);
-            if (newName === null) return;
-            const trimmed = newName.trim();
-            if (!trimmed) return;
-            pushUndoSnapshot();
-            v.name = trimmed;
-            v.labelEl.textContent = trimmed;
-            if (v.mesh) v.mesh.material.color.setHex(trimmed === 'S' ? 0xf43f5e : 0x38bdf8);
-            updateUI();
-        }
+            // Tìm đỉnh theo ID hoặc theo chuỗi String
+            const v = verticesData.find(item => String(item.id) === String(vId));
+            if (!v) {
+                console.error("Không tìm thấy đỉnh có id:", vId);
+                return;
+            }
+            
+            const oldName = v.name;
+            const newName = await appPrompt('Đổi tên đỉnh', `Nhập tên mới cho đỉnh "${oldName}":`, oldName);
+            
+            if (newName === null) return; // Người dùng ấn Hủy
+            
+            const trimmed = String(newName).trim().toUpperCase();
+            if (!trimmed || trimmed === oldName) return;
 
+            // Kiểm tra xem tên mới đã có đỉnh nào khác dùng chưa
+            const isDuplicate = verticesData.some(item => item.id !== v.id && item.name.toUpperCase() === trimmed);
+            if (isDuplicate) {
+                await appAlert(`Tên đỉnh "${trimmed}" đã tồn tại! Vui lòng chọn chữ cái khác.`);
+                return;
+            }
+
+            pushUndoSnapshot();
+
+            // Cập nhật tên mới
+            v.name = trimmed;
+            if (v.labelEl) {
+                v.labelEl.textContent = trimmed;
+            }
+            if (v.mesh && v.mesh.material) {
+                v.mesh.material.color.setHex(trimmed === 'S' ? 0xf43f5e : 0x38bdf8);
+            }
+
+            // Đồng bộ sang các góc vuông liên quan
+            const updatedAngles = {};
+            for (let key in rightAngleCustomLabels) {
+                const parts = key.split('_');
+                if (parts.length === 3) {
+                    const p0 = (parts[0] === oldName) ? trimmed : parts[0];
+                    const p1 = (parts[1] === oldName) ? trimmed : parts[1];
+                    const p2 = (parts[2] === oldName) ? trimmed : parts[2];
+                    updatedAngles[`${p0}_${p1}_${p2}`] = rightAngleCustomLabels[key];
+                } else {
+                    updatedAngles[key] = rightAngleCustomLabels[key];
+                }
+            }
+            for (let k in rightAngleCustomLabels) delete rightAngleCustomLabels[k];
+            Object.assign(rightAngleCustomLabels, updatedAngles);
+
+            refreshRightAngleMarkers();
+            renderEdgesList();
+            updateUI(true);
+        }
         function addEdge(v1Id, v2Id, showLength = false, animated = false) {
             const existing = edgesData.find(e => (e.v1Id === v1Id && e.v2Id === v2Id) || (e.v1Id === v2Id && e.v2Id === v1Id));
             if (existing) return;
@@ -2223,12 +3007,21 @@
         }
 
         function removeVertex(vId) {
-            const vIndex = verticesData.findIndex(v => v.id === vId);
+            const vIndex = verticesData.findIndex(v => String(v.id) === String(vId));
             if (vIndex === -1) return;
 
             pushUndoSnapshot();
 
             const vObj = verticesData[vIndex];
+            vId = vObj.id;
+
+            // Các điểm ràng buộc phụ thuộc đỉnh này (trung điểm, hình chiếu...) trở thành điểm tự do
+            verticesData.forEach(other => {
+                const c = other.constraint;
+                if (c && (c.aId === vId || c.bId === vId || c.pointId === vId)) {
+                    delete other.constraint;
+                }
+            });
 
             for (let i = edgesData.length - 1; i >= 0; i--) {
                 if (edgesData[i].v1Id === vId || edgesData[i].v2Id === vId) {
@@ -2438,7 +3231,9 @@
             const mat = edge.lineMesh.material;
             if (!edge._hidden && !mat.dashed) return;
             const target = (typeof controls !== 'undefined' && controls && controls.target) ? controls.target : new THREE.Vector3();
-            const dist = Math.max(camera.position.distanceTo(target), 1);
+            const dist = paperMode
+                ? Math.max(((camera.top - camera.bottom) / camera.zoom) * 0.9, 1)
+                : Math.max(camera.position.distanceTo(target), 1);
             mat.dashSize = dist * 0.028;
             mat.gapSize = dist * 0.022;
             const base = edge.highlighted ? LINE_WIDTH.edgeHighlight : LINE_WIDTH.edge;
@@ -2452,6 +3247,47 @@
         }
 
         const HIDDEN_EDGE_MARGIN = 0.15;   // tăng số này => càng nhiều cạnh được giữ nét liền
+
+        // Điểm nằm bên trong (không nằm trên biên) một đa giác lồi cho bởi các đỉnh theo thứ tự
+        function pointInConvexFace(p, poly) {
+            if (poly.length < 3) return false;
+            const n = poly[1].clone().sub(poly[0]).cross(poly[2].clone().sub(poly[0]));
+            if (n.length() < 1e-9) return false;
+            n.normalize();
+            if (Math.abs(n.dot(p.clone().sub(poly[0]))) > 1e-3) return false;
+            let sign = 0;
+            for (let i = 0; i < poly.length; i++) {
+                const a = poly[i], b = poly[(i + 1) % poly.length];
+                const c = b.clone().sub(a).cross(p.clone().sub(a)).dot(n);
+                if (Math.abs(c) < 1e-6) return false;
+                const sg = c > 0 ? 1 : -1;
+                if (sign === 0) sign = sg; else if (sg !== sign) return false;
+            }
+            return true;
+        }
+
+        // Cạnh không thuộc biên mặt nào và có đầu mút rơi vào bên trong một mặt (VD đường cao SO) => vẽ nét đứt
+        function isInteriorEdge(e) {
+            if (!facesData.length) return false;
+            const v1 = verticesData.find(v => v.id === e.v1Id), v2 = verticesData.find(v => v.id === e.v2Id);
+            if (!v1 || !v2) return false;
+            for (const f of facesData) {
+                const n = f.vIds.length;
+                for (let i = 0; i < n; i++) {
+                    const a = f.vIds[i], b = f.vIds[(i + 1) % n];
+                    if ((a === e.v1Id && b === e.v2Id) || (a === e.v2Id && b === e.v1Id)) return false;
+                }
+            }
+            for (const f of facesData) {
+                const pts = f.vIds.map(id => verticesData.find(v => v.id === id)).filter(Boolean).map(v => v.point);
+                if (pts.length < 3) continue;
+                for (const v of [v1, v2]) {
+                    if (f.vIds.includes(v.id)) continue;
+                    if (pointInConvexFace(v.point, pts)) return true;
+                }
+            }
+            return false;
+        }
 
         function updateHiddenEdges() {
             if (!edgesData.length) return;
@@ -2480,7 +3316,7 @@
                     fc.multiplyScalar(1 / pts.length);
                     if (n.dot(fc.clone().sub(cen)) < 0) n.negate();   // hướng ra ngoài khối
                     // Ưu tiên hiện nét liền: mặt chỉ cần gần như nhìn nghiêng cũng tính là "đang thấy"
-                    const toCam = camera.position.clone().sub(fc).normalize();
+                    const toCam = paperMode ? PAPER_VIEW_DIR.clone() : camera.position.clone().sub(fc).normalize();
                     faceInfos.push({ vIds: f.vIds, front: n.dot(toCam) > -HIDDEN_EDGE_MARGIN });
                 });
             }
@@ -2489,6 +3325,11 @@
                 if (edgeAnims.some(a => a.edge === e)) return;   // đang chạy hiệu ứng vẽ
 
                 let hidden = false;
+                if (hiddenEdgeDashed) {
+                    const ikey = facesData.length + '|' + edgesData.length + '|' + verticesData.length;
+                    if (e._intKey !== ikey) { e._interior = isInteriorEdge(e); e._intKey = ikey; }
+                    if (e._interior) hidden = true;
+                }
                 if (faceInfos.length >= 2) {
                     let adj = 0, anyFront = false;
                     faceInfos.forEach(fi => {
@@ -2502,7 +3343,7 @@
                             }
                         }
                     });
-                    hidden = adj >= 2 && !anyFront;
+                    hidden = hidden || (adj >= 2 && !anyFront);
                 }
 
                 const lenChanged = hidden && Math.abs((e._dashLen || 0) - edgeLength(e)) > 1e-4;
@@ -2711,7 +3552,6 @@
             setToolMode('rotate');
         }
 
-        const APP_GROQ_KEY = (typeof window !== 'undefined' && window.APP_CONFIG && window.APP_CONFIG.GROQ_API_KEY) ? window.APP_CONFIG.GROQ_API_KEY : null;
         const GROQ_API_KEY_DRAW = (typeof window !== "undefined" && window.APP_CONFIG && (window.APP_CONFIG.GROQ_KEY_DRAW_3D || window.APP_CONFIG.GROQ_API_KEY)) || "";
         const GROQ_API_KEY_CHAT = (typeof window !== "undefined" && window.APP_CONFIG && (window.APP_CONFIG.GROQ_KEY_CHAT_3D || window.APP_CONFIG.GROQ_API_KEY)) || "";
         let aiHistory = []; 
@@ -2749,17 +3589,13 @@
                             // nên dùng JSON prompt rõ ràng thay cho response_format.
                         })
                     });
-                    const data = await response.json();
+                    const data = (await response.json()) || {};
                     const errMsg = (data.error && data.error.message) || "";
                     const isRateLimited = data.error && response.status === 429;
                     const isOverloaded = data.error && !isRateLimited && (
                         response.status === 503 ||
                         /overloaded|unavailable/i.test(errMsg)
                     );
-
-                    if (!data || !Array.isArray(data.choices)) {
-                        throw new Error("AI không trả về dữ liệu hợp lệ. Vui lòng thử lại.");
-                    }
 
                     if (isRateLimited) {
                         const retryAfterHeader = response.headers.get('retry-after');
@@ -2781,6 +3617,9 @@
                     if (data.error) {
                         throw new Error(errMsg || "Lỗi API");
                     }
+                    if (!data || !Array.isArray(data.choices)) {
+                        throw new Error("AI không trả về dữ liệu hợp lệ. Vui lòng thử lại.");
+                    }
                     return data;
                 } catch (err) {
                     lastErr = err;
@@ -2794,6 +3633,154 @@
         }
 
         let formulaChatHistory = [];
+
+        // ==========================================
+        // LỊCH SỬ CHAT AI (lưu trong trình duyệt)
+        // ==========================================
+        const CHAT_HISTORY_KEY = 'chatHistory_3d';
+        const CHAT_HISTORY_MAX = 60;
+        let chatGreetingHTML = null;
+
+        function saveChatHistory() {
+            try {
+                if (formulaChatHistory.length > CHAT_HISTORY_MAX) {
+                    formulaChatHistory = formulaChatHistory.slice(-CHAT_HISTORY_MAX);
+                }
+                localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(formulaChatHistory));
+            } catch (e) {}
+        }
+
+        function loadChatHistory() {
+            const container = document.getElementById('formulaChatMessages');
+            if (container && chatGreetingHTML === null) chatGreetingHTML = container.innerHTML;
+            let saved = [];
+            try { saved = JSON.parse(localStorage.getItem(CHAT_HISTORY_KEY) || '[]'); } catch (e) { saved = []; }
+            if (!Array.isArray(saved) || saved.length === 0) return;
+            formulaChatHistory = saved.filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string');
+            formulaChatHistory.forEach(m => appendFormulaMessage(m.content, m.role === 'user' ? 'user' : 'model'));
+        }
+
+        async function clearChatHistory() {
+            const ok = await appConfirm('Xóa toàn bộ lịch sử chat với AI?');
+            if (!ok) return;
+            formulaChatHistory = [];
+            try { localStorage.removeItem(CHAT_HISTORY_KEY); } catch (e) {}
+            const container = document.getElementById('formulaChatMessages');
+            if (container && chatGreetingHTML !== null) container.innerHTML = chatGreetingHTML;
+        }
+
+        // ==========================================
+        // LỊCH SỬ LỆNH Ở Ô VẼ AI
+        // ==========================================
+        const CMD_HISTORY_KEY = 'cmdHistory_3d';
+        const CMD_HISTORY_MAX = 30;
+        let cmdHistory = [];
+        let cmdHistIdx = -1;
+        let cmdHistDraft = '';
+
+        function loadCommandHistory() {
+            try {
+                const saved = JSON.parse(localStorage.getItem(CMD_HISTORY_KEY) || '[]');
+                cmdHistory = Array.isArray(saved) ? saved.filter(s => typeof s === 'string') : [];
+            } catch (e) { cmdHistory = []; }
+        }
+
+        function persistCommandHistory() {
+            try { localStorage.setItem(CMD_HISTORY_KEY, JSON.stringify(cmdHistory)); } catch (e) {}
+        }
+
+        function recordCommand(text) {
+            text = String(text || '').trim();
+            if (!text) return;
+            cmdHistory = cmdHistory.filter(c => c !== text);
+            cmdHistory.unshift(text);
+            if (cmdHistory.length > CMD_HISTORY_MAX) cmdHistory.length = CMD_HISTORY_MAX;
+            cmdHistIdx = -1;
+            persistCommandHistory();
+            renderCommandHistory();
+        }
+
+        function renderCommandHistory() {
+            const list = document.getElementById('cmdHistoryList');
+            if (!list) return;
+            list.innerHTML = '';
+            if (cmdHistory.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'text-center text-xs text-slate-500 py-4';
+                empty.textContent = 'Chưa có lệnh nào.';
+                list.appendChild(empty);
+                return;
+            }
+            cmdHistory.forEach((cmd, i) => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center gap-2 px-2 py-1.5 rounded-lg bg-slate-800/50 hover:bg-slate-700/60 text-xs';
+                const use = document.createElement('button');
+                use.type = 'button';
+                use.className = 'flex-1 text-left font-mono text-slate-200 truncate';
+                use.title = cmd;
+                use.textContent = cmd;
+                use.onclick = () => {
+                    const input = document.getElementById('aiCommandInput');
+                    input.value = cmd;
+                    toggleCommandHistory(false);
+                    input.focus();
+                };
+                const del = document.createElement('button');
+                del.type = 'button';
+                del.className = 'text-slate-500 hover:text-rose-400 shrink-0';
+                del.title = 'Xóa lệnh này';
+                del.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+                del.onclick = () => {
+                    cmdHistory.splice(i, 1);
+                    persistCommandHistory();
+                    renderCommandHistory();
+                };
+                row.appendChild(use);
+                row.appendChild(del);
+                list.appendChild(row);
+            });
+        }
+
+        function toggleCommandHistory(force) {
+            const panel = document.getElementById('cmdHistoryPanel');
+            if (!panel) return;
+            const open = typeof force === 'boolean' ? force : panel.classList.contains('hidden');
+            panel.classList.toggle('hidden', !open);
+            if (open) renderCommandHistory();
+        }
+
+        async function clearCommandHistory() {
+            const ok = await appConfirm('Xóa toàn bộ lịch sử lệnh vẽ?');
+            if (!ok) return;
+            cmdHistory = [];
+            cmdHistIdx = -1;
+            persistCommandHistory();
+            renderCommandHistory();
+        }
+
+        window.addEventListener('load', () => {
+            loadChatHistory();
+            loadCommandHistory();
+            renderCommandHistory();
+            const input = document.getElementById('aiCommandInput');
+            if (!input) return;
+            // Bấm ↑ / ↓ trong ô nhập để lục lại các lệnh đã vẽ
+            input.addEventListener('keydown', (e) => {
+                if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+                if (cmdHistory.length === 0) return;
+                e.preventDefault();
+                if (e.key === 'ArrowUp') {
+                    if (cmdHistIdx === -1) cmdHistDraft = input.value;
+                    if (cmdHistIdx < cmdHistory.length - 1) cmdHistIdx++;
+                    input.value = cmdHistory[cmdHistIdx];
+                } else {
+                    if (cmdHistIdx === -1) return;
+                    cmdHistIdx--;
+                    input.value = cmdHistIdx === -1 ? cmdHistDraft : cmdHistory[cmdHistIdx];
+                }
+                input.selectionStart = input.selectionEnd = input.value.length;
+            });
+        });
 
         function toggleFormulaChat() {
             document.getElementById('formulaChatPanel').classList.toggle('hidden');
@@ -2926,7 +3913,7 @@ QUY TẮC BẮT BUỘC:
 4. TUYỆT ĐỐI KHÔNG DÙNG MARKDOWN (không dùng **, *, #, - gạch đầu dòng).`;
 
             try {
-                const messages = [{ role: "system", content: systemPrompt }, ...formulaChatHistory];
+                const messages = [{ role: "system", content: systemPrompt }, ...formulaChatHistory.slice(-8)];
                 const data = await callGroqWithRetry(GROQ_API_KEY_CHAT, messages, { jsonMode: false, temperature: 0.2 });
                 
                 let replyText = data.choices[0].message.content;
@@ -2934,14 +3921,133 @@ QUY TẮC BẮT BUỘC:
 
                 formulaChatHistory.push({ role: "assistant", content: replyText });
                 loadingBubble.textContent = replyText;
+                saveChatHistory();
             } catch (err) {
                 console.error(err);
+                logAiIssue('Lỗi chat AI: ' + err.message, question, '');
                 loadingBubble.textContent = "Lỗi: " + err.message;
                 loadingBubble.className = loadingBubble.className + ' text-rose-300 border-rose-500/40';
                 formulaChatHistory.pop();
             } finally {
                 btn.disabled = false;
             }
+        }
+
+        // ==========================================
+        // NHẬT KÝ CÁC CÂU AI LÀM CHƯA TỐT (lưu trong trình duyệt, tải về file .txt để cải thiện app)
+        // ==========================================
+        const AI_LOG_KEY = 'aiIssueLog_3d';
+        const AI_LOG_TITLE = '3D';
+        const AI_LOG_MAX = 200;
+        let aiLastRawReply = '';
+        let lastAiAction = null;
+
+        function readAiLog() {
+            try {
+                const a = JSON.parse(localStorage.getItem(AI_LOG_KEY) || '[]');
+                return Array.isArray(a) ? a : [];
+            } catch (e) { return []; }
+        }
+
+        function updateAiLogBadge() {
+            const el = document.getElementById('aiLogCount');
+            if (el) { const n = readAiLog().length; el.textContent = n ? String(n) : ''; }
+        }
+
+        function aiLogNotify(msg) {
+            try {
+                if (typeof showBuildToast === 'function') showBuildToast(msg, 2500);
+                else if (typeof showInfoToast === 'function') showInfoToast('<i class="fa-solid fa-flag text-amber-400"></i> ' + msg);
+            } catch (e) {}
+        }
+
+        function logAiIssue(reason, prompt, reply) {
+            try {
+                const arr = readAiLog();
+                arr.push({
+                    time: new Date().toISOString(),
+                    reason: String(reason || ''),
+                    prompt: String(prompt || ''),
+                    reply: String(reply === undefined ? aiLastRawReply : reply || '').slice(0, 4000)
+                });
+                while (arr.length > AI_LOG_MAX) arr.shift();
+                localStorage.setItem(AI_LOG_KEY, JSON.stringify(arr));
+                updateAiLogBadge();
+            } catch (e) { console.error(e); }
+        }
+
+        // Người dùng tự bấm cờ khi thấy AI vẽ sai / chưa đúng ý
+        function reportLastAiIssue() {
+            if (!lastAiAction) { aiLogNotify('Chưa có lệnh AI nào để báo.'); return; }
+            logAiIssue('Người dùng báo AI vẽ sai / chưa đúng ý', lastAiAction.prompt, lastAiAction.reply);
+            lastAiAction.undoLogged = true;
+            aiLogNotify('Đã ghi vào nhật ký: "' + lastAiAction.prompt.slice(0, 40) + '"');
+        }
+
+        // Hoàn tác ngay sau khi AI vẽ => nhiều khả năng AI vẽ chưa đúng
+        function noteUndoAfterAi() {
+            if (lastAiAction && !lastAiAction.undoLogged && Date.now() - lastAiAction.time < 30000) {
+                lastAiAction.undoLogged = true;
+                logAiIssue('Người dùng hoàn tác ngay sau khi AI vẽ', lastAiAction.prompt, lastAiAction.reply);
+            }
+        }
+
+        async function downloadAiLog() {
+            const arr = readAiLog();
+            if (arr.length === 0) { aiLogNotify('Nhật ký đang trống.'); return; }
+            const lines = ['NHẬT KÝ CÁC CÂU AI CHƯA TỐT (' + AI_LOG_TITLE + ') - ' + arr.length + ' mục', ''];
+            arr.forEach((it, i) => {
+                lines.push('[' + (i + 1) + '] ' + it.time);
+                lines.push('Lý do: ' + it.reason);
+                lines.push('Câu lệnh: ' + it.prompt);
+                if (it.reply) lines.push('AI trả về: ' + it.reply);
+                lines.push('');
+            });
+            const text = lines.join('\n');
+            const stamp = new Date().toISOString().slice(0, 10);
+            const filename = 'nhat-ky-ai-' + AI_LOG_TITLE.toLowerCase() + '-' + stamp + '.txt';
+            if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() && typeof saveJsonFile === 'function') {
+                await saveJsonFile(filename, text);
+                return;
+            }
+            const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 3000);
+        }
+
+        window.addEventListener('load', updateAiLogBadge);
+
+        // Kiểm tra nhanh kết quả AI trả về có vô lý không (không chặn vẽ, chỉ ghi nhật ký)
+        function checkShapeSanity(data) {
+            const reasons = [];
+            const verts = Array.isArray(data.vertices) ? data.vertices : [];
+            const names = new Set(verts.map(v => v && v.name));
+            if (verts.length === 0) reasons.push('AI không trả về đỉnh nào');
+            verts.forEach(v => {
+                if (!v || !Array.isArray(v.pos) || v.pos.length !== 3 || v.pos.some(n => typeof n !== 'number' || !isFinite(n))) {
+                    reasons.push('Đỉnh ' + (v && v.name) + ' có tọa độ không hợp lệ');
+                }
+            });
+            const seen = {};
+            verts.forEach(v => {
+                if (!v || !Array.isArray(v.pos)) return;
+                const k = v.pos.map(n => Number(n).toFixed(4)).join(',');
+                if (seen[k] && seen[k] !== v.name) reasons.push('Đỉnh ' + v.name + ' trùng vị trí với đỉnh ' + seen[k]);
+                else seen[k] = v.name;
+            });
+            (Array.isArray(data.edges) ? data.edges : []).forEach(e => {
+                if (!Array.isArray(e) || !names.has(e[0]) || !names.has(e[1])) {
+                    reasons.push('Cạnh ' + JSON.stringify(e) + ' dùng đỉnh không tồn tại');
+                }
+            });
+            if (verts.length >= 3 && (!Array.isArray(data.edges) || data.edges.length === 0)) reasons.push('Có đỉnh nhưng không có cạnh nào');
+            return reasons;
         }
 
         async function sendAiCommand() {
@@ -2954,6 +4060,7 @@ QUY TẮC BẮT BUỘC:
             }
             btn.disabled = true;
             btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Xử lý...`;
+            aiLastRawReply = '';
             const currentVertices = verticesData.map(v => ({ name: v.name, pos: threeToAiPos(v.point) }));
             const currentEdges = edgesData.map(e => {
                 const v1 = verticesData.find(v => v.id === e.v1Id)?.name;
@@ -2979,12 +4086,27 @@ QUY TẮC BẮT BUỘC:
                 return [v1, v2, colorHex];
             }).filter(e => e[0] && e[1]);
 
+            const currentEdgeLengths = edgesData.filter(e => e.lengthLabelEl).map(e => {
+                const v1 = verticesData.find(v => v.id === e.v1Id)?.name;
+                const v2 = verticesData.find(v => v.id === e.v2Id)?.name;
+                return [v1, v2];
+            }).filter(e => e[0] && e[1]);
+
+            const currentAngles = anglesData.map(a => {
+                const n1 = verticesData.find(v => v.id === a.v1Id)?.name;
+                const nc = verticesData.find(v => v.id === a.vertexId)?.name;
+                const n2 = verticesData.find(v => v.id === a.v2Id)?.name;
+                return [n1, nc, n2];
+            }).filter(a => a[0] && a[1] && a[2]);
+
             const currentStateJSON = JSON.stringify({ 
                 vertices: currentVertices, 
                 edges: currentEdges, 
                 circles: currentCircles,
                 vectors: currentVectors,
-                highlights: currentHighlights 
+                highlights: currentHighlights,
+                edgeLengths: currentEdgeLengths,
+                angles: currentAngles
             });
 
             const systemPrompt = `Bạn là chuyên gia hình học không gian 3D.
@@ -3003,14 +4125,40 @@ Quy tắc toán học bắt buộc:
    - "highlights": luôn để [] rỗng trừ khi có từ "highlight" hoặc "tô màu cạnh".
    - "equalEdges": luôn để [] rỗng trừ khi người dùng yêu cầu ký hiệu/đánh dấu cạnh bằng nhau.
    - "rightAngleLabels": luôn để {} rỗng trừ khi người dùng yêu cầu ký hiệu góc vuông.
+   - "edgeLengths" và "angles": để [] rỗng trừ các trường hợp ở quy tắc 9.
 3. QUY TẮC VECTOR:
    - Khi người dùng yêu cầu vẽ vector (VD: "vẽ vector SA", "vector AB", mũi tên →), thêm vào "vectors": [["S", "A"]]. Bắt buộc 2 đỉnh đầu mút phải có trong "vertices".
 4. KÝ TỰ CĂN & MŨ (√, ∛, x^, ², ³...): Tính toán chính xác ra số thập phân.
 5. KÝ HIỆU CẠNH BẰNG NHAU (EQUAL MARKS): "equalEdges": [ [["A","B"], ["A","C"], 1, "a"] ].
 6. KÝ HIỆU GÓC VUÔNG: "rightAngleLabels": { "S_A_B": "H" }.
 7. HIGHLIGHT CẠNH: Để mảng "highlights": [] rỗng, tuyệt đối không tự động highlight bất kỳ cạnh nào trừ khi người dùng ghi rõ từ "highlight" hoặc "tô màu cạnh".
-8. ĐÁY TỨ GIÁC MẶC ĐỊNH: Đáy là tứ giác lồi thường không đặc biệt trừ khi người dùng nêu rõ hình vuông, hình chữ nhật...
-9. Cấu trúc JSON trả về bắt buộc:
+8. DỰNG ĐÁY HÌNH CHÓP / LĂNG TRỤ (đáy nằm trong mặt phẳng z = 0, đỉnh liệt kê theo thứ tự đi vòng quanh đáy, nối các cạnh đáy theo đúng thứ tự đó):
+   - Nếu người dùng nêu đáy ĐẶC BIỆT thì BẮT BUỘC dựng bằng tọa độ CHÍNH XÁC để đúng mọi tính chất (vuông góc, song song, bằng nhau). Kích thước mặc định khi đề không cho: cạnh 4, chiều cao chóp 5, góc nhọn 60°. Mẫu tọa độ [x, y, z] (z = 0 cho đỉnh đáy):
+     * Hình vuông ABCD cạnh a: A[0,0,0], B[a,0,0], C[a,a,0], D[0,a,0].
+     * Hình chữ nhật ABCD (AB = a, AD = b): A[0,0,0], B[a,0,0], C[a,b,0], D[0,b,0].
+     * Hình thoi ABCD cạnh a, góc A = α: A[0,0,0], B[a,0,0], D[a·cosα, a·sinα, 0], C = B + D − A.
+     * Hình bình hành ABCD (AB = a, AD = b, góc A = α): A[0,0,0], B[a,0,0], D[b·cosα, b·sinα, 0], C = B + D − A.
+     * Hình thang vuông tại A và D (AB // CD, AD vuông góc AB): A[0,0,0], B[AB,0,0], D[0,h,0], C[CD,h,0]. Hình thang vuông tại A và B (AD // BC): A[0,0,0], B[0,h,0]... luôn chọn tọa độ sao cho đúng cặp cạnh song song và đúng các góc vuông được nêu.
+     * Hình thang cân (AB // CD, AB là đáy lớn): A[0,0,0], B[AB,0,0], C[AB/2 + CD/2, h, 0], D[AB/2 − CD/2, h, 0].
+     * Tam giác đều cạnh a: A[0,0,0], B[a,0,0], C[a/2, a·√3/2, 0]. Tam giác vuông tại A: A[0,0,0], B[AB,0,0], C[0,AC,0]. Tam giác cân tại A: A ở trên trung trực của BC.
+     * Đa giác đều (chóp đều, lăng trụ đều): đặt tâm O[0,0,0], các đỉnh nằm trên đường tròn tâm O bán kính R, cách đều nhau về góc.
+   - Vị trí đỉnh S: chóp đều -> S nằm ngay trên tâm đáy O: S[xO, yO, h]. Chóp có cạnh bên SA vuông góc đáy -> S[xA, yA, h]. Chóp có (SAB) vuông góc đáy... -> S nằm trong mặt phẳng đó, chân đường cao nằm trên cạnh AB (đặt đỉnh chân H khi cần).
+   - Nếu người dùng KHÔNG nêu đáy đặc biệt (chỉ nói "tứ giác") thì dùng tứ giác lồi bất kỳ.
+   - Trước khi trả JSON, tự kiểm tra lại: đáy đúng loại (các cạnh bằng nhau / song song / vuông góc đúng yêu cầu), mọi đỉnh đáy có z = 0, S có z > 0, đã nối đủ cạnh đáy và các cạnh bên SA, SB, ...
+9. GHI ĐỘ DÀI CẠNH & SỐ ĐO GÓC LÊN HÌNH (CHỈ KHI ĐƯỢC YÊU CẦU, MẶC ĐỊNH ĐỂ [] RỖNG):
+   - "edgeLengths": ghi độ dài lên cạnh. CHỈ điền khi người dùng (a) NÊU độ dài của cạnh nào đó trong câu lệnh (VD "SA = 3", "AB = a", "SA vuông góc đáy và SA = a√2"), HOẶC (b) yêu cầu ghi/hiển thị độ dài cạnh nào đó ("ghi độ dài SA"), HOẶC (c) yêu cầu vẽ diện tích (xem bên dưới).
+     * Cạnh nào được nêu TÊN cùng độ dài (hoặc được yêu cầu ghi) thì chỉ ghi ĐÚNG cạnh đó. TUYỆT ĐỐI KHÔNG ghi độ dài cho các cạnh không được nêu tên (kể cả cạnh đáy, cạnh bên, cạnh bằng nhau do tính chất hình). Chỉ khi người dùng nói rõ "tất cả các cạnh" mới ghi mọi cạnh. Không nêu độ dài/không yêu cầu gì thì để [].
+     * Diện tích: khi người dùng yêu cầu vẽ/ghi DIỆN TÍCH của một hình, tự xác định các đoạn cần dùng để tính và ghi độ dài đúng các đoạn đó, không ghi thừa. VD: tam giác -> 3 cạnh (+ đường cao nếu cần); hình chữ nhật/bình hành -> 2 cạnh kề (+ đường cao); hình thang -> 2 đáy + đường cao. Nếu đoạn cần dùng (đường cao...) chưa là cạnh thì thêm đỉnh chân (đúng tọa độ) và cạnh đó. Ngoài các trường hợp trên, KHÔNG tự thêm đỉnh/cạnh phụ, TRỪ đoạn thẳng mà người dùng nêu tên (dòng ngay dưới).
+     * Khi người dùng nêu một đoạn thẳng cụ thể (VD "chiều cao SO", "đường cao SH", "đoạn MN"...) mà đoạn đó chưa có trên hình: BẮT BUỘC thêm đỉnh còn thiếu (đúng tọa độ) vào "vertices" và thêm cạnh đó vào "edges" để VẼ ra đoạn đó. VD chóp đều S.ABCD: O là tâm đáy (giao hai đường chéo), S nằm ngay trên O, nên phải có đỉnh O và cạnh ["S","O"]; KHÔNG vẽ thêm đường chéo AC, BD trừ khi được yêu cầu.
+     * Hệ thống tự tính số từ tọa độ nên với độ dài là số có thể không cần nhãn: [["A","B"]]. Khi độ dài là chữ/ký hiệu (a, 2a, a√2, a√3/2...) thì BẮT BUỘC kèm nhãn đúng như người dùng nêu: [["S","A"], "a√2"]. Mỗi phần tử có dạng [["Đỉnh1","Đỉnh2"], "nhãn tùy chọn"].
+   - "angles": CHỈ khi người dùng yêu cầu rõ việc ghi số đo góc KHÔNG vuông (VD "ghi góc SBA"), ghi đúng góc được nêu, không ghi góc nào khác. Mỗi phần tử [điểm đầu, ĐỈNH GÓC, điểm cuối], đỉnh góc ở vị trí GIỮA, VD [["S","B","A"]]; có thể thêm nhãn thứ 4 như "60°" hoặc "α". Hệ thống tự tính số đo. Với góc giữa đường thẳng và mặt phẳng: thêm đỉnh hình chiếu + cạnh hình chiếu rồi ghi góc giữa đường thẳng và hình chiếu đó.
+   - TUYỆT ĐỐI không đưa góc vuông vào "angles"; góc vuông chỉ dùng "rightAngleLabels".
+   - Nếu trạng thái hiện tại đã có "edgeLengths"/"angles" và người dùng không yêu cầu xóa thì phải GIỮ NGUYÊN chúng trong JSON trả về.
+   10. QUY TẮC RÀNG BUỘC HÌNH HỌC (DYNAMIC CONSTRAINTS):
+   - Khi người dùng yêu cầu vẽ một điểm đặc biệt phụ thuộc vào điểm khác (VD: "vẽ trung điểm M của đoạn AB", "lấy M là trung điểm của AB"):
+     * AI trả về đỉnh M trong mảng "vertices" và thêm thuộc tính constraint vào JSON (hoặc cấu trúc bổ trợ) dạng: {"name": "M", "pos": [x,y,z], "constraint": {"type": "midpoint", "a": "A", "b": "B"}}
+     * Các loại ràng buộc hỗ trợ: {"type": "midpoint", "a": "A", "b": "B"} hoặc {"type": "projection_on_edge", "a": "A", "b": "B", "point": "S"}
+11. Cấu trúc JSON trả về bắt buộc:
 {
   "vertices": [{"name": "O", "pos": [0, 0, 0]}],
   "edges": [["A", "B"]],
@@ -3018,27 +4166,381 @@ Quy tắc toán học bắt buộc:
   "vectors": [["A", "B"]],
   "highlights": [],
   "equalEdges": [ [["A","B"], ["A","C"], 1, "a"] ],
-  "rightAngleLabels": { "S_A_B": "⊥" }
+  "rightAngleLabels": { "S_A_B": "⊥" },
+  "edgeLengths": [],
+  "angles": []
 }`;
+
 
             const userMessage = `Trạng thái bản vẽ hiện tại: ${currentStateJSON}\nYêu cầu vẽ: ${promptText}. Hãy tính toán và xuất ra JSON đầy đủ.`;
             aiHistory.push({ role: "user", content: userMessage });
+            // Giữ tối đa 2 lượt trước + lệnh hiện tại (số phần tử luôn lẻ nên vẫn bắt đầu bằng "user")
+            if (aiHistory.length > 5) aiHistory.splice(0, aiHistory.length - 5);
             try {
                 const messages = [{ role: "system", content: systemPrompt }, ...aiHistory];
                 const data = await callGroqWithRetry(GROQ_API_KEY_DRAW, messages, { jsonMode: true, temperature: 0.1 });
                 let replyText = data.choices[0].message.content;
+                aiLastRawReply = replyText;
                 aiHistory.push({ role: "assistant", content: replyText });
                 const shapeData = JSON.parse(replyText);
+                const sanityIssues = checkShapeSanity(shapeData);
+                if (sanityIssues.length) logAiIssue('Kết quả AI nghi sai: ' + sanityIssues.join('; '), promptText, replyText);
+                lastAiAction = { prompt: promptText, reply: replyText, time: Date.now(), undoLogged: false };
+                shapeData.edgeLengths = filterAiEdgeLengths(shapeData.edgeLengths, promptText, currentEdgeLengths,
+                    (shapeData.vertices || []).map(v => v.name), currentVertices.map(v => v.name));
+                shapeData.angles = filterAiAngles(shapeData.angles, promptText, currentAngles);
                 renderShapeFromJSON(shapeData);
+                try {
+                    const rep2 = applyGivenEdgeLengthsFromPrompt(promptText);
+                    if (rep2.done.length || rep2.missing.length) {
+                        showBuildToast(
+                            (rep2.done.length ? 'Đã ghi độ dài: ' + rep2.done.join(', ') : '') +
+                            (rep2.done.length && rep2.missing.length ? '<br>' : '') +
+                            (rep2.missing.length ? 'Không ghi được: ' + rep2.missing.join(', ') : ''), 5000);
+                    }
+                } catch (e2) { console.error(e2); showBuildToast('Lỗi ghi độ dài: ' + e2.message, 6000); }
+                recordCommand(promptText);
                 document.getElementById('aiCommandInput').value = '';
             } catch (err) {
                 console.error(err);
+                logAiIssue('Lỗi khi AI vẽ: ' + err.message, promptText, aiLastRawReply);
                 await appAlert("Lỗi AI: " + err.message);
                 aiHistory.pop();
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = `<i class="fa-solid fa-robot"></i><span>Vẽ AI</span>`;
             }
+        }
+
+        // ---- Định dạng độ dài / góc do AI yêu cầu ghi lên hình ----
+        function formatLengthNice(L) {
+            if (!isFinite(L)) return '?';
+            const r = Math.round(L);
+            if (Math.abs(L - r) < 1e-6) return String(r);
+            // Dạng căn đẹp: a√b (VD 1.414 -> √2, 2.828 -> 2√2, 5.196 -> 3√3)
+            const sq = L * L, sqr = Math.round(sq);
+            if (Math.abs(sq - sqr) < 1e-6 && sqr > 0 && sqr <= 10000) {
+                let out = 1, rest = sqr;
+                for (let f = Math.floor(Math.sqrt(rest)); f >= 2; f--) {
+                    if (rest % (f * f) === 0) { out *= f; rest /= (f * f); }
+                }
+                if (rest > 1) return (out > 1 ? out : '') + '√' + rest;
+            }
+            return String(parseFloat(L.toFixed(2)));
+        }
+
+        function formatAngleNice(deg) {
+            return String(parseFloat(deg.toFixed(1))) + '°';
+        }
+
+        function setEdgeLengthText(edge, text, isCustom) {
+            if (!edge.lengthLabelEl) {
+                edge.lengthLabelEl = document.createElement('div');
+                edge.lengthLabelEl.className = 'edge-length-label';
+                labelsContainer.appendChild(edge.lengthLabelEl);
+            }
+            edge.lengthLabelEl.textContent = text;
+            delete edge.lengthLabelEl.dataset.custom;
+            delete edge.lengthLabelEl.dataset.auto;
+            if (isCustom) edge.lengthLabelEl.dataset.custom = '1';
+            else edge.lengthLabelEl.dataset.auto = '1';
+        }
+
+        // Tách "SA" / ["S","A"] / [["S","A"],"a√2"] / {edge:[..],label:".."} thành {pair, label}
+        function splitEdgeName(str, createdVertices) {
+            str = String(str || '').replace(/[\s\-–—_,]/g, '');
+            for (let i = 1; i < str.length; i++) {
+                const a = str.slice(0, i), b = str.slice(i);
+                if (createdVertices[a] && createdVertices[b]) return [a, b];
+            }
+            return null;
+        }
+
+        function parseEdgeLengthItem(item, createdVertices) {
+            if (typeof item === 'string') {
+                const pair = splitEdgeName(item, createdVertices);
+                return pair ? { pair, label: null } : null;
+            }
+            if (item && !Array.isArray(item) && typeof item === 'object') {
+                const e = item.edge || item.pair || [item.v1 || item.from, item.v2 || item.to];
+                const label = item.label != null ? item.label : (item.length != null ? item.length : (item.value != null ? item.value : null));
+                const pair = Array.isArray(e) ? e : splitEdgeName(e, createdVertices);
+                return (pair && pair[0] && pair[1]) ? { pair, label } : null;
+            }
+            if (!Array.isArray(item) || item.length < 1) return null;
+            if (Array.isArray(item[0])) return item[0].length >= 2 ? { pair: item[0], label: item[1] } : null;
+            if (item.length >= 2 && createdVertices[item[0]] && createdVertices[item[1]]) return { pair: [item[0], item[1]], label: item[2] };
+            const pair = splitEdgeName(item[0], createdVertices);
+            return pair ? { pair, label: item[1] } : null;
+        }
+
+        // ---- Chuẩn hóa & ghi nhãn độ dài do người dùng nêu ----
+        function normalizeGivenLength(given) {
+            return String(given || '').trim()
+                .replace(/\s*(?:căn|sqrt)\s*\(?([0-9a-z]+)\)?/i, '√$1')
+                .replace(/√\s*\(?([0-9a-z]+)\)?/, '√$1')
+                .replace(/\s+/g, '').replace(',', '.');
+        }
+
+        function labelEdgeWithGiven(edge, v1, v2, givenRaw) {
+            const given = normalizeGivenLength(givenRaw);
+            if (!given) return false;
+            const dist = v1.point.distanceTo(v2.point);
+            const num = /^[0-9]+(\.[0-9]+)?$/.test(given) ? parseFloat(given) : NaN;
+            if (!isNaN(num) && Math.abs(num - dist) < 1e-3) setEdgeLengthText(edge, formatLengthNice(dist), false);
+            else setEdgeLengthText(edge, given, true);
+            return true;
+        }
+
+        // Chân đường vuông góc hạ từ đỉnh apex xuống mặt đáy (mặt nhiều đỉnh nhất không chứa apex)
+        function footOnBaseFace(apex) {
+            let best = null;
+            facesData.forEach(f => {
+                if (f.vIds.includes(apex.id)) return;
+                if (!best || f.vIds.length > best.vIds.length) best = f;
+            });
+            if (!best) return null;
+            const pts = best.vIds.map(id => verticesData.find(v => v.id === id)).filter(Boolean).map(v => v.point);
+            if (pts.length < 3) return null;
+            const n = pts[1].clone().sub(pts[0]).cross(pts[2].clone().sub(pts[0]));
+            if (n.length() < 1e-9) return null;
+            n.normalize();
+            const d = n.dot(apex.point.clone().sub(pts[0]));
+            return apex.point.clone().sub(n.multiplyScalar(d));
+        }
+
+        // Nhận diện đáy / cạnh bên của chóp hoặc lăng trụ từ các mặt đã có
+        function getBaseAndLateralEdges() {
+            let maxN = 0;
+            facesData.forEach(f => { maxN = Math.max(maxN, f.vIds.length); });
+            const bases = facesData.filter(f => f.vIds.length === maxN && maxN >= 3);
+            const disjoint = bases.length === 2 && !bases[0].vIds.some(id => bases[1].vIds.includes(id));
+            if (!(bases.length === 1 || disjoint)) return null;   // tứ diện đều... không phân biệt được đáy
+            const sets = bases.map(f => new Set(f.vIds));
+            const inBase = id => sets.findIndex(st => st.has(id));
+            const onBoundary = e => bases.some(f => {
+                const n = f.vIds.length;
+                for (let i = 0; i < n; i++) {
+                    const a = f.vIds[i], b = f.vIds[(i + 1) % n];
+                    if ((a === e.v1Id && b === e.v2Id) || (a === e.v2Id && b === e.v1Id)) return true;
+                }
+                return false;
+            });
+            const baseEdges = edgesData.filter(onBoundary);
+            const lateral = edgesData.filter(e => {
+                if (onBoundary(e)) return false;
+                const ia = inBase(e.v1Id), ib = inBase(e.v2Id);
+                if (bases.length === 1) return (ia >= 0) !== (ib >= 0);
+                return ia >= 0 && ib >= 0 && ia !== ib;
+            });
+            return { baseEdges, lateral };
+        }
+
+        // Câu lệnh có dạng "SA = 3", "chiều cao SO = 4", "cạnh đáy bằng a", "cạnh bên bằng 5"... thì ghi độ dài lên đúng các cạnh đó
+        function applyGivenEdgeLengthsFromPrompt(text) {
+            text = String(text || '');
+            const report = { done: [], missing: [] };
+            const VAL = "((?:[0-9]+(?:[.,][0-9]+)?(?:[a-z](?![a-zà-ỹ]))?|[a-z](?![a-zà-ỹ]))?\\s*(?:√\\s*\\(?[0-9a-z]+\\)?|căn\\s*\\(?[0-9a-z]+\\)?|sqrt\\s*\\(?[0-9a-z]+\\)?)?(?:\\s*\\/\\s*[0-9]+)?)";
+
+            // (1) "cạnh đáy ... = giá trị" và "cạnh bên ... = giá trị" (ghi lên tất cả cạnh đáy / cạnh bên)
+            const baseRe = new RegExp("(?:[Cc]ạnh\\s+đáy|[Đđ]áy[^,;.\\n]{0,40}?[Cc]ạnh)\\s*(?:=|bằng|là|dài)?\\s*" + VAL);
+            const sideRe = new RegExp("[Cc]ạnh\\s+bên\\s*(?:=|bằng|là|dài)?\\s*" + VAL);
+            const bm = baseRe.exec(text), sm = sideRe.exec(text);
+            if ((bm && (bm[1] || '').trim()) || (sm && (sm[1] || '').trim())) {
+                const grp = getBaseAndLateralEdges();
+                const apply = (edges, given, name) => {
+                    if (!grp) { report.missing.push(name + ' (không xác định được đáy)'); return; }
+                    if (!edges.length) return;
+                    edges.forEach(e => {
+                        const a = verticesData.find(v => v.id === e.v1Id), b = verticesData.find(v => v.id === e.v2Id);
+                        if (a && b) labelEdgeWithGiven(e, a, b, given);
+                    });
+                    report.done.push(name + ' = ' + given.trim());
+                };
+                if (bm && (bm[1] || '').trim()) apply(grp ? grp.baseEdges : [], bm[1], 'cạnh đáy');
+                if (sm && (sm[1] || '').trim()) apply(grp ? grp.lateral : [], sm[1], 'cạnh bên');
+            }
+
+            // (2) "XY = giá trị": ghi đúng cạnh XY; nếu thiếu đoạn (VD chiều cao SO) thì tự vẽ thêm
+            const re = new RegExp("(^|[^A-Za-z0-9'])([A-Z][0-9']?)([A-Z][0-9']?)\\s*=\\s*" + VAL, "g");
+            const hasHeightWord = /chiều cao|đường cao/i.test(text);
+            let m;
+            while ((m = re.exec(text)) !== null) {
+                const given = (m[4] || '').trim();
+                if (!given) continue;
+                const nm = m[2] + m[3];
+                let v1 = verticesData.find(v => v.name === m[2]);
+                let v2 = verticesData.find(v => v.name === m[3]);
+                // Thiếu 1 đỉnh (VD chân đường cao O) mà câu lệnh nói về chiều cao -> tạo chân đường vuông góc xuống đáy
+                if (hasHeightWord && ((!v1) !== (!v2))) {
+                    const other = v1 || v2;
+                    const foot = footOnBaseFace(other);
+                    if (foot) {
+                        const nv = addVertex(!v1 ? m[2] : m[3], foot);
+                        if (!v1) v1 = nv; else v2 = nv;
+                    }
+                }
+                if (!v1 || !v2) { report.missing.push(nm + ' (không có đỉnh ' + (!v1 ? m[2] : m[3]) + ')'); continue; }
+                let edge = findEdge(v1.id, v2.id);
+                if (!edge) { addEdge(v1.id, v2.id); edge = findEdge(v1.id, v2.id); }
+                if (!edge) { report.missing.push(nm + ' (không nối được cạnh)'); continue; }
+                labelEdgeWithGiven(edge, v1, v2, given);
+                report.done.push(nm + ' = ' + given);
+            }
+            return report;
+        }
+
+        function showBuildToast(html, ms) {
+            let t = document.getElementById('buildToast');
+            if (!t) {
+                t = document.createElement('div');
+                t.id = 'buildToast';
+                t.style.cssText = 'position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:99998;background:rgba(15,23,42,.95);color:#fde68a;border:1px solid rgba(251,191,36,.6);border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;pointer-events:none;max-width:90vw;text-align:center;';
+                document.body.appendChild(t);
+            }
+            t.innerHTML = html;
+            t.style.display = 'block';
+            clearTimeout(t._t);
+            t._t = setTimeout(() => { t.style.display = 'none'; }, ms || 4000);
+        }
+
+ 
+
+        // Chỉ giữ lại những cạnh/góc mà người dùng thực sự nêu (hoặc đã được ghi từ trước)
+        function filterAiEdgeLengths(list, promptText, keepPairs, vertexNames, oldVertexNames) {
+            if (list && typeof list === 'object' && !Array.isArray(list)) list = Object.entries(list).map(([k, v]) => [k, v]);
+            if (!Array.isArray(list)) return [];
+            const txt = String(promptText || '');
+            const allowAll = /(ghi|viết|hiển thị|điền)[^.;\n]{0,40}(tất cả|mọi|toàn bộ|các)\s+(các\s+)?cạnh/i.test(txt)
+                          || /độ dài\s+(của\s+)?(tất cả|mọi|toàn bộ)\s+(các\s+)?cạnh/i.test(txt);
+            if (allowAll) return list;
+            const cv = {};
+            (vertexNames || []).forEach(n => { cv[n] = 1; });
+            const ok = new Set();
+            const add = (a, b) => { ok.add(a + '|' + b); ok.add(b + '|' + a); };
+            if (/diện tích/i.test(txt)) {
+                // Diện tích: chỉ các cạnh của đa giác được nêu (VD "tam giác SAB" -> SA, AB, BS) + đoạn phụ mới thêm (đường cao...)
+                const poly = /(^|[^A-Za-z0-9'.])([A-Z]{3,6})(?![A-Za-z0-9'])/g;
+                let pm, found = false;
+                while ((pm = poly.exec(txt)) !== null) {
+                    found = true;
+                    const L = pm[2].split('');
+                    for (let i = 0; i < L.length; i++) add(L[i], L[(i + 1) % L.length]);
+                }
+                if (!found) return list;
+                const oldSet = new Set(oldVertexNames || []);
+                (keepPairs || []).forEach(q => add(q[0], q[1]));
+                return list.filter(item => {
+                    const pr = parseEdgeLengthItem(item, cv);
+                    if (!pr) return false;
+                    const touchesNew = oldSet.size > 0 && (!oldSet.has(pr.pair[0]) || !oldSet.has(pr.pair[1]));
+                    return ok.has(pr.pair[0] + '|' + pr.pair[1]) || touchesNew;
+                });
+            }
+            const re = /(^|[^A-Za-z0-9'])([A-Z][0-9']?)([A-Z][0-9']?)(?![A-Za-z0-9'])/g;
+            let m;
+            while ((m = re.exec(txt)) !== null) add(m[2], m[3]);
+            (keepPairs || []).forEach(p => add(p[0], p[1]));
+            return list.filter(item => {
+                const pr = parseEdgeLengthItem(item, cv);
+                return pr && ok.has(pr.pair[0] + '|' + pr.pair[1]);
+            });
+        }
+
+        function filterAiAngles(list, promptText, keepAngles) {
+            if (!Array.isArray(list)) return [];
+            if (/góc/i.test(String(promptText || ''))) return list;
+            const keep = new Set((keepAngles || []).map(a => a.join('|')));
+            return list.filter(a => Array.isArray(a) && (keep.has(a.slice(0, 3).join('|')) || keep.has([a[2], a[1], a[0]].join('|'))));
+        }
+
+        // Tự tạo các mặt cho hình AI vừa vẽ (để tô mặt & nét đứt cạnh khuất hoạt động như hình mẫu).
+        // Cách làm: mỗi mặt của khối lồi là một mặt phẳng đi qua >= 3 đỉnh mà mọi đỉnh còn lại nằm về một phía.
+        function autoCreateFacesFromGeometry() {
+            // Bỏ các đỉnh phụ chỉ treo trên 1 cạnh (chân đường cao nằm ngoài, điểm đánh dấu...) để không làm sai khối
+            const deg = {};
+            edgesData.forEach(e => { deg[e.v1Id] = (deg[e.v1Id] || 0) + 1; deg[e.v2Id] = (deg[e.v2Id] || 0) + 1; });
+            const V = verticesData.filter(v => (deg[v.id] || 0) >= 2);
+            const n = V.length;
+            if (n < 3 || facesData.length > 0) return;
+            const PLANE_EPS = 1e-3, LINE_EPS = 1e-3;
+
+            const edgeSet = new Set();
+            edgesData.forEach(e => { edgeSet.add(e.v1Id + '|' + e.v2Id); edgeSet.add(e.v2Id + '|' + e.v1Id); });
+            const hasEdge = (a, b) => edgeSet.has(a.id + '|' + b.id);
+
+            // Đoạn a-b được phủ bởi cạnh thật (cho phép có đỉnh trung gian nằm trên đoạn, VD trung điểm)
+            function segCovered(a, b) {
+                if (hasEdge(a, b)) return true;
+                const ab = b.point.clone().sub(a.point);
+                const L = ab.length();
+                if (L < 1e-9) return false;
+                const mids = [];
+                V.forEach(v => {
+                    if (v === a || v === b) return;
+                    const t = v.point.clone().sub(a.point);
+                    const proj = t.dot(ab) / L;
+                    if (proj <= LINE_EPS || proj >= L - LINE_EPS) return;
+                    if (t.clone().cross(ab).length() / L > LINE_EPS) return;
+                    mids.push({ v, proj });
+                });
+                if (!mids.length) return false;
+                mids.sort((x, y) => x.proj - y.proj);
+                const chain = [a].concat(mids.map(m => m.v), [b]);
+                for (let i = 0; i < chain.length - 1; i++) if (!hasEdge(chain[i], chain[i + 1])) return false;
+                return true;
+            }
+
+            // Bao lồi 2D (bỏ điểm nằm trong và điểm thẳng hàng) của các đỉnh đồng phẳng
+            function hull2D(pts, nrm) {
+                const axis = Math.abs(nrm.x) < 0.57 ? { x: 1, y: 0, z: 0 } : (Math.abs(nrm.y) < 0.57 ? { x: 0, y: 1, z: 0 } : { x: 0, y: 0, z: 1 });
+                const ax = new nrm.constructor(axis.x, axis.y, axis.z);
+                const u = nrm.clone().cross(ax).normalize();
+                const w = nrm.clone().cross(u).normalize();
+                const P = pts.map(v => ({ v, x: v.point.dot(u), y: v.point.dot(w) }));
+                P.sort((a, b) => a.x - b.x || a.y - b.y);
+                const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+                const lower = [];
+                P.forEach(p => {
+                    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 1e-9) lower.pop();
+                    lower.push(p);
+                });
+                const upper = [];
+                for (let i = P.length - 1; i >= 0; i--) {
+                    const p = P[i];
+                    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 1e-9) upper.pop();
+                    upper.push(p);
+                }
+                lower.pop(); upper.pop();
+                return lower.concat(upper).map(p => p.v);
+            }
+
+            const seen = new Set();
+            const faces = [];
+            for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) for (let k = j + 1; k < n; k++) {
+                const p0 = V[i].point, p1 = V[j].point, p2 = V[k].point;
+                const nrm = p1.clone().sub(p0).cross(p2.clone().sub(p0));
+                if (nrm.length() < 1e-6) continue;
+                nrm.normalize();
+                const d = nrm.dot(p0);
+                let pos = 0, neg = 0;
+                const cop = [];
+                V.forEach(v => {
+                    const dist = nrm.dot(v.point) - d;
+                    if (Math.abs(dist) <= PLANE_EPS) cop.push(v);
+                    else if (dist > 0) pos++; else neg++;
+                });
+                if (pos > 0 && neg > 0) continue;       // không phải mặt ngoài của khối
+                if (cop.length < 3) continue;
+                const key = cop.map(v => v.id).sort().join(',');
+                if (seen.has(key)) continue;
+                seen.add(key);
+                const hull = hull2D(cop, nrm);
+                if (hull.length < 3) continue;
+                if (!hull.every((v, idx) => segCovered(v, hull[(idx + 1) % hull.length]))) continue;
+                faces.push(hull);
+            }
+            faces.forEach(h => createFaceFromVertices(h));
         }
 
         function renderShapeFromJSON(data) {
@@ -3101,6 +4603,49 @@ Quy tắc toán học bắt buộc:
             }
             */
 
+            // 4b. Ghi độ dài cạnh (số được tính từ tọa độ; AI chỉ chọn cạnh nào cần ghi)
+            if (data.edgeLengths && typeof data.edgeLengths === 'object' && !Array.isArray(data.edgeLengths)) {
+                // Dạng {"SA": "a√2", "AB": ""}
+                data.edgeLengths = Object.entries(data.edgeLengths).map(([k, v]) => [k, v]);
+            }
+            if (Array.isArray(data.edgeLengths)) {
+                data.edgeLengths.forEach(item => {
+                    const parsed = parseEdgeLengthItem(item, createdVertices);
+                    if (!parsed) return;
+                    const pair = parsed.pair, custom = parsed.label;
+                    const v1 = createdVertices[pair[0]];
+                    const v2 = createdVertices[pair[1]];
+                    if (!v1 || !v2) return;
+                    let edge = findEdge(v1.id, v2.id);
+                    if (!edge) { addEdge(v1.id, v2.id); edge = findEdge(v1.id, v2.id); }
+                    if (!edge) return;
+                    const hasCustom = (typeof custom === 'string' && custom.trim() !== '') || typeof custom === 'number';
+                    setEdgeLengthText(edge,
+                        hasCustom ? String(custom).trim() : formatLengthNice(v1.point.distanceTo(v2.point)),
+                        hasCustom);
+                });
+            }
+
+            // 4c. Ghi số đo góc (không vuông). Góc vuông dùng rightAngleLabels.
+            if (Array.isArray(data.angles)) {
+                data.angles.forEach(item => {
+                    if (!Array.isArray(item) || item.length < 3) return;
+                    const a = createdVertices[item[0]];
+                    const c = createdVertices[item[1]];
+                    const b = createdVertices[item[2]];
+                    if (!a || !c || !b) return;
+                    const deg = computeAngleDeg(a.point, c.point, b.point);
+                    if (!isFinite(deg) || deg < 0.01 || deg > 179.99 || Math.abs(deg - 90) < 1e-3) return;
+                    if (anglesData.some(x => x.vertexId === c.id &&
+                        ((x.v1Id === a.id && x.v2Id === b.id) || (x.v1Id === b.id && x.v2Id === a.id)))) return;
+                    const custom = (typeof item[3] === 'string' && item[3].trim()) ? item[3].trim() : null;
+                    createAngleMarkerObj(a, c, b, custom || formatAngleNice(deg));
+                });
+            }
+
+            // 4d. Tự tạo các mặt (để nút Tô mặt và Nét đứt khuất dùng được với hình AI vẽ)
+            try { autoCreateFacesFromGeometry(); } catch (errF) { console.error('Tự tạo mặt lỗi:', errF); }
+
             // 5. Vector
             if (data.vectors && Array.isArray(data.vectors)) {
                 data.vectors.forEach(pair => {
@@ -3144,7 +4689,34 @@ Quy tắc toán học bắt buộc:
             renderVectorsList();
             renderCirclesList();
             setToolMode('rotate');
+           
+if (data.vertices && Array.isArray(data.vertices)) {
+    data.vertices.forEach(vData => {
+        if (vData.constraint) {
+            const vObj = createdVertices[vData.name];
+            if (vObj) {
+                // Map tên đỉnh từ AI sang ID thực tế trong Three.js
+                const c = vData.constraint;
+                if (c.type === 'midpoint') {
+                    const pa = createdVertices[c.a];
+                    const pb = createdVertices[c.b];
+                    if (pa && pb) {
+                        vObj.constraint = { type: 'midpoint', aId: pa.id, bId: pb.id };
+                    }
+                } else if (c.type === 'projection_on_edge') {
+                    const pa = createdVertices[c.a];
+                    const pb = createdVertices[c.b];
+                    const ps = createdVertices[c.point];
+                    if (pa && pb && ps) {
+                        vObj.constraint = { type: 'projection_on_edge', aId: pa.id, bId: pb.id, pointId: ps.id };
+                    }
+                }
+            }
         }
+    });
+}
+        }
+
 
         function updateUI(fullListRefresh = true) {
             document.getElementById('stat-vertices').textContent = verticesData.length;
@@ -3163,6 +4735,12 @@ Quy tắc toán học bắt buộc:
             }
 
             const listContainer = document.getElementById('vertices-list');
+
+            // Chỉ vẽ lại danh sách khi nội dung thật sự đổi, để nút Sửa/Xóa không bị thay giữa lúc đang bấm
+            const sig = verticesData.map(v => v.id + '|' + v.name + '|' + v.point.x.toFixed(2) + '|' + v.point.y.toFixed(2) + '|' + v.point.z.toFixed(2)).join(';');
+            if (listContainer._sig === sig && listContainer.childElementCount > 0) return;
+            listContainer._sig = sig;
+
             listContainer.innerHTML = '';
 
             if (verticesData.length === 0) {
@@ -3376,14 +4954,279 @@ Quy tắc toán học bắt buộc:
             });
         }
 
+        // ==========================================
+        // LƯU ẢNH PNG: hình 3D + các nhãn (tên đỉnh, độ dài, góc...)
+        // ==========================================
+        function buildSceneCanvas() {
+            // Vẽ lại khung hình ngay lúc này để lấy được ảnh WebGL
+            controls.update();
+            if (paperMode) { applyPaperShear(); applyPaperStyleFrame(); }
+            updateLabels();
+            renderer.render(scene, camera);
+
+            const src = renderer.domElement;
+            const out = document.createElement('canvas');
+            out.width = src.width;
+            out.height = src.height;
+            const c = out.getContext('2d');
+            c.drawImage(src, 0, 0);
+
+            const srcRect = src.getBoundingClientRect();
+            const k = srcRect.width > 0 ? src.width / srcRect.width : 1;
+
+            // Chế độ 2D (giấy): chép cả các nét vẽ tay vào ảnh (nằm dưới các nhãn)
+            if (paperMode && typeof inkRenderTo === 'function') inkRenderTo(c, out.width, out.height, k, false);
+
+            const roundRectPath = (x, y, w, h, r) => {
+                r = Math.max(0, Math.min(r, w / 2, h / 2));
+                c.beginPath();
+                c.moveTo(x + r, y);
+                c.arcTo(x + w, y, x + w, y + h, r);
+                c.arcTo(x + w, y + h, x, y + h, r);
+                c.arcTo(x, y + h, x, y, r);
+                c.arcTo(x, y, x + w, y, r);
+                c.closePath();
+            };
+            const hasColor = (col) => {
+                if (!col || col === 'transparent') return false;
+                const m = col.match(/rgba?\(([^)]+)\)/);
+                if (!m) return true;
+                const parts = m[1].split(',').map(s => parseFloat(s));
+                return parts.length < 4 || parts[3] > 0.02;
+            };
+
+            // Chép các nhãn HTML (đang nằm đè lên hình) vào ảnh
+            Array.from(labelsContainer.children).forEach(el => {
+                const cs = getComputedStyle(el);
+                if (cs.display === 'none' || cs.visibility === 'hidden' || parseFloat(cs.opacity) < 0.05) return;
+                const r = el.getBoundingClientRect();
+                if (r.width <= 0 || r.height <= 0) return;
+                const x = (r.left - srcRect.left) * k, y = (r.top - srcRect.top) * k;
+                const w = r.width * k, h = r.height * k;
+                if (x + w < 0 || y + h < 0 || x > out.width || y > out.height) return;
+
+                if (hasColor(cs.backgroundColor)) {
+                    roundRectPath(x, y, w, h, parseFloat(cs.borderTopLeftRadius) * k || 0);
+                    c.fillStyle = cs.backgroundColor;
+                    c.fill();
+                }
+                const bw = parseFloat(cs.borderTopWidth) || 0;
+                if (bw > 0 && hasColor(cs.borderTopColor)) {
+                    roundRectPath(x + bw * k / 2, y + bw * k / 2, w - bw * k, h - bw * k, parseFloat(cs.borderTopLeftRadius) * k || 0);
+                    c.lineWidth = bw * k;
+                    c.strokeStyle = cs.borderTopColor;
+                    c.stroke();
+                }
+                const text = (el.textContent || '').replace(/\s+/g, ' ').trim();
+                if (text) {
+                    c.font = `${cs.fontStyle} ${cs.fontWeight} ${(parseFloat(cs.fontSize) || 12) * k}px ${cs.fontFamily}`;
+                    c.fillStyle = cs.color;
+                    c.textAlign = 'center';
+                    c.textBaseline = 'middle';
+                    c.fillText(text, x + w / 2, y + h / 2);
+                }
+            });
+
+            return out;
+        }
+
+        function saveSceneImage() {
+            const out = buildSceneCanvas();
+            out.toBlob(blob => {
+                if (!blob) return;
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = paperMode ? 'hinh-hoc-2d.png' : 'hinh-hoc-3d.png';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 3000);
+            }, 'image/png');
+        }
+
+        // ==========================================
+        // XEM 2D NHƯ VẼ TRÊN GIẤY (hình chiếu trục đo / cavalier)
+        // Trục x nằm ngang, trục z (chiều cao) thẳng đứng, trục y chéo 45° lên phải, rút ngắn còn 1/2.
+        // Cạnh thấy: nét liền; cạnh khuất: nét đứt. Nền trắng, nét đen.
+        // ==========================================
+        let paperMode = false;
+        const PAPER_SHEAR = 0.5 * Math.cos(Math.PI / 4);          // ≈ 0.354
+        const PAPER_VIEW_DIR = new THREE.Vector3(PAPER_SHEAR, PAPER_SHEAR, 1).normalize();   // hướng nhìn về phía người xem
+        const PAPER_CAM_DIST = 100;
+        let paperSaved = null;
+        let paperHiddenObjs = [];
+        let paperBaseHalfH = 6;
+
+        function paperProject(p, c) {
+            const dz = p.z - c.z;
+            return { x: (p.x - c.x) - PAPER_SHEAR * dz, y: (p.y - c.y) - PAPER_SHEAR * dz };
+        }
+
+        function fitPaperCamera() {
+            const aspect = window.innerWidth / window.innerHeight;
+            let center = new THREE.Vector3(0, 0, 0);
+            let pcx = 0, pcy = 0, halfH = 6;
+            const pts = verticesData.map(v => v.point.clone());
+            circlesData.forEach(c => {
+                const o = verticesData.find(v => v.id === c.centerId);
+                if (!o) return;
+                computeCirclePoints(o.point, c.radius, c.normal, 24).forEach(p => pts.push(p));
+            });
+            if (pts.length) {
+                const box = new THREE.Box3().setFromPoints(pts);
+                center = box.getCenter(new THREE.Vector3());
+                let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+                pts.forEach(p => {
+                    const q = paperProject(p, center);
+                    minX = Math.min(minX, q.x); maxX = Math.max(maxX, q.x);
+                    minY = Math.min(minY, q.y); maxY = Math.max(maxY, q.y);
+                });
+                pcx = (minX + maxX) / 2; pcy = (minY + maxY) / 2;
+                const hx = (maxX - minX) / 2 * 1.35 + 1.5, hy = (maxY - minY) / 2 * 1.35 + 1.5;
+                halfH = Math.max(hy, hx / aspect, 2);
+            }
+            paperBaseHalfH = halfH;
+            const cx = center.x + pcx, cy = center.y + pcy;
+            camera.zoom = 1;
+            camera.left = -halfH * aspect; camera.right = halfH * aspect;
+            camera.top = halfH; camera.bottom = -halfH;
+            camera.up.set(0, 1, 0);
+            camera.position.set(cx, cy, center.z + PAPER_CAM_DIST);
+            controls.target.set(cx, cy, center.z);
+            camera.lookAt(controls.target);
+            controls.update();
+        }
+
+        // Nhân thêm phép "xiên" vào ma trận chiếu: x' = x - s·(z_view + D), y' = y - s·(z_view + D)
+        function applyPaperShear() {
+            camera.updateProjectionMatrix();
+            const s = PAPER_SHEAR, D = PAPER_CAM_DIST;
+            const shear = new THREE.Matrix4().set(
+                1, 0, -s, -s * D,
+                0, 1, -s, -s * D,
+                0, 0, 1, 0,
+                0, 0, 0, 1
+            );
+            camera.projectionMatrix.multiply(shear);
+            camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
+        }
+
+        // Nét đen, chấm đỉnh đen (chạy mỗi khung hình để hình mới vẽ trong lúc xem giấy cũng đúng kiểu)
+        function applyPaperStyleFrame() {
+            edgesData.forEach(e => { if (!e.highlighted && e.lineMesh) e.lineMesh.material.color.setHex(0x000000); });
+            circlesData.forEach(c => { if (c.mesh) c.mesh.material.color.setHex(0x000000); });
+            anglesData.forEach(a => { if (a.arcMesh) a.arcMesh.material.color.setHex(0x000000); });
+            rightAngleMarkers.forEach(m => { if (m.mesh) m.mesh.material.color.setHex(0x000000); });
+            vectorsData.forEach(v => { if (v.arrowHelper) v.arrowHelper.setColor(0x000000); });
+            verticesData.forEach(v => {
+                if (v.mesh) v.mesh.material.color.setHex(0x000000);
+                if (v.midpointMarker) v.midpointMarker.visible = false;
+            });
+        }
+
+        function restoreNormalStyle() {
+            edgesData.forEach(e => { if (e.lineMesh) setEdgeHighlight(e, e.highlighted); });
+            circlesData.forEach(c => { if (c.mesh) c.mesh.material.color.setHex(c.color || 0xf472b6); });
+            anglesData.forEach(a => { if (a.arcMesh) a.arcMesh.material.color.setHex(0xfb923c); });
+            rightAngleMarkers.forEach(m => { if (m.mesh) m.mesh.material.color.setHex(0xf43f5e); });
+            vectorsData.forEach(v => { if (v.arrowHelper) v.arrowHelper.setColor(v.color || 0xf59e0b); });
+            verticesData.forEach(v => {
+                if (v.mesh) v.mesh.material.color.setHex(v.name === 'S' ? 0xf43f5e : 0x38bdf8);
+                if (v.midpointMarker) v.midpointMarker.visible = true;
+            });
+        }
+
+        function setPaperButtonState(on) {
+            const b = document.getElementById('btnPaper');
+            const t = document.getElementById('btnPaperText');
+            if (b) b.className = 'flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ' +
+                (on ? 'bg-white text-slate-900 border border-white' : 'text-slate-300 hover:bg-slate-800');
+            if (t) t.textContent = on ? 'Về 3D' : 'Xem 2D (giấy)';
+            const icon = b && b.querySelector('i');
+            if (icon) icon.className = 'fa-solid fa-file-lines ' + (on ? 'text-slate-900' : 'text-white');
+        }
+
+        function enterPaperMode() {
+            if (paperMode) return;
+            setToolMode('rotate');
+            paperSaved = {
+                camera,
+                pos: camera.position.clone(),
+                target: controls.target.clone(),
+                rotate: controls.enableRotate,
+                guide: renderer.domElement.style.cursor
+            };
+            paperMode = true;
+
+            // Ẩn lưới, trục, nhãn trục
+            paperHiddenObjs = [];
+            scene.children.forEach(o => {
+                const isGridOrAxis = (o.isMesh && infiniteGridMats.includes(o.material)) || (o.isSprite && axisLabels.some(a => a.sprite === o));
+                if (isGridOrAxis && o.visible) { o.visible = false; paperHiddenObjs.push(o); }
+            });
+            // Trục (Line2) đã vẽ lúc init: ẩn các Line2 nằm trong danh sách trục
+            axisLineObjs.forEach(o => { if (o.visible) { o.visible = false; paperHiddenObjs.push(o); } });
+
+            scene.background = new THREE.Color(0xffffff);
+            document.body.classList.add('paper-mode');
+
+            const oc = new THREE.OrthographicCamera(-6, 6, 6, -6, 0.1, 1000);
+            camera = oc;
+            controls.object = oc;
+            controls.enableRotate = false;
+            renderer.domElement.style.cursor = 'grab';
+            fitPaperCamera();
+
+            const ins = document.getElementById('mode-instruction');
+            if (ins) ins.textContent = 'Chế độ: Xem 2D như vẽ trên giấy (cuộn chuột để phóng to/thu nhỏ, kéo chuột phải để dời hình). Bấm "Về 3D" để chỉnh sửa tiếp.';
+            setPaperButtonState(true);
+            if (typeof inkOnEnterPaper === 'function') inkOnEnterPaper();
+        }
+
+        function exitPaperMode() {
+            if (!paperMode) return;
+            paperMode = false;
+            camera = paperSaved.camera;
+            controls.object = camera;
+            controls.enableRotate = paperSaved.rotate;
+            camera.position.copy(paperSaved.pos);
+            controls.target.copy(paperSaved.target);
+            renderer.domElement.style.cursor = paperSaved.guide;
+            camera.updateProjectionMatrix();
+            controls.update();
+
+            paperHiddenObjs.forEach(o => { o.visible = true; });
+            paperHiddenObjs = [];
+            scene.background = new THREE.Color(0x0b1120);
+            document.body.classList.remove('paper-mode');
+            restoreNormalStyle();
+            paperSaved = null;
+
+            if (typeof inkOnExitPaper === 'function') inkOnExitPaper();
+            setPaperButtonState(false);
+            setToolMode('rotate');
+        }
+
+        function togglePaperMode() {
+            if (paperMode) exitPaperMode(); else enterPaperMode();
+        }
+
         function resetCamera() {
+            if (paperMode) { fitPaperCamera(); return; }
             camera.position.set(6, 5, 8);
             controls.target.set(0, 0, 0);
             controls.update();
         }
 
         function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
+            if (paperMode) {
+                const aspect = window.innerWidth / window.innerHeight;
+                camera.left = -paperBaseHalfH * aspect; camera.right = paperBaseHalfH * aspect;
+                camera.top = paperBaseHalfH; camera.bottom = -paperBaseHalfH;
+            } else {
+                camera.aspect = window.innerWidth / window.innerHeight;
+            }
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
             scene.traverse(o => {
@@ -3396,10 +5239,14 @@ Quy tắc toán học bắt buộc:
         function animate() {
             requestAnimationFrame(animate);
             controls.update();
+            if (paperMode) { applyPaperShear(); applyPaperStyleFrame(); }
+            updateInfiniteGrids();
+            updateAxisLabels();
             tickEdgeAnims();
             updateHiddenEdges();
             updateLabels();
             renderer.render(scene, camera);
+            if (typeof inkFrame === 'function') inkFrame();
         }
 
         // ==========================================
@@ -3409,19 +5256,23 @@ Quy tắc toán học bắt buộc:
         const UI_DESIGN_HEIGHT = 820;   // bề dọc thiết kế gốc
         const UI_MIN_SCALE = 0.5;
 
+        let maxScreenH_3D = Math.max(window.innerHeight || 0, 750);
+        window.addEventListener('resize', () => {
+            const isTyping = document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName);
+            if (!isTyping && window.innerHeight > 400) {
+                maxScreenH_3D = Math.max(maxScreenH_3D, window.innerHeight);
+            }
+        });
+
         function getUIPanels() {
-            const toolbarBtn = document.getElementById('tool-rotate');
-            const toolbarWrap = toolbarBtn ? toolbarBtn.closest('.absolute') : null;
-            const instr = document.getElementById('mode-instruction');
             return {
-                toolbarInner: toolbarWrap ? toolbarWrap.firstElementChild : null,
+                toolbarInner: null,
                 all: [
                     document.querySelector('header'),
-                    toolbarWrap,
-                    instr ? instr.parentElement : null,
+                    document.getElementById('topBarInner'),
                     document.querySelector('aside'),
-                    document.querySelector('.fixed.bottom-4'),
                     document.getElementById('chatToggleBtn'),
+                    document.getElementById('paperToolbar'),
                     document.getElementById('formulaChatPanel'),
                     document.querySelector('#customPromptModal > div'),
                     ...document.querySelectorAll('.absolute.left-4.z-20.pointer-events-auto')
@@ -3434,14 +5285,22 @@ Quy tắc toán học bắt buộc:
         }
 
         function fitUI() {
+            const isTyping = document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName);
+            // Khi đang mở bàn phím ảo trên điện thoại, không thu nhỏ giao diện theo chiều cao bàn phím
+            const effectiveH = isTyping ? maxScreenH_3D : Math.max(window.innerHeight, maxScreenH_3D * 0.72);
             const panels = getUIPanels();
             if (panels.toolbarInner) panels.toolbarInner.style.maxWidth = 'none';
 
-            let s = Math.min(1, window.innerWidth / UI_DESIGN_WIDTH, window.innerHeight / UI_DESIGN_HEIGHT);
+            let s = Math.min(1, window.innerWidth / UI_DESIGN_WIDTH, effectiveH / UI_DESIGN_HEIGHT);
             s = Math.max(UI_MIN_SCALE, s);
             applyUIScale(panels, s);
 
-            // Tinh chỉnh: nếu thanh công cụ vẫn tràn mép màn hình thì co thêm
+            // Ô nhập lệnh luôn giữ zoom = 1 để nhìn rõ chữ và không bị thu nhỏ
+            const cmdBox = document.getElementById('aiCommandBox') || document.querySelector('.fixed.bottom-4');
+            if (cmdBox) {
+                cmdBox.style.zoom = isTyping ? '1' : String(Math.max(0.92, s));
+            }
+
             const overflowing = () => {
                 const t = panels.toolbarInner;
                 if (!t) return false;
@@ -3454,7 +5313,52 @@ Quy tắc toán học bắt buộc:
                 applyUIScale(panels, s);
             }
             document.documentElement.style.setProperty('--ui-scale', s.toFixed(2));
+            layoutTopBar();
         }
+
+        // ==========================================
+        // THANH CÔNG CỤ TRÊN CÙNG: canh vị trí + THU / MỞ
+        // ==========================================
+        let topBarCollapsed = false;
+
+        // Đặt thanh vào đúng khoảng trống giữa khung tiêu đề (trái) và bảng bên phải để không bao giờ chồng lên nhau
+        function layoutTopBar() {
+            const wrap = document.getElementById('topBarWrap');
+            const inner = document.getElementById('topBarInner');
+            if (!wrap || !inner) return;
+            const z = parseFloat(inner.style.zoom) || 1;
+            inner.style.width = (100 / z) + '%';
+            const hdr = document.querySelector('header');
+            const sbBtn = document.getElementById('sidebarToggleBtn');
+            let L = 16, R = window.innerWidth - 16;
+            if (hdr) L = hdr.getBoundingClientRect().right + 12;
+            if (sbBtn) R = sbBtn.getBoundingClientRect().left - 12;
+            wrap.style.left = L + 'px';
+            wrap.style.width = Math.max(260, R - L) + 'px';
+        }
+
+        function setTopBarCollapsed(collapsed) {
+            topBarCollapsed = collapsed;
+            const tools = document.getElementById('topBarTools');
+            const icon = document.getElementById('topBarToggleIcon');
+            const text = document.getElementById('topBarToggleText');
+            if (tools) tools.style.display = collapsed ? 'none' : '';
+            if (icon) icon.className = 'fa-solid text-sm ' + (collapsed ? 'fa-chevron-down' : 'fa-chevron-up');
+            if (text) text.style.display = collapsed ? '' : 'none';
+            try { localStorage.setItem('topBarCollapsed', collapsed ? '1' : '0'); } catch (e) {}
+            layoutTopBar();
+        }
+
+        function toggleTopBar() {
+            setTopBarCollapsed(!topBarCollapsed);
+        }
+
+        window.addEventListener('load', () => {
+            let saved = false;
+            try { saved = localStorage.getItem('topBarCollapsed') === '1'; } catch (e) {}
+            if (saved) setTopBarCollapsed(true);
+            layoutTopBar();
+        });
 
         let fitUITimer = null;
         function scheduleFitUI() {
@@ -3482,6 +5386,8 @@ Quy tắc toán học bắt buộc:
             aside.style.transform = collapsed ? 'translateX(calc(100% + 1rem))' : 'translateX(0)';
             if (icon) icon.className = 'fa-solid text-sm ' + (collapsed ? 'fa-chevron-left' : 'fa-chevron-right');
             try { localStorage.setItem('sidebarCollapsed', collapsed ? '1' : '0'); } catch (e) {}
+            layoutTopBar();
+            setTimeout(layoutTopBar, 400);   // sau khi hiệu ứng trượt của bảng kết thúc
         }
 
         function toggleRightSidebar() {
@@ -3507,9 +5413,13 @@ Quy tắc toán học bắt buộc:
             ['Ctrl + Z', 'Hoàn tác'],
             ['Ctrl + Y  /  Ctrl + Shift + Z', 'Làm lại'],
             ['H', 'Bật / tắt nét đứt cho cạnh khuất'],
+            ['P', 'Xem 2D như vẽ trên giấy / quay về 3D'],
             ['F', 'Bật / tắt tô mặt phẳng'],
             ['B', 'Thu / mở bảng bên phải'],
+            ['T', 'Thu / mở thanh công cụ phía trên'],
             ['0  /  Home', 'Đưa camera về vị trí ban đầu'],
+            ['(Chế độ 2D) 1 – 9', 'Chọn công cụ vẽ: Di chuyển, Bút, Thẳng, Mũi tên, Chữ nhật, Elip, Chữ, Tẩy, Chụp vùng'],
+            ['(Chế độ 2D) D  /  C', 'Bật / tắt nét đứt  /  Chụp ảnh PNG'],
             ['?', 'Xem bảng phím tắt này']
         ];
 
@@ -3567,11 +5477,13 @@ Quy tắc toán học bắt buộc:
 
             if (ctrl) {
                 const k = key.toLowerCase();
-                if (k === 'z' && !e.shiftKey) { e.preventDefault(); undoLastAction(); }
-                else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); redoLastAction(); }
+                if (k === 'z' && !e.shiftKey) { e.preventDefault(); if (paperMode) inkUndo(); else undoLastAction(); }
+                else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); if (paperMode) inkRedo(); else redoLastAction(); }
                 return;
             }
             if (e.altKey) return;
+
+            if (paperMode && inkHandleKey(e)) return;
 
             if (key >= '1' && key <= '8') {
                 setToolMode(TOOL_SHORTCUTS[parseInt(key, 10) - 1]);
@@ -3588,9 +5500,11 @@ Quy tắc toán học bắt buộc:
                         finishFaceCreation();
                     }
                     break;
+                case 'p': case 'P': togglePaperMode(); break;
                 case 'h': case 'H': toggleHiddenEdges(); break;
                 case 'f': case 'F': toggleFaceFill(); break;
                 case 'b': case 'B': toggleRightSidebar(); break;
+                case 't': case 'T': toggleTopBar(); break;
                 case '0': case 'Home': resetCamera(); break;
                 case '?': toggleShortcutHelp(true); break;
             }
@@ -3683,5 +5597,517 @@ Quy tắc toán học bắt buộc:
 
         window.onload = init;
     </script>
+
+    <script>
+        // ==========================================
+        // VẼ / VIẾT / CHỤP ẢNH TRÊN HÌNH 2D (GIẤY)
+        // Nét vẽ lưu theo toạ độ "tờ giấy" (mặt phẳng nhìn của camera 2D) nên
+        // dời hình / phóng to / thu nhỏ thì nét vẽ đi theo hình.
+        // ==========================================
+        const INK_WIDTHS = [2, 4, 7];
+        const INK_TOOL_HINTS = {
+            pan:     'Di chuyển: kéo chuột để dời hình, cuộn chuột để phóng to / thu nhỏ',
+            pen:     'Bút: giữ chuột trái và vẽ tự do lên hình',
+            line:    'Đường thẳng: kéo từ điểm đầu đến điểm cuối (giữ Shift để thẳng 0°/45°/90°)',
+            arrow:   'Mũi tên: kéo từ gốc đến ngọn (giữ Shift để thẳng)',
+            rect:    'Hình chữ nhật: kéo theo đường chéo (giữ Shift để vẽ hình vuông)',
+            ellipse: 'Elip / tròn: kéo theo khung bao (giữ Shift để vẽ hình tròn)',
+            text:    'Chữ: bấm vào vị trí cần ghi, gõ nội dung rồi Enter',
+            erase:   'Tẩy: bấm hoặc rê chuột lên nét cần xóa',
+            snap:    'Chụp vùng: kéo chọn vùng cần chụp, thả chuột để lưu ảnh PNG'
+        };
+        const INK_ERASER_CURSOR = 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\'><circle cx=\'12\' cy=\'12\' r=\'10\' fill=\'rgba(255,255,255,0.45)\' stroke=\'%23000\' stroke-width=\'1.5\'/></svg>") 12 12, cell';
+        const INK_CURSORS = {
+            pan: 'grab', pen: 'crosshair', line: 'crosshair', arrow: 'crosshair', rect: 'crosshair',
+            ellipse: 'crosshair', text: 'text', erase: INK_ERASER_CURSOR, snap: 'crosshair'
+        };
+
+        let inkTool = 'pan';
+        let inkColor = '#dc2626';
+        let inkWidthIdx = 1;
+        let inkDashed = false;
+        let inkItems = [];          // các nét đã vẽ (bất biến sau khi tạo)
+        let inkHistory = [];        // [{before, after}]
+        let inkRedoStack = [];
+        let inkDraft = null;        // nét đang vẽ dở
+        let inkErase = null;        // {before}
+        let inkSnap = null;         // {x0,y0,x1,y1} (px màn hình)
+        let inkTextBox = null;
+        let inkPointerId = null;
+        let inkVersion = 0;
+        let inkLastKey = '';
+        let inkSignature = null;
+        let inkVisible = false;
+        let inkSavedControls = null;
+
+        function inkEl(id) { return document.getElementById(id); }
+
+        // ---------- toạ độ ----------
+        function inkRect() { return renderer.domElement.getBoundingClientRect(); }
+        function inkHalf() {
+            return { hw: (camera.right - camera.left) / 2 / camera.zoom, hh: (camera.top - camera.bottom) / 2 / camera.zoom };
+        }
+        function inkToWorld(cx, cy) {
+            const r = inkRect(), h = inkHalf();
+            const nx = (cx - r.left) / r.width * 2 - 1, ny = 1 - (cy - r.top) / r.height * 2;
+            return { x: camera.position.x + nx * h.hw, y: camera.position.y + ny * h.hh };
+        }
+        function inkToScreen(p, w, hgt) {
+            const h = inkHalf();
+            return {
+                x: ((p.x - camera.position.x) / h.hw * 0.5 + 0.5) * w,
+                y: (0.5 - (p.y - camera.position.y) / h.hh * 0.5) * hgt
+            };
+        }
+        function inkPxPerUnit() { return inkRect().width / (2 * inkHalf().hw); }
+
+        // Chữ ký hình 3D: đổi hình thì nét vẽ cũ không còn khớp nữa
+        function inkGeomSig() {
+            try {
+                const v = verticesData.map(p => [p.id, p.point.x.toFixed(4), p.point.y.toFixed(4), p.point.z.toFixed(4)].join(',')).join(';');
+                const c = circlesData.map(c => [c.centerId, (+c.radius).toFixed(4)].join(',')).join(';');
+                return v + '|' + c;
+            } catch (e) { return ''; }
+        }
+
+        // ---------- vẽ ----------
+        function inkDrawItem(ctx, it, w, h, sc) {
+            const zs = camera.zoom / it.z0;
+            const lw = Math.max(1, it.width * zs) * sc;
+            const P = it.pts.map(p => inkToScreen(p, w, h));
+            ctx.save();
+            ctx.strokeStyle = it.color; ctx.fillStyle = it.color;
+            ctx.lineWidth = lw; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            ctx.setLineDash(it.dashed ? [lw * 3 + 3 * sc, lw * 2 + 3 * sc] : []);
+            if (it.type === 'pen') {
+                if (P.length === 1) {
+                    ctx.setLineDash([]);
+                    ctx.beginPath(); ctx.arc(P[0].x, P[0].y, lw / 2, 0, Math.PI * 2); ctx.fill();
+                } else {
+                    ctx.beginPath(); ctx.moveTo(P[0].x, P[0].y);
+                    for (let i = 1; i < P.length - 1; i++) {
+                        ctx.quadraticCurveTo(P[i].x, P[i].y, (P[i].x + P[i + 1].x) / 2, (P[i].y + P[i + 1].y) / 2);
+                    }
+                    ctx.lineTo(P[P.length - 1].x, P[P.length - 1].y);
+                    ctx.stroke();
+                }
+            } else if (it.type === 'line' || it.type === 'arrow') {
+                const a = P[0], b = P[1];
+                ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+                if (it.type === 'arrow') {
+                    const ang = Math.atan2(b.y - a.y, b.x - a.x), hl = Math.max(12 * sc * zs, lw * 4);
+                    ctx.setLineDash([]);
+                    ctx.beginPath();
+                    ctx.moveTo(b.x - hl * Math.cos(ang - 0.45), b.y - hl * Math.sin(ang - 0.45));
+                    ctx.lineTo(b.x, b.y);
+                    ctx.lineTo(b.x - hl * Math.cos(ang + 0.45), b.y - hl * Math.sin(ang + 0.45));
+                    ctx.stroke();
+                }
+            } else if (it.type === 'rect') {
+                const x = Math.min(P[0].x, P[1].x), y = Math.min(P[0].y, P[1].y);
+                ctx.strokeRect(x, y, Math.abs(P[1].x - P[0].x), Math.abs(P[1].y - P[0].y));
+            } else if (it.type === 'ellipse') {
+                const rx = Math.abs(P[1].x - P[0].x) / 2, ry = Math.abs(P[1].y - P[0].y) / 2;
+                if (rx > 0.5 && ry > 0.5) {
+                    ctx.beginPath();
+                    ctx.ellipse((P[0].x + P[1].x) / 2, (P[0].y + P[1].y) / 2, rx, ry, 0, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            } else if (it.type === 'text') {
+                ctx.setLineDash([]);
+                ctx.font = '700 ' + (it.size * zs * sc) + 'px Inter, "Segoe UI", Arial, sans-serif';
+                ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+                ctx.fillText(it.text, P[0].x, P[0].y);
+            }
+            ctx.restore();
+        }
+
+        function inkRenderTo(ctx, w, h, sc, withDraft) {
+            inkItems.forEach(it => inkDrawItem(ctx, it, w, h, sc));
+            if (withDraft && inkDraft) inkDrawItem(ctx, inkDraft, w, h, sc);
+        }
+
+        // Gọi mỗi khung hình: chỉ vẽ lại khi camera / nét vẽ thay đổi
+        function inkFrame() {
+            const cv = inkEl('paperInk');
+            if (!cv) return;
+            if (!paperMode) {
+                if (inkVisible) { cv.style.display = 'none'; inkVisible = false; }
+                return;
+            }
+            if (!inkVisible) { cv.style.display = 'block'; inkVisible = true; inkLastKey = ''; }
+            const w = window.innerWidth, h = window.innerHeight, dpr = Math.min(window.devicePixelRatio || 1, 2);
+            const key = [camera.position.x.toFixed(5), camera.position.y.toFixed(5), camera.zoom.toFixed(5),
+                camera.left, camera.right, camera.top, camera.bottom, w, h, dpr, inkVersion].join('|');
+            if (key === inkLastKey) return;
+            inkLastKey = key;
+            if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) {
+                cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+                cv.style.width = w + 'px'; cv.style.height = h + 'px';
+            }
+            const ctx = cv.getContext('2d');
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, w, h);
+            inkRenderTo(ctx, w, h, 1, true);
+        }
+
+        // ---------- lịch sử ----------
+        function inkCommit(newItems) {
+            inkHistory.push({ before: inkItems, after: newItems });
+            inkItems = newItems;
+            inkRedoStack = [];
+            inkVersion++;
+            inkRefreshUI();
+        }
+        function inkUndo() {
+            inkCommitTextBox();
+            const a = inkHistory.pop();
+            if (!a) return;
+            inkRedoStack.push(a);
+            inkItems = a.before;
+            inkVersion++; inkRefreshUI();
+        }
+        function inkRedo() {
+            inkCommitTextBox();
+            const a = inkRedoStack.pop();
+            if (!a) return;
+            inkHistory.push(a);
+            inkItems = a.after;
+            inkVersion++; inkRefreshUI();
+        }
+        function inkClearAll() {
+            inkCommitTextBox();
+            if (inkItems.length) inkCommit([]);
+        }
+
+        // ---------- công cụ / giao diện ----------
+        function inkSetTool(t) {
+            inkCommitTextBox();
+            inkTool = t;
+            if (paperMode) {
+                const ins = inkEl('mode-instruction');
+                if (ins) ins.textContent = 'Chế độ: Vẽ trên 2D — ' + INK_TOOL_HINTS[t];
+                renderer.domElement.style.cursor = INK_CURSORS[t] || 'crosshair';
+            }
+            inkRefreshUI();
+        }
+        function inkSetColor(c) { inkColor = c; inkRefreshUI(); }
+        function inkSetWidth(i) { inkWidthIdx = i; inkRefreshUI(); }
+        function inkToggleDash() { inkDashed = !inkDashed; inkRefreshUI(); }
+
+        function inkRefreshUI() {
+            document.querySelectorAll('#paperToolbar [data-ink-tool]').forEach(b => b.classList.toggle('active', b.dataset.inkTool === inkTool));
+            document.querySelectorAll('#paperToolbar [data-ink-color]').forEach(b => b.classList.toggle('active', b.dataset.inkColor === inkColor));
+            document.querySelectorAll('#paperToolbar [data-ink-width]').forEach(b => b.classList.toggle('active', parseInt(b.dataset.inkWidth, 10) === inkWidthIdx));
+            const d = inkEl('inkDashBtn'); if (d) d.classList.toggle('active', inkDashed);
+            const u = inkEl('inkUndoBtn'); if (u) u.disabled = inkHistory.length === 0;
+            const r = inkEl('inkRedoBtn'); if (r) r.disabled = inkRedoStack.length === 0;
+            const c = inkEl('inkClearBtn'); if (c) c.disabled = inkItems.length === 0;
+        }
+
+        function inkOnEnterPaper() {
+            const sig = inkGeomSig();
+            if (inkItems.length && inkSignature !== null && sig !== inkSignature) {
+                inkItems = []; inkHistory = []; inkRedoStack = [];
+                setTimeout(() => showBuildToast('Hình 3D đã thay đổi nên các nét vẽ 2D cũ đã được xóa.', 4000), 50);
+            }
+            inkSignature = sig;
+            // Ở chế độ 2D: chuột trái / một ngón tay = kéo dời hình
+            inkSavedControls = {};
+            try { inkSavedControls.left = controls.mouseButtons.LEFT; controls.mouseButtons.LEFT = THREE.MOUSE.PAN; } catch (e) {}
+            try { inkSavedControls.one = controls.touches.ONE; controls.touches.ONE = THREE.TOUCH.PAN; } catch (e) {}
+            inkEl('paperToolbar').classList.remove('hidden');
+            inkSetTool('pan');
+            inkVersion++; inkLastKey = '';
+        }
+
+        function inkOnExitPaper() {
+            inkCommitTextBox();
+            inkDraft = null; inkErase = null; inkSnap = null; inkPointerId = null;
+            inkShowSnap();
+            try { if (inkSavedControls && inkSavedControls.left !== undefined) controls.mouseButtons.LEFT = inkSavedControls.left; } catch (e) {}
+            try { if (inkSavedControls && inkSavedControls.one !== undefined) controls.touches.ONE = inkSavedControls.one; } catch (e) {}
+            inkSavedControls = null;
+            inkEl('paperToolbar').classList.add('hidden');
+        }
+
+        // ---------- chuột / cảm ứng ----------
+        function inkActive() { return paperMode && inkTool !== 'pan'; }
+
+        // Chặn OrbitControls (và xử lý chạm của app) khi đang dùng công cụ vẽ
+        function inkBlockIfActive(e) {
+            if (!inkActive()) return false;
+            if (e.type === 'touchstart') {
+                if (e.touches && e.touches.length > 1) return false;
+            } else if (e.button !== undefined && e.button !== 0) {
+                return false;   // chuột phải / giữa vẫn dời hình
+            }
+            e.stopPropagation();
+            if (e.cancelable) e.preventDefault();
+            return true;
+        }
+
+        function inkOnDown(e) {
+            if (!inkBlockIfActive(e)) return;
+            if (e.type !== 'pointerdown' || !e.isPrimary) return;
+            inkCommitTextBox();
+            try { e.target.setPointerCapture(e.pointerId); } catch (err) {}
+            inkPointerId = e.pointerId;
+            const pt = inkToWorld(e.clientX, e.clientY);
+            if (inkTool === 'text') {
+                inkPointerId = null;
+                inkOpenTextBox(e.clientX, e.clientY, pt);
+            } else if (inkTool === 'erase') {
+                inkErase = { before: inkItems };
+                inkEraseAt(pt);
+            } else if (inkTool === 'snap') {
+                inkSnap = { x0: e.clientX, y0: e.clientY, x1: e.clientX, y1: e.clientY };
+                inkShowSnap();
+            } else {
+                inkDraft = {
+                    type: inkTool, color: inkColor, width: INK_WIDTHS[inkWidthIdx],
+                    dashed: inkDashed, z0: camera.zoom,
+                    pts: inkTool === 'pen' ? [pt] : [pt, pt]
+                };
+                inkVersion++;
+            }
+        }
+
+        function inkConstrain(d, pt, shift) {
+            if (!shift) return pt;
+            const a = d.pts[0], dx = pt.x - a.x, dy = pt.y - a.y;
+            if (d.type === 'line' || d.type === 'arrow') {
+                const len = Math.hypot(dx, dy), step = Math.PI / 4;
+                const ang = Math.round(Math.atan2(dy, dx) / step) * step;
+                return { x: a.x + len * Math.cos(ang), y: a.y + len * Math.sin(ang) };
+            }
+            const s = Math.max(Math.abs(dx), Math.abs(dy));
+            return { x: a.x + (dx < 0 ? -s : s), y: a.y + (dy < 0 ? -s : s) };
+        }
+
+        function inkOnMove(e) {
+            if (inkPointerId === null || e.pointerId !== inkPointerId) return;
+            if (inkDraft) {
+                const pt = inkToWorld(e.clientX, e.clientY), d = inkDraft;
+                if (d.type === 'pen') {
+                    const last = d.pts[d.pts.length - 1];
+                    if (Math.hypot(pt.x - last.x, pt.y - last.y) * inkPxPerUnit() >= 1.5) d.pts.push(pt);
+                } else {
+                    d.pts[1] = inkConstrain(d, pt, e.shiftKey);
+                }
+                inkVersion++;
+            } else if (inkErase) {
+                inkEraseAt(inkToWorld(e.clientX, e.clientY));
+            } else if (inkSnap) {
+                inkSnap.x1 = e.clientX; inkSnap.y1 = e.clientY;
+                inkShowSnap();
+            }
+        }
+
+        function inkOnUp(e) {
+            if (inkPointerId === null || e.pointerId !== inkPointerId) return;
+            inkPointerId = null;
+            if (inkDraft) {
+                const d = inkDraft; inkDraft = null;
+                let keep = true;
+                if (d.type !== 'pen') {
+                    keep = Math.hypot(d.pts[1].x - d.pts[0].x, d.pts[1].y - d.pts[0].y) * inkPxPerUnit() >= 3;
+                }
+                if (keep && e.type !== 'pointercancel') inkCommit(inkItems.concat([d]));
+                inkVersion++;
+            } else if (inkErase) {
+                const before = inkErase.before; inkErase = null;
+                if (before !== inkItems) {
+                    inkHistory.push({ before, after: inkItems });
+                    inkRedoStack = [];
+                    inkRefreshUI();
+                }
+            } else if (inkSnap) {
+                const s = inkSnap; inkSnap = null;
+                inkShowSnap();
+                if (Math.abs(s.x1 - s.x0) > 8 && Math.abs(s.y1 - s.y0) > 8 && e.type !== 'pointercancel') {
+                    paperCapture('download', s);
+                } else {
+                    showBuildToast('Hãy kéo chuột để chọn một vùng cần chụp.', 2500);
+                }
+            }
+        }
+
+        function inkShowSnap() {
+            const el = inkEl('inkSnapRect'), s = inkSnap;
+            if (!el) return;
+            if (!s) { el.style.display = 'none'; return; }
+            el.style.display = 'block';
+            el.style.left = Math.min(s.x0, s.x1) + 'px';
+            el.style.top = Math.min(s.y0, s.y1) + 'px';
+            el.style.width = Math.abs(s.x1 - s.x0) + 'px';
+            el.style.height = Math.abs(s.y1 - s.y0) + 'px';
+        }
+
+        // ---------- tẩy ----------
+        function inkSegDist(p, a, b) {
+            const dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy;
+            let t = l2 ? ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2 : 0;
+            t = Math.max(0, Math.min(1, t));
+            return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+        }
+        function inkHit(it, p, tol) {
+            const ppu = inkPxPerUnit(), zs = camera.zoom / it.z0;
+            const t = tol + (it.width * zs / ppu) / 2;
+            const P = it.pts;
+            switch (it.type) {
+                case 'pen':
+                    if (P.length === 1) return Math.hypot(p.x - P[0].x, p.y - P[0].y) <= t;
+                    for (let i = 0; i < P.length - 1; i++) if (inkSegDist(p, P[i], P[i + 1]) <= t) return true;
+                    return false;
+                case 'line': case 'arrow':
+                    return inkSegDist(p, P[0], P[1]) <= t;
+                case 'rect': {
+                    const x0 = Math.min(P[0].x, P[1].x), x1 = Math.max(P[0].x, P[1].x);
+                    const y0 = Math.min(P[0].y, P[1].y), y1 = Math.max(P[0].y, P[1].y);
+                    const c = [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }];
+                    for (let i = 0; i < 4; i++) if (inkSegDist(p, c[i], c[(i + 1) % 4]) <= t) return true;
+                    return false;
+                }
+                case 'ellipse': {
+                    const rx = Math.abs(P[1].x - P[0].x) / 2, ry = Math.abs(P[1].y - P[0].y) / 2;
+                    if (rx < 1e-9 || ry < 1e-9) return false;
+                    const d = Math.hypot((p.x - (P[0].x + P[1].x) / 2) / rx, (p.y - (P[0].y + P[1].y) / 2) / ry);
+                    return Math.abs(d - 1) * Math.min(rx, ry) <= t;
+                }
+                case 'text': {
+                    const wU = it.text.length * 0.62 * it.size * zs / ppu, hU = it.size * zs * 1.3 / ppu;
+                    return p.x >= P[0].x - t && p.x <= P[0].x + wU + t && Math.abs(p.y - P[0].y) <= hU / 2 + t;
+                }
+            }
+            return false;
+        }
+        function inkEraseAt(pt) {
+            const tol = 10 / inkPxPerUnit();
+            const keep = inkItems.filter(it => !inkHit(it, pt, tol));
+            if (keep.length !== inkItems.length) { inkItems = keep; inkVersion++; }
+        }
+
+        // ---------- chữ ----------
+        function inkOpenTextBox(cx, cy, pt) {
+            inkCommitTextBox();
+            const inp = document.createElement('input');
+            inp.type = 'text';
+            inp.placeholder = 'Gõ chữ, Enter để xong';
+            inp.style.cssText = 'position:fixed;left:' + cx + 'px;top:' + (cy - 16) + 'px;z-index:70;font:700 20px Inter,sans-serif;' +
+                'color:' + inkColor + ';background:rgba(255,255,255,.92);border:1.5px dashed ' + inkColor + ';border-radius:4px;' +
+                'padding:2px 6px;outline:none;min-width:150px;user-select:text;-webkit-user-select:text;';
+            inp._pt = pt; inp._color = inkColor;
+            inp.addEventListener('keydown', ev => {
+                ev.stopPropagation();
+                if (ev.key === 'Enter') { ev.preventDefault(); inkCommitTextBox(); }
+                else if (ev.key === 'Escape') { ev.preventDefault(); inkCancelTextBox(); }
+            });
+            inp.addEventListener('blur', () => setTimeout(inkCommitTextBox, 0));
+            document.body.appendChild(inp);
+            inkTextBox = inp;
+            setTimeout(() => inp.focus(), 0);
+        }
+        function inkCommitTextBox() {
+            const inp = inkTextBox;
+            if (!inp) return;
+            inkTextBox = null;
+            const text = inp.value.trim(), pt = inp._pt, color = inp._color;
+            inp.remove();
+            if (!text) return;
+            inkCommit(inkItems.concat([{ type: 'text', color, width: 1, size: 20, dashed: false, z0: camera.zoom, pts: [pt], text }]));
+        }
+        function inkCancelTextBox() {
+            const inp = inkTextBox;
+            if (!inp) return;
+            inkTextBox = null;
+            inp.remove();
+        }
+
+        // ---------- chụp ảnh ----------
+        function inkFlash() {
+            const f = inkEl('inkFlash');
+            if (!f) return;
+            f.style.transition = 'none'; f.style.opacity = '0.7'; f.style.display = 'block';
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                f.style.transition = 'opacity .35s ease'; f.style.opacity = '0';
+            }));
+            setTimeout(() => { f.style.display = 'none'; }, 450);
+        }
+
+        // action: 'download' | 'copy';  rect: vùng chọn (px màn hình) hoặc bỏ trống để chụp cả khung
+        function paperCapture(action, rect) {
+            if (!paperMode) {
+                showBuildToast('Hãy bấm "Xem 2D (giấy)" trước để chụp hình 2D.', 3000);
+                return;
+            }
+            inkCommitTextBox();
+            let out;
+            try { out = buildSceneCanvas(); }
+            catch (err) { console.error(err); showBuildToast('Không chụp được ảnh, hãy thử lại.', 3000); return; }
+
+            if (rect) {
+                const r = inkRect(), k = out.width / r.width;
+                const sx = Math.max(0, (Math.min(rect.x0, rect.x1) - r.left) * k);
+                const sy = Math.max(0, (Math.min(rect.y0, rect.y1) - r.top) * k);
+                const ex = Math.min(out.width, (Math.max(rect.x0, rect.x1) - r.left) * k);
+                const ey = Math.min(out.height, (Math.max(rect.y0, rect.y1) - r.top) * k);
+                const sw = Math.round(ex - sx), sh = Math.round(ey - sy);
+                if (sw < 4 || sh < 4) { showBuildToast('Vùng chọn quá nhỏ.', 2500); return; }
+                const crop = document.createElement('canvas');
+                crop.width = sw; crop.height = sh;
+                crop.getContext('2d').drawImage(out, sx, sy, sw, sh, 0, 0, sw, sh);
+                out = crop;
+            }
+
+            inkFlash();
+            out.toBlob(blob => {
+                if (!blob) return;
+                if (action === 'copy') {
+                    if (navigator.clipboard && window.ClipboardItem) {
+                        navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]).then(
+                            () => showBuildToast('Đã sao chép ảnh. Bấm Ctrl+V để dán vào Word, Zalo...', 3500),
+                            () => showBuildToast('Trình duyệt không cho sao chép ảnh. Hãy dùng nút "Chụp (PNG)" để lưu ảnh.', 4500)
+                        );
+                    } else {
+                        showBuildToast('Trình duyệt không hỗ trợ sao chép ảnh. Hãy dùng nút "Chụp (PNG)".', 4500);
+                    }
+                } else {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = rect ? 'hinh-hoc-2d-vung-chon.png' : 'hinh-hoc-2d.png';
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    setTimeout(() => URL.revokeObjectURL(url), 3000);
+                    showBuildToast('Đã lưu ảnh ' + a.download, 2500);
+                }
+            }, 'image/png');
+        }
+
+        // ---------- phím tắt (chỉ khi đang ở chế độ 2D) ----------
+        function inkHandleKey(e) {
+            const k = e.key;
+            const map = { '1': 'pan', '2': 'pen', '3': 'line', '4': 'arrow', '5': 'rect', '6': 'ellipse', '7': 'text', '8': 'erase', '9': 'snap' };
+            if (map[k]) { e.preventDefault(); inkSetTool(map[k]); return true; }
+            if (k === 'd' || k === 'D') { inkToggleDash(); return true; }
+            if (k === 'c' || k === 'C') { paperCapture('download'); return true; }
+            if (k === 'Escape' && inkTool !== 'pan') { inkSetTool('pan'); return true; }
+            return false;
+        }
+
+        // ---------- gắn sự kiện ----------
+        (function initInk() {
+            const cont = document.getElementById('canvas-container');
+            ['pointerdown', 'mousedown'].forEach(t => cont.addEventListener(t, inkOnDown, true));
+            cont.addEventListener('touchstart', inkOnDown, { capture: true, passive: false });
+            window.addEventListener('pointermove', inkOnMove);
+            window.addEventListener('pointerup', inkOnUp);
+            window.addEventListener('pointercancel', inkOnUp);
+            inkRefreshUI();
+        })();
+    </script>
+
 </body>
 </html>

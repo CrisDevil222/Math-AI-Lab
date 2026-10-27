@@ -7,8 +7,8 @@ android {
         applicationId "com.mathailab.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 4
-        versionName "1.0.3"
+        versionCode 5
+        versionName "1.0.4"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -18,11 +18,18 @@ android {
     }
     signingConfigs {
         release {
-            def keystoreFile = file("E:/job/keys/keystore.properties")
+            def keystoreFile = file("F:/job/keys/keystore.properties")
+            if (!keystoreFile.exists()) {
+                keystoreFile = file("E:/job/keys/keystore.properties")
+            }
             if (keystoreFile.exists()) {
                 def props = new Properties()
                 props.load(new FileInputStream(keystoreFile))
-                storeFile = file(props['storeFile'])
+                def sPath = props['storeFile']
+                if (!file(sPath).exists() && sPath.startsWith("E:/")) {
+                    sPath = sPath.replace("E:/", "F:/")
+                }
+                storeFile = file(sPath)
                 storePassword = props['storePassword']
                 keyAlias = props['keyAlias']
                 keyPassword = props['keyPassword']
@@ -33,7 +40,7 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            if (file("E:/job/keys/keystore.properties").exists()) {
+            if (file("F:/job/keys/keystore.properties").exists() || file("E:/job/keys/keystore.properties").exists()) {
                 signingConfig signingConfigs.release
             }
         }

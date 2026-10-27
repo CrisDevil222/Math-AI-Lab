@@ -17,113 +17,169 @@
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            overflow: hidden;
-            background-color: #0b1120;
-            color: #f8fafc;
-        }
+    /* ===== Khung ứng dụng: thanh trên / vùng làm việc / ô nhập / bảng biến thiên xếp theo chiều dọc ===== */
+    html, body { height: 100%; }
+    body {
+        font-family: 'Inter', sans-serif;
+        margin: 0;
+        overflow: hidden;
+        background-color: #0b1120;
+        color: #f8fafc;
+        height: 100vh;
+        height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        box-sizing: border-box;
+        padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+    }
 
-        .glass-panel {
-            background: rgba(15, 23, 42, 0.88);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
+    .glass-panel {
+        background: rgba(15, 23, 42, 0.88);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
 
-        .plot-label {
-            position: absolute;
-            color: #ffffff;
-            font-weight: 700;
-            font-size: 11px;
-            padding: 2px 6px;
-            border-radius: 5px;
-            background: rgba(15, 23, 42, 0.9);
-            border: 1.5px solid #38bdf8;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
-            pointer-events: none;
-            transform: translate(-50%, -120%);
-            white-space: nowrap;
-            user-select: none;
-            z-index: 10;
-        }
+    .plot-label {
+        position: absolute;
+        color: #ffffff;
+        font-weight: 700;
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 5px;
+        background: rgba(15, 23, 42, 0.9);
+        border: 1.5px solid #38bdf8;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+        pointer-events: none;
+        transform: translate(-50%, -120%);
+        white-space: nowrap;
+        user-select: none;
+        z-index: 10;
+    }
 
-        .katex-display {
-            margin: 0.35em 0 !important;
-            overflow-x: auto;
-            overflow-y: hidden;
-            scrollbar-width: none !important;
-            -ms-overflow-style: none !important;
-        }
-        .katex-display::-webkit-scrollbar {
-            display: none !important;
-            height: 0px !important;
-            width: 0px !important;
-        }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.5); border-radius: 2px; }
 
-        .katex {
-            font-size: 1.05em;
-            color: #e2e8f0;
-            white-space: normal !important;
-        }
+    /* Vùng vẽ: canvas và lớp nhãn luôn đúng bằng kích thước vùng vẽ (không còn phụ thuộc 100vw/100vh) */
+    #plotArea { min-height: 0; min-width: 0; }
+    #canvas-container, #labels-container {
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        overflow: hidden;
+    }
 
-        ::-webkit-scrollbar {
-            width: 4px;
+    /* Thanh trên: tiêu đề / công cụ / tham số m nằm gọn trên 1 hàng chuẩn desktop/mobile */
+    #topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: .5rem;
+        padding: .35rem .75rem;
+        flex-wrap: nowrap;
+    }
+    #topbar > header { order: 1; flex: none; }
+    #toolbar { order: 2; flex: none; }
+    #paramControlPanel { order: 3; flex: none; }
+    .tb-group {
+        display: flex; align-items: center; gap: .25rem;
+        padding-right: .5rem; margin-right: .25rem;
+        border-right: 1px solid rgba(71, 85, 105, .8);
+    }
+    .tb-group:last-child { border-right: 0; padding-right: 0; margin-right: 0; }
+    @media (max-width: 639px) { .tb-label { display: none; } }
+
+    /* Bảng bên phải: cột cố định trên máy tính, ngăn kéo trượt ra trên màn hình nhỏ */
+    #right-sidebar {
+        width: 20rem;
+        flex: none;
+        min-height: 0;
+        box-sizing: border-box;
+        padding: .5rem .5rem .5rem 0;
+    }
+    #right-sidebar.collapsed { display: none; }
+    @media (max-width: 1023px) {
+        #right-sidebar {
+            position: absolute; top: 0; right: 0; bottom: 0;
+            width: min(20rem, 88vw);
+            padding: .5rem;
+            transition: transform .3s cubic-bezier(.4, 0, .2, 1), visibility .3s;
         }
-        ::-webkit-scrollbar-thumb {
-            background: rgba(100, 116, 139, 0.5);
-            border-radius: 2px;
-        }
-    </style>
-    <style>
-        /* Tùy chỉnh kích thước khung chat chatbot */
-        #formulaChatPanel {
-            width: 560px !important;
-            max-width: calc(100vw - 40px) !important;
-            height: 480px !important;
-            max-height: calc(100dvh - 300px) !important;
-        }
-        #formulaChatPanel h2 {
-            font-size: 17px !important;
-        }
-        #formulaChatPanel button i.fa-xmark {
-            font-size: 20px !important;
-        }
-        #formulaChatPanel > div:first-child button {
-            width: 36px !important;
-            height: 36px !important;
+        #right-sidebar.collapsed {
             display: flex;
-            align-items: center;
-            justify-content: center;
+            transform: translateX(105%);
+            visibility: hidden;
+            pointer-events: none;
         }
-        #formulaChatMessages {
-            font-size: 16px !important;
-            line-height: 1.6 !important;
-            overflow-y: auto !important;
-        }
-        #formulaChatMessages > div {
-            font-size: 16px !important;
-        }
-        #formulaChatInput {
-            height: 48px !important;
-            font-size: 16px !important;
-        }
-        #btnSubmitFormulaChat {
-            width: 48px !important;
-            height: 48px !important;
-            font-size: 18px !important;
-        }
-        #variationPanel {
-            left: 50%;
-            transform: translateX(-50%);
-            width: min(94vw, 820px);
-        }
-        @media (min-width: 640px) {
-            #variationPanel {
-                left: calc((100vw - 21rem) / 2);
-                width: min(820px, calc(100vw - 22rem));
-            }
-        }
+        body.sb-open #sidebarToggleBtn { right: calc(min(20rem, 88vw) + .5rem); }
+    }
+
+    /* Bảng biến thiên: nằm trong luồng, đồ thị tự co lại phía trên (không đè lên) */
+    #variationPanel {
+        flex: none;
+        max-height: 45vh;
+        max-height: 45dvh;
+        background: #0b1120;
+        border-radius: 0;
+        border-width: 2px 0 0 0;
+        box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.45);
+    }
+
+    /* Ô nhập lệnh */
+    #cmdHistoryPanel { max-height: min(16rem, 45dvh); }
+    @media (max-height: 560px) {
+        #cmdSymbols { display: none; }
+        #instrRow { display: none; }
+    }
+
+    /* Khung chat: nằm trong vùng vẽ, tự co theo màn hình; màn nhỏ thì phủ kín vùng vẽ */
+    #formulaChatPanel {
+        left: .5rem;
+        top: 6.25rem;
+        width: min(560px, calc(100% - 1rem));
+        height: min(480px, calc(100% - 6.75rem));
+    }
+    @media (max-width: 639px), (max-height: 620px) {
+        #formulaChatPanel { top: .5rem; height: calc(100% - 1rem); }
+    }
+    #formulaChatPanel h2 { font-size: 17px !important; }
+    #formulaChatPanel button i.fa-xmark { font-size: 20px !important; }
+    #formulaChatPanel > div:first-child button {
+        width: 36px !important;
+        height: 36px !important;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    #formulaChatMessages { font-size: 16px !important; line-height: 1.6 !important; overflow-y: auto !important; }
+    #formulaChatMessages > div { font-size: 16px !important; }
+    #formulaChatInput { height: 48px !important; font-size: 16px !important; min-width: 0; }
+    #btnSubmitFormulaChat { width: 48px !important; height: 48px !important; font-size: 18px !important; flex: none; }
+    @media (max-width: 639px) {
+        #formulaChatMessages, #formulaChatMessages > div { font-size: 14px !important; }
+        #formulaChatInput { height: 42px !important; font-size: 14px !important; }
+        #btnSubmitFormulaChat { width: 42px !important; height: 42px !important; }
+    }
+    
+    /* Tối ưu ô nhập lệnh không bị thu nhỏ khi bàn phím ảo mở */
+    #aiCommandInput {
+        font-size: 15px !important;
+        line-height: 1.4 !important;
+    }
+    #aiCommandInput::placeholder {
+        font-size: 13px !important;
+    }
+    body.keyboard-active #cmdBar {
+        zoom: 1 !important;
+        bottom: 6px !important;
+        max-width: 96vw !important;
+        width: 96vw !important;
+    }
+    body.keyboard-active #topbar {
+        opacity: 0.3 !important;
+        pointer-events: none !important;
+    }
+
     </style>
     <!-- DEBUG-TEMP -->
     <script>
@@ -145,276 +201,306 @@
         }
     </script>
     <script src="config.js"></script>
+    <script src="settings.js"></script>
 </head>
-<body class="w-screen relative select-none" style="height: 100vh; height: 100dvh;">
+<body class="select-none">
 
-    <!-- 2D Canvas Container -->
-    <div id="canvas-container" class="w-full h-full absolute top-0 left-0 cursor-crosshair" style="touch-action: none;">
-        <canvas id="graphCanvas" class="w-full h-full block" style="touch-action: none;"></canvas>
+    <!-- Thanh trên: tiêu đề / công cụ / tham số m (tự xuống dòng khi màn hình hẹp) -->
+    <div id="topbar" class="shrink-0 flex flex-wrap items-stretch gap-2 p-2 relative z-30">
+      <!-- Header Overlay -->
+      <header class="shrink-0 z-20">
+          <div class="glass-panel px-3 py-1.5 rounded-xl flex items-center space-x-2.5 shadow-lg h-full">
+              <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm shadow-md shadow-cyan-500/30">
+                  <i class="fa-solid fa-chart-line"></i>
+              </div>
+              <div>
+                  <div class="flex items-center gap-1.5">
+                      <h1 class="font-bold text-xs text-slate-100 tracking-wide leading-tight">Khảo Sát Đồ Thị 2D</h1>
+                      <span class="px-1.5 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 font-mono text-[9px] font-bold border border-cyan-500/30">v1.0.4</span>
+                  </div>
+                  <p class="text-[10px] text-cyan-400 font-medium leading-none mt-0.5">Hỗ Trợ Tiệm Cận, Đạo Hàm y', y'' & Tiếp Tuyến</p>
+              </div>
+              <button onclick="openSettingsModal()" title="Cài đặt độ phân giải & giao diện" class="ml-1.5 w-7 h-7 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-cyan-300 flex items-center justify-center text-xs transition-colors border border-slate-700/60">
+                  <i class="fa-solid fa-gear"></i>
+              </button>
+          </div>
+      </header>
+      <!-- Toolbar -->
+      <div id="toolbar" class="min-w-0 z-20">
+          <div class="glass-panel p-1 rounded-xl flex items-center gap-1 shadow-lg border border-slate-700/60 h-full"><div class="tb-group">
+              <button onclick="setToolMode('pan')" id="tool-pan" class="tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 transition-all whitespace-nowrap">
+                  <i class="fa-solid fa-hand"></i>
+                  <span class="tb-label">Di Chuyển (Pan)</span>
+              </button>
+              <button onclick="setToolMode('add_point')" id="tool-add_point" class="tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800 transition-all whitespace-nowrap">
+                  <i class="fa-solid fa-location-dot text-emerald-400"></i>
+                  <span class="tb-label">Chấm Điểm</span>
+              </button>
+              <button onclick="setToolMode('tangent')" id="tool-tangent" class="tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800 transition-all whitespace-nowrap" title="Bấm vào đồ thị để vẽ tiếp tuyến">
+                  <i class="fa-solid fa-ruler-combined text-amber-400"></i>
+                  <span class="tb-label">Tiếp Tuyến</span>
+              </button>
+              <button onclick="setToolMode('delete')" id="tool-delete" class="tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800 transition-all whitespace-nowrap">
+                  <i class="fa-solid fa-trash-can text-rose-400"></i>
+                  <span class="tb-label">Xóa Điểm</span>
+              </button>
+              </div><div class="tb-group">
+              <button onclick="zoomView(1.2)" class="tool-btn p-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800" title="Phóng to (phím +)">
+                  <i class="fa-solid fa-magnifying-glass-plus text-cyan-300"></i>
+              </button>
+              <button onclick="zoomView(0.8)" class="tool-btn p-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800" title="Thu nhỏ (phím -)">
+                  <i class="fa-solid fa-magnifying-glass-minus text-cyan-300"></i>
+              </button>
+              <button onclick="resetView()" class="tool-btn p-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800" title="Gốc tọa độ (0,0) (phím 0)">
+                  <i class="fa-solid fa-arrows-to-dot text-amber-300"></i>
+              </button>
+              </div><div class="tb-group">
+              <button onclick="undoLastAction()" id="btnUndo" disabled class="tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-800 transition-all whitespace-nowrap">
+                  <i class="fa-solid fa-rotate-left text-sky-400"></i>
+                  <span class="tb-label">Hoàn Tác</span>
+              </button>
+              <button onclick="clearAllData()" title="Xóa hết (Shift+Delete)" class="tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:bg-slate-800 transition-all whitespace-nowrap">
+                  <i class="fa-solid fa-eraser"></i>
+                  <span class="tb-label">Xóa Hết</span>
+              </button>
+              </div><div class="tb-group">
+              <!-- Nút Lưu dự án -->
+              <button onclick="saveProjectToFile()" title="Lưu đồ thị vào file (Ctrl+S)" class="tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-emerald-400 hover:bg-slate-800 transition-all whitespace-nowrap">
+                  <i class="fa-solid fa-floppy-disk"></i>
+                  <span class="tb-label">Lưu</span>
+              </button>
+              <!-- Nút Mở/Nhập dự án -->
+              <button onclick="triggerLoadProject()" title="Nhập file đồ thị đã lưu" class="tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-sky-400 hover:bg-slate-800 transition-all whitespace-nowrap">
+                  <i class="fa-solid fa-folder-open"></i>
+                  <span class="tb-label">Mở</span>
+              </button>
+              <input type="file" id="importProjectFile" accept=".json" style="display:none" onchange="loadProjectFromFile(event)">
+              </div><div class="tb-group">
+              <button onclick="saveGraphImage()" title="Lưu 1 ảnh gồm đồ thị + bảng biến thiên (PNG)" class="tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-teal-300 hover:bg-slate-800 transition-all whitespace-nowrap">
+                  <i class="fa-solid fa-image"></i>
+                  <span class="tb-label">Lưu Ảnh</span>
+              </button>
+              </div><div class="tb-group">
+              <button id="btnVarTable" onclick="toggleVariationTable()" title="Bảng biến thiên (phím B)" class="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-transparent text-xs font-semibold text-amber-300 hover:bg-slate-800 transition-all whitespace-nowrap">
+                  <i class="fa-solid fa-table-list"></i>
+                  <span class="tb-label">Bảng Biến Thiên</span>
+              </button>
+          </div></div></div>
+      <div id="paramControlPanel" class="shrink-0 z-20 glass-panel px-3 py-1.5 rounded-xl border border-amber-500/40 shadow-lg flex items-center gap-2">
+          <button id="btnPlayParam" onclick="togglePlayParam()" title="Chạy / Dừng hoạt hình tham số m" 
+                  class="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center justify-center text-xs hover:bg-amber-500/30 transition-all">
+              <i class="fa-solid fa-play"></i>
+          </button>
+          <div class="text-xs font-bold text-amber-300 font-mono whitespace-nowrap">
+              m = <span id="mValDisplay">1.0</span>
+          </div>
+          <input type="range" id="mSlider" min="-5" max="5" step="0.1" value="1.0" 
+                 oninput="updateParamM(this.value)"
+                 class="w-24 sm:w-32 accent-amber-500 cursor-pointer">
+      </div>
     </div>
 
-    <!-- Container nhãn điểm động -->
-    <div id="labels-container" class="absolute top-0 left-0 w-full h-full pointer-events-none"></div>
-
-    <!-- Header Overlay -->
-    <header class="absolute top-4 left-4 z-20">
-        <div class="glass-panel px-4 py-3 rounded-2xl flex items-center space-x-3 shadow-xl">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-cyan-500/30">
-                <i class="fa-solid fa-chart-line"></i>
+    <!-- Vùng làm việc: đồ thị + bảng bên phải -->
+    <main id="workspace" class="relative flex flex-1 min-h-0 min-w-0">
+        <section id="stage" class="relative flex flex-col flex-1 min-w-0 min-h-0">
+        <div id="instrRow" class="absolute top-1 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
+            <div id="mode-instruction" class="glass-panel px-4 py-1 rounded-2xl text-[11px] sm:text-xs text-cyan-300 font-medium shadow-md border border-cyan-500/30 text-center animate-pulse">
+                Chế độ: Di chuyển hệ trục Oxy (Ấn giữ chuột trái để kéo, cuộn chuột để phóng to/thu nhỏ)
             </div>
-            <div>
-                <div class="flex items-center gap-2">
-                    <h1 class="font-bold text-base text-slate-100 tracking-wide leading-tight">Khảo Sát Đồ Thị 2D</h1>
-                    <span class="px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-mono text-[10px] font-bold border border-cyan-500/30">v1.0.3</span>
+        </div>
+            <div id="plotArea" class="relative flex-1 min-h-0 min-w-0">
+            <!-- 2D Canvas Container -->
+            <div id="canvas-container" class="w-full h-full absolute top-0 left-0 cursor-crosshair" style="touch-action: none;">
+                <canvas id="graphCanvas" class="w-full h-full block" style="touch-action: none;"></canvas>
+            </div>
+
+            <!-- Container nhãn điểm động -->
+            <div id="labels-container" class="absolute top-0 left-0 w-full h-full pointer-events-none"></div>
+                <div id="leftStack" class="absolute top-2 left-2 z-20 flex flex-col items-start gap-2 pointer-events-none">
+                <!-- Nút chuyển về Hình Học 3D -->
+                <div class="pointer-events-auto flex items-center gap-2">
+                    <a href="index.html" 
+                       title="Quay về Màn hình chính"
+                       class="glass-panel px-3 py-1.5 rounded-xl flex items-center gap-1.5 border border-slate-700/60 text-slate-300 hover:text-cyan-300 hover:border-cyan-500/40 text-xs font-semibold hover:bg-slate-800/80 transition-all shadow-lg group">
+                        <i class="fa-solid fa-house text-xs text-cyan-400 group-hover:scale-110 transition-transform"></i>
+                        <span>Trang Chủ</span>
+                    </a>
+                    <a href="ungdunghinhoc3d.html" 
+                       title="Mở giao diện vẽ Hình Học Không Gian 3D"
+                       class="glass-panel px-3 py-1.5 rounded-xl flex items-center gap-1.5 border border-cyan-500/40 text-cyan-300 text-xs font-semibold hover:bg-cyan-500/10 hover:border-cyan-400 transition-all shadow-lg group">
+                        <i class="fa-solid fa-cube text-xs text-cyan-400 group-hover:scale-110 transition-transform"></i>
+                        <span>Hình Học 3D</span>
+                        <i class="fa-solid fa-arrow-up-right-from-square text-[9px] text-slate-400 group-hover:text-cyan-300"></i>
+                    </a>
                 </div>
-                <p class="text-xs text-cyan-400 font-medium">Hỗ Trợ Tiệm Cận, Đạo Hàm y', y'' & Tiếp Tuyến</p>
+                <button id="chatToggleBtn" onclick="toggleFormulaChat()"
+                        class="glass-panel w-11 h-11 rounded-2xl border border-emerald-500/40 text-emerald-300 shadow-xl flex items-center justify-center hover:bg-emerald-500/10 transition-all pointer-events-auto">
+                    <i class="fa-solid fa-calculator text-base"></i>
+                </button>
+                </div>
+                <button id="sidebarToggleBtn" type="button" onclick="toggleRightSidebar()" title="Thu gọn / mở rộng bảng bên phải"
+                        class="glass-panel absolute top-2 right-2 z-40 w-9 h-9 rounded-xl border border-slate-600/60 text-cyan-300 hover:bg-cyan-500/15 shadow-xl flex items-center justify-center transition-colors">
+                    <i id="sidebarToggleIcon" class="fa-solid fa-chevron-right text-sm"></i>
+                </button>
+            <div id="formulaChatPanel" class="hidden absolute z-40 glass-panel rounded-2xl border border-emerald-500/30 shadow-2xl flex flex-col pointer-events-auto">
+                <div class="shrink-0 flex items-center justify-between px-4 py-3 border-b border-slate-700/50">
+                    <h2 class="text-xs font-bold text-emerald-300 uppercase tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-square-root-variable"></i> Khảo Sát & Công Thức
+                    </h2>
+                    <div class="flex items-center gap-1">
+                        <button onclick="clearChatHistory()" title="Xóa lịch sử chat" class="text-slate-500 hover:text-rose-400 transition-colors">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                        <button onclick="toggleFormulaChat()" class="text-slate-500 hover:text-slate-300 transition-colors">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="formulaChatMessages" class="flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-2 text-xs">
+                    <div class="text-slate-400 bg-slate-800/50 border border-slate-700/40 rounded-xl px-3 py-2 leading-relaxed">
+                        Chào bạn! Hãy hỏi mình về khảo sát hàm số, khoảng xác định, cực trị, tiệm cận, đạo hàm $y', y''$ hoặc tiếp tuyến nhé!
+                    </div>
+                </div>
+                <div class="shrink-0 p-3 border-t border-slate-700/50 flex gap-2">
+                    <input type="text" id="formulaChatInput" placeholder="VD: Tìm cực trị, phương trình tiệm cận..."
+                           onkeydown="if(event.key === 'Enter') sendFormulaChat()"
+                           class="flex-1 bg-slate-900/80 border border-slate-700 text-white placeholder-slate-500 text-xs px-3 py-2 rounded-xl outline-none focus:border-emerald-500 transition-colors">
+                    <button id="btnSubmitFormulaChat" onclick="sendFormulaChat()"
+                            class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3 py-2 rounded-xl transition-all shadow-md flex items-center justify-center">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </div>
             </div>
-        </div>
-    </header>
-
-    <!-- Nút chuyển về Hình Học 3D -->
-    <div class="absolute top-[4.75rem] left-4 z-20 pointer-events-auto">
-        <a href="ungdunghinhoc3d.html" 
-           title="Mở giao diện vẽ Hình Học Không Gian 3D"
-           class="glass-panel px-3.5 py-2 rounded-xl flex items-center gap-2 border border-cyan-500/40 text-cyan-300 text-xs font-semibold hover:bg-cyan-500/10 hover:border-cyan-400 transition-all shadow-lg group">
-            <i class="fa-solid fa-cube text-sm text-cyan-400 group-hover:scale-110 transition-transform"></i>
-            <span>Về Hình Học 3D</span>
-            <i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-slate-400 group-hover:text-cyan-300"></i>
-        </a>
-    </div>
-
-    <!-- Author Badge -->
-    <div class="absolute bottom-24 left-4 z-20 pointer-events-auto">
-        <div class="glass-panel px-3 py-2 rounded-xl flex items-center space-x-2.5 shadow-lg border border-slate-700/60">
-            <div class="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xs font-bold">
-                <i class="fa-solid fa-square-root-variable"></i>
+                <div id="bottomStack" class="absolute left-2 right-2 bottom-2 z-20 flex flex-wrap items-end gap-2 pointer-events-none">
+                <!-- Author Badge -->
+                <div id="authorBadge" class="pointer-events-auto">
+                    <div class="glass-panel px-3 py-2 rounded-xl flex items-center space-x-2.5 shadow-lg border border-slate-700/60">
+                        <div class="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xs font-bold">
+                            <i class="fa-solid fa-square-root-variable"></i>
+                        </div>
+                        <div class="text-xs">
+                            <span class="text-slate-400 font-medium">Thực hiện: </span>
+                            <span class="font-bold text-cyan-300">Tên Của Bạn</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- Chú thích đạo hàm khi đang bật -->
+                <div id="derivativeLegend" class="hidden pointer-events-auto glass-panel px-3 py-2 rounded-xl border border-slate-700 text-[11px] flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <div class="flex items-center gap-1.5 text-amber-300 font-mono font-bold">
+                        <span class="inline-block w-4 h-0.5 border-b-2 border-amber-400 border-dashed"></span>
+                        <span>y' (Đạo hàm bậc 1)</span>
+                    </div>
+                    <div class="flex items-center gap-1.5 text-fuchsia-300 font-mono font-bold">
+                        <span class="inline-block w-4 h-0.5 border-b-2 border-fuchsia-400 border-dotted"></span>
+                        <span>y'' (Đạo hàm bậc 2)</span>
+                    </div>
+                </div>
+                </div>
             </div>
-            <div class="text-xs">
-                <span class="text-slate-400 font-medium">Thực hiện: </span>
-                <span class="font-bold text-cyan-300">Tên Của Bạn</span>
-            </div>
-        </div>
-    </div>
-
-    <!-- Chú thích đạo hàm khi đang bật -->
-    <div id="derivativeLegend" class="hidden absolute bottom-4 left-4 z-20 glass-panel px-3 py-2 rounded-xl border border-slate-700 text-[11px] flex items-center gap-3">
-        <div class="flex items-center gap-1.5 text-amber-300 font-mono font-bold">
-            <span class="inline-block w-4 h-0.5 border-b-2 border-amber-400 border-dashed"></span>
-            <span>y' (Đạo hàm bậc 1)</span>
-        </div>
-        <div class="flex items-center gap-1.5 text-fuchsia-300 font-mono font-bold">
-            <span class="inline-block w-4 h-0.5 border-b-2 border-fuchsia-400 border-dotted"></span>
-            <span>y'' (Đạo hàm bậc 2)</span>
-        </div>
-    </div>
-
-    <!-- Nút mở Chatbot -->
-    <button id="chatToggleBtn" onclick="toggleFormulaChat()"
-            class="absolute top-[7.75rem] left-4 z-30 glass-panel w-11 h-11 rounded-2xl border border-emerald-500/40 text-emerald-300 shadow-xl flex items-center justify-center hover:bg-emerald-500/10 transition-all pointer-events-auto">
-        <i class="fa-solid fa-calculator text-base"></i>
-    </button>
-
-    <div id="formulaChatPanel" class="hidden absolute top-[7.75rem] left-[4.75rem] z-30 w-80 sm:w-96 max-h-[72vh] glass-panel rounded-2xl border border-emerald-500/30 shadow-2xl flex flex-col pointer-events-auto">
-        <div class="flex items-center justify-between px-4 py-3 border-b border-slate-700/50">
-            <h2 class="text-xs font-bold text-emerald-300 uppercase tracking-wider flex items-center gap-2">
-                <i class="fa-solid fa-square-root-variable"></i> Khảo Sát & Công Thức
-            </h2>
-            <button onclick="toggleFormulaChat()" class="text-slate-500 hover:text-slate-300 transition-colors">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-        </div>
-        <div id="formulaChatMessages" class="flex-1 min-h-[220px] max-h-[28rem] overflow-y-auto px-3 py-3 space-y-2 text-xs">
-            <div class="text-slate-400 bg-slate-800/50 border border-slate-700/40 rounded-xl px-3 py-2 leading-relaxed">
-                Chào bạn! Hãy hỏi mình về khảo sát hàm số, khoảng xác định, cực trị, tiệm cận, đạo hàm $y', y''$ hoặc tiếp tuyến nhé!
-            </div>
-        </div>
-        <div class="p-3 border-t border-slate-700/50 flex gap-2">
-            <input type="text" id="formulaChatInput" placeholder="VD: Tìm cực trị, phương trình tiệm cận..."
-                   onkeydown="if(event.key === 'Enter') sendFormulaChat()"
-                   class="flex-1 bg-slate-900/80 border border-slate-700 text-white placeholder-slate-500 text-xs px-3 py-2 rounded-xl outline-none focus:border-emerald-500 transition-colors">
-            <button id="btnSubmitFormulaChat" onclick="sendFormulaChat()"
-                    class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3 py-2 rounded-xl transition-all shadow-md flex items-center justify-center">
-                <i class="fa-solid fa-paper-plane"></i>
-            </button>
-        </div>
-    </div>
-
-    <!-- Bảng biến thiên -->
-    <div id="variationPanel" class="hidden fixed z-40 top-[8.25rem] glass-panel rounded-2xl border border-amber-500/30 shadow-2xl flex flex-col max-h-[62vh]">
-        <div class="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-700/50">
-            <h2 class="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-2 shrink-0">
-                <i class="fa-solid fa-table-list"></i> Bảng Biến Thiên
-            </h2>
-            <select id="variationSelect" onchange="onVariationSelect(this)" class="min-w-0 flex-1 max-w-[16rem] bg-slate-900/80 border border-slate-700 text-slate-200 text-xs font-mono px-2 py-1 rounded-lg outline-none focus:border-amber-500"></select>
-            <button onclick="toggleVariationTable(false)" class="text-slate-500 hover:text-slate-300 transition-colors" title="Đóng (Esc)">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-        </div>
-        <div id="variationBody" class="overflow-auto p-3 text-xs text-slate-300"></div>
-    </div>
-
-    <!-- Toolbar -->
-    <div class="absolute top-4 left-1/2 -translate-x-1/2 z-20">
-        <div class="glass-panel p-1.5 rounded-2xl flex items-center space-x-1 shadow-2xl border border-slate-700/60 overflow-x-auto max-w-[94vw]">
-            <button onclick="setToolMode('pan')" id="tool-pan" class="tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 transition-all whitespace-nowrap">
-                <i class="fa-solid fa-hand"></i>
-                <span>Di Chuyển (Pan)</span>
-            </button>
-            <button onclick="setToolMode('add_point')" id="tool-add_point" class="tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800 transition-all whitespace-nowrap">
-                <i class="fa-solid fa-location-dot text-emerald-400"></i>
-                <span>Chấm Điểm</span>
-            </button>
-            <button onclick="setToolMode('tangent')" id="tool-tangent" class="tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800 transition-all whitespace-nowrap" title="Bấm vào đồ thị để vẽ tiếp tuyến">
-                <i class="fa-solid fa-ruler-combined text-amber-400"></i>
-                <span>Tiếp Tuyến</span>
-            </button>
-            <button onclick="setToolMode('delete')" id="tool-delete" class="tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800 transition-all whitespace-nowrap">
-                <i class="fa-solid fa-trash-can text-rose-400"></i>
-                <span>Xóa Điểm</span>
-            </button>
-            <div class="w-px h-6 bg-slate-700 mx-1"></div>
-            <button onclick="zoomView(1.2)" class="tool-btn p-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800" title="Phóng to (phím +)">
-                <i class="fa-solid fa-magnifying-glass-plus text-cyan-300"></i>
-            </button>
-            <button onclick="zoomView(0.8)" class="tool-btn p-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800" title="Thu nhỏ (phím -)">
-                <i class="fa-solid fa-magnifying-glass-minus text-cyan-300"></i>
-            </button>
-            <button onclick="resetView()" class="tool-btn p-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800" title="Gốc tọa độ (0,0) (phím 0)">
-                <i class="fa-solid fa-arrows-to-dot text-amber-300"></i>
-            </button>
-            <div class="w-px h-6 bg-slate-700 mx-1"></div>
-            <button onclick="undoLastAction()" id="btnUndo" disabled class="tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-800 transition-all whitespace-nowrap">
-                <i class="fa-solid fa-rotate-left text-sky-400"></i>
-                <span>Hoàn Tác</span>
-            </button>
-            <button onclick="clearAllData()" title="Xóa hết (Shift+Delete)" class="tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:bg-slate-800 transition-all whitespace-nowrap">
-                <i class="fa-solid fa-eraser"></i>
-                <span>Xóa Hết</span>
-            </button>
-            <div class="w-px h-6 bg-slate-700 mx-1"></div>
-            <!-- Nút Lưu dự án -->
-            <button onclick="saveProjectToFile()" title="Lưu đồ thị vào file (Ctrl+S)" class="tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-emerald-400 hover:bg-slate-800 transition-all whitespace-nowrap">
-                <i class="fa-solid fa-floppy-disk"></i>
-                <span>Lưu</span>
-            </button>
-            <!-- Nút Mở/Nhập dự án -->
-            <button onclick="triggerLoadProject()" title="Nhập file đồ thị đã lưu" class="tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-sky-400 hover:bg-slate-800 transition-all whitespace-nowrap">
-                <i class="fa-solid fa-folder-open"></i>
-                <span>Mở</span>
-            </button>
-            <input type="file" id="importProjectFile" accept=".json" style="display:none" onchange="loadProjectFromFile(event)">
-            <div class="w-px h-6 bg-slate-700 mx-1"></div>
-            <button id="btnVarTable" onclick="toggleVariationTable()" title="Bảng biến thiên (phím B)" class="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-transparent text-xs font-semibold text-amber-300 hover:bg-slate-800 transition-all whitespace-nowrap">
-                <i class="fa-solid fa-table-list"></i>
-                <span>Bảng Biến Thiên</span>
-            </button>
-        </div>
-    </div>
-
-    <!-- Quick Instruction Tooltip -->
-    <div class="absolute top-20 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
-        <div id="mode-instruction" class="glass-panel px-4 py-1.5 rounded-full text-xs text-cyan-300 font-medium shadow-md border border-cyan-500/30 animate-pulse">
-            Chế độ: Di chuyển hệ trục Oxy (Ấn giữ chuột trái để kéo, cuộn chuột để phóng to/thu nhỏ)
-        </div>
-    </div>
-
-    <!-- Right Sidebar -->
-    <aside id="right-sidebar" class="absolute top-4 right-4 bottom-24 w-80 sm:w-88 z-20 flex flex-col gap-4 pointer-events-none" style="transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);">
-        <!-- Nút thu/mở bảng bên phải -->
-        <button id="sidebarToggleBtn" type="button" onclick="toggleRightSidebar()" title="Thu gọn / mở rộng bảng bên phải"
-                class="glass-panel absolute top-3 -left-10 w-9 h-9 rounded-xl border border-slate-600/60 text-cyan-300 hover:bg-cyan-500/15 shadow-xl flex items-center justify-center pointer-events-auto transition-colors">
-            <i id="sidebarToggleIcon" class="fa-solid fa-chevron-right text-sm"></i>
-        </button>
-        <div class="glass-panel rounded-2xl p-4 sm:p-5 shadow-2xl flex-1 flex flex-col pointer-events-auto overflow-y-auto">
+        </section>
+        <!-- Right Sidebar -->
+        <aside id="right-sidebar" class="z-20 flex flex-col">
+            <div class="glass-panel rounded-2xl p-4 sm:p-5 shadow-2xl flex-1 min-h-0 flex flex-col overflow-y-auto">
             
-            <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2.5 flex items-center gap-2">
-                <i class="fa-solid fa-wand-magic-sparkles text-cyan-400"></i> Đồ Thị Mẫu Phổ Biến
-            </h2>
-
-            <div class="grid grid-cols-2 gap-2 mb-3">
-                <button onclick="loadPreset('sin_interval')" class="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-semibold transition-all">
-                    y = sin(x) [-π, π]
-                </button>
-                <button onclick="loadPreset('cos_interval')" class="p-2.5 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/40 text-teal-300 text-xs font-semibold transition-all">
-                    y = cos(x) [0, 2π]
-                </button>
-                <button onclick="loadPreset('cubic')" class="p-2.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 text-xs font-semibold transition-all">
-                    y = x³ - 3x + 1
-                </button>
-                <button onclick="loadPreset('rational')" class="p-2.5 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/40 text-purple-300 text-xs font-semibold transition-all">
-                    y = (2x - 1)/(x + 1)
-                </button>
-            </div>
-
-            <!-- Tọa độ con trỏ chuột -->
-            <div class="mb-4 p-2.5 rounded-xl bg-slate-800/40 border border-slate-700/50 flex items-center justify-between text-xs">
-                <span class="text-slate-400 font-medium"><i class="fa-solid fa-crosshairs text-cyan-400 mr-1"></i> Tọa độ:</span>
-                <span id="coordDisplay" class="font-mono text-cyan-300 font-bold">(0.00, 0.00)</span>
-            </div>
-
-            <hr class="border-slate-700/50 mb-3">
-
-            <!-- Danh sách hàm số đang vẽ -->
-            <div class="flex items-center justify-between mb-2">
-                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                    <i class="fa-solid fa-bezier-curve text-cyan-400"></i> Hàm Số Hiện Tại
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2.5 flex items-center gap-2">
+                    <i class="fa-solid fa-wand-magic-sparkles text-cyan-400"></i> Đồ Thị Mẫu Phổ Biến
                 </h2>
-                <button onclick="promptAddFunction()" class="text-xs text-cyan-400 hover:text-cyan-300 font-semibold flex items-center gap-1">
-                    <i class="fa-solid fa-plus"></i> Thêm hàm
+
+                <div class="grid grid-cols-2 gap-2 mb-3">
+                    <button onclick="loadPreset('sin_interval')" class="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-semibold transition-all">
+                        y = sin(x) [-π, π]
+                    </button>
+                    <button onclick="loadPreset('cos_interval')" class="p-2.5 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/40 text-teal-300 text-xs font-semibold transition-all">
+                        y = cos(x) [0, 2π]
+                    </button>
+                    <button onclick="loadPreset('cubic')" class="p-2.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 text-xs font-semibold transition-all">
+                        y = x³ - 3x + 1
+                    </button>
+                    <button onclick="loadPreset('rational')" class="p-2.5 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/40 text-purple-300 text-xs font-semibold transition-all">
+                        y = (2x - 1)/(x + 1)
+                    </button>
+                </div>
+
+                <!-- Tọa độ con trỏ chuột -->
+                <div class="mb-4 p-2.5 rounded-xl bg-slate-800/40 border border-slate-700/50 flex items-center justify-between text-xs">
+                    <span class="text-slate-400 font-medium"><i class="fa-solid fa-crosshairs text-cyan-400 mr-1"></i> Tọa độ:</span>
+                    <span id="coordDisplay" class="font-mono text-cyan-300 font-bold">(0.00, 0.00)</span>
+                </div>
+
+                <hr class="border-slate-700/50 mb-3">
+
+                <!-- Danh sách hàm số đang vẽ -->
+                <div class="flex items-center justify-between mb-2">
+                    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-bezier-curve text-cyan-400"></i> Hàm Số Hiện Tại
+                    </h2>
+                    <button onclick="promptAddFunction()" class="text-xs text-cyan-400 hover:text-cyan-300 font-semibold flex items-center gap-1">
+                        <i class="fa-solid fa-plus"></i> Thêm hàm
+                    </button>
+                </div>
+
+                <div id="functionsList" class="space-y-2 mb-3 max-h-[170px] overflow-y-auto pr-1"></div>
+
+                <button id="btnIntersections" onclick="toggleIntersections()" title="Hiện / ẩn giao điểm giữa các đồ thị (phím G)" class="w-full mb-4 py-2 px-3 rounded-xl border text-xs font-semibold transition-all flex items-center justify-between gap-2">
+                    <span class="flex items-center gap-1.5"><i class="fa-regular fa-circle-dot"></i> Giao điểm các đồ thị</span>
+                    <span id="intersectionCount" class="font-mono text-[11px]"></span>
                 </button>
-            </div>
 
-            <div id="functionsList" class="space-y-2 mb-3 max-h-[170px] overflow-y-auto pr-1"></div>
+                <hr class="border-slate-700/50 mb-3">
 
-            <button id="btnIntersections" onclick="toggleIntersections()" title="Hiện / ẩn giao điểm giữa các đồ thị (phím G)" class="w-full mb-4 py-2 px-3 rounded-xl border text-xs font-semibold transition-all flex items-center justify-between gap-2">
-                <span class="flex items-center gap-1.5"><i class="fa-regular fa-circle-dot"></i> Giao điểm các đồ thị</span>
-                <span id="intersectionCount" class="font-mono text-[11px]"></span>
-            </button>
-
-            <hr class="border-slate-700/50 mb-3">
-
-            <!-- Danh sách điểm đánh dấu -->
-            <div class="flex items-center justify-between mb-2">
-                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                    <i class="fa-solid fa-location-dot text-emerald-400"></i> Điểm Đánh Dấu
-                </h2>
-                <button onclick="autoFindKeyPoints()" class="text-xs text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1" title="Tự động tìm Cực trị (phím K)">
-                    <i class="fa-solid fa-bolt"></i> Tự tìm cực trị
+                <!-- Danh sách điểm đánh dấu -->
+                <div class="flex items-center justify-between mb-2">
+                    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-location-dot text-emerald-400"></i> Điểm Đánh Dấu
+                    </h2>
+                    <button onclick="autoFindKeyPoints()" class="text-xs text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1" title="Tự động tìm Cực trị (phím K)">
+                        <i class="fa-solid fa-bolt"></i> Tự tìm cực trị
+                    </button>
+                </div>
+                <button onclick="findSymmetryCenter()" class="w-full mb-2 py-1.5 px-3 rounded-xl border border-orange-500/50 bg-orange-500/10 hover:bg-orange-500/20 text-orange-300 text-xs font-semibold transition-all flex items-center justify-center gap-1.5" title="Tìm tâm đối xứng của đồ thị (phím S)">
+                    <i class="fa-solid fa-circle-dot"></i> Tìm tâm đối xứng
                 </button>
+
+                <div id="pointsList" class="flex-1 min-h-[90px] max-h-[130px] overflow-y-auto space-y-1.5 pr-1 mb-4">
+                    <div class="text-center text-xs text-slate-500 py-4">Chưa có điểm nào.</div>
+                </div>
+
+                <hr class="border-slate-700/50 mb-3">
+
+                <!-- Danh sách tiếp tuyến -->
+                <div class="flex items-center justify-between mb-2">
+                    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-ruler-combined text-amber-400"></i> Tiếp Tuyến
+                    </h2>
+                </div>
+
+                <div id="tangentsList" class="min-h-[60px] max-h-[110px] overflow-y-auto space-y-1.5 pr-1 mb-4">
+                    <div class="text-center text-xs text-slate-500 py-3">Chưa có tiếp tuyến nào.</div>
+                </div>
+
+                <div class="mt-auto pt-2">
+                    <button onclick="resetView()" class="w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-300 font-medium transition-all flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-compress text-cyan-400"></i> Đặt Lại Tỉ Lệ Chuẩn (0,0)
+                    </button>
+                </div>
+
             </div>
-            <button onclick="findSymmetryCenter()" class="w-full mb-2 py-1.5 px-3 rounded-xl border border-orange-500/50 bg-orange-500/10 hover:bg-orange-500/20 text-orange-300 text-xs font-semibold transition-all flex items-center justify-center gap-1.5" title="Tìm tâm đối xứng của đồ thị (phím S)">
-                <i class="fa-solid fa-circle-dot"></i> Tìm tâm đối xứng
-            </button>
-
-            <div id="pointsList" class="flex-1 min-h-[90px] max-h-[130px] overflow-y-auto space-y-1.5 pr-1 mb-4">
-                <div class="text-center text-xs text-slate-500 py-4">Chưa có điểm nào.</div>
-            </div>
-
-            <hr class="border-slate-700/50 mb-3">
-
-            <!-- Danh sách tiếp tuyến -->
-            <div class="flex items-center justify-between mb-2">
-                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                    <i class="fa-solid fa-ruler-combined text-amber-400"></i> Tiếp Tuyến
-                </h2>
-            </div>
-
-            <div id="tangentsList" class="min-h-[60px] max-h-[110px] overflow-y-auto space-y-1.5 pr-1 mb-4">
-                <div class="text-center text-xs text-slate-500 py-3">Chưa có tiếp tuyến nào.</div>
-            </div>
-
-            <div class="mt-auto pt-2">
-                <button onclick="resetView()" class="w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-300 font-medium transition-all flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-compress text-cyan-400"></i> Đặt Lại Tỉ Lệ Chuẩn (0,0)
-                </button>
-            </div>
-
-        </div>
-    </aside>
+        </aside>
+    </main>
 
     <!-- Ô NHẬP LỆNH VẼ ĐỒ THỊ BẰNG AI & CÔNG THỨC TOÁN -->
-    <div class="fixed bottom-4 left-1/2 -translate-x-1/2 w-[92%] max-w-3xl z-30 glass-panel p-3 rounded-2xl border border-slate-700/80 shadow-2xl flex flex-col gap-2">
-        <div class="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs border-b border-slate-700/50">
+    <div id="cmdBar" class="absolute bottom-2 left-1/2 -translate-x-1/2 w-[calc(100%-1rem)] max-w-2xl z-30 glass-panel p-2 rounded-2xl border border-slate-700/80 shadow-2xl flex flex-col gap-1.5 pointer-events-auto">
+        <!-- Lịch sử lệnh vẽ -->
+        <div id="cmdHistoryPanel" class="hidden absolute bottom-full left-0 right-0 mb-2 glass-panel rounded-2xl border border-cyan-500/30 shadow-2xl flex flex-col">
+            <div class="flex items-center justify-between px-4 py-2 border-b border-slate-700/50">
+                <span class="text-xs font-bold text-cyan-300 uppercase tracking-wider"><i class="fa-solid fa-clock-rotate-left mr-1.5"></i>Lịch sử lệnh vẽ</span>
+                <button type="button" onclick="clearCommandHistory()" class="text-[11px] text-slate-400 hover:text-rose-400 font-semibold flex items-center gap-1">
+                    <i class="fa-solid fa-trash-can"></i> Xóa lịch sử
+                </button>
+            </div>
+            <div id="cmdHistoryList" class="overflow-y-auto p-2 space-y-1"></div>
+        </div>
+        <div id="cmdSymbols" class="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs border-b border-slate-700/50">
             <span class="text-[11px] text-slate-400 font-medium whitespace-nowrap mr-1"><i class="fa-solid fa-superscript text-cyan-400"></i> Ký hiệu:</span>
             <button type="button" onclick="insertSymbol('x^2')" class="px-2 py-0.5 rounded-lg bg-cyan-950/70 hover:bg-cyan-900 text-cyan-300 font-bold border border-cyan-700/60 shadow-sm">x²</button>
             <button type="button" onclick="insertSymbol('x^3')" class="px-2 py-0.5 rounded-lg bg-cyan-950/70 hover:bg-cyan-900 text-cyan-300 font-bold border border-cyan-700/60 shadow-sm">x³</button>
@@ -428,11 +514,20 @@
             <button type="button" onclick="insertSymbol('/')" class="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold border border-slate-700">/</button>
         </div>
 
-        <div class="flex flex-col sm:flex-row gap-2">
+        <div class="flex flex-wrap items-stretch gap-2">
             <input type="text" id="aiCommandInput" placeholder="Nhập hàm số (VD: y = (2x - 1)/(x + 1), y = x^3 - 3x + 1, y = sin(x)...)" 
                    onkeydown="if(event.key === 'Enter') handleCommandSubmit()"
-                   class="flex-1 bg-slate-900/80 border border-slate-700 text-white placeholder-slate-500 text-xs px-3 py-2 rounded-xl outline-none focus:border-cyan-500 transition-colors">
+                   class="flex-1 min-w-[10rem] bg-slate-900/80 border border-slate-700 text-white placeholder-slate-500 text-xs px-3 py-2 rounded-xl outline-none focus:border-cyan-500 transition-colors">
             
+            <button type="button" onclick="toggleCommandHistory()" title="Lịch sử lệnh vẽ (hoặc bấm ↑ / ↓ trong ô nhập)" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-cyan-300 text-xs px-3 py-2 rounded-xl transition-all flex items-center justify-center">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+            </button>
+            <button type="button" onclick="reportLastAiIssue()" title="Báo AI vẽ sai / chưa đúng ý (ghi vào nhật ký)" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-amber-300 text-xs px-3 py-2 rounded-xl transition-all flex items-center justify-center">
+                <i class="fa-solid fa-flag"></i>
+            </button>
+            <button type="button" onclick="downloadAiLog()" title="Tải nhật ký các câu AI làm chưa tốt (file .txt)" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-emerald-300 text-xs px-3 py-2 rounded-xl transition-all flex items-center justify-center gap-1">
+                <i class="fa-solid fa-file-arrow-down"></i><span id="aiLogCount" class="text-[10px] text-amber-300 font-bold"></span>
+            </button>
             <button id="btnSubmitPlot" onclick="handleCommandSubmit()" 
                     class="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 whitespace-nowrap">
                 <i class="fa-solid fa-pen-nib"></i>
@@ -441,8 +536,75 @@
         </div>
     </div>
 
+    <!-- Bảng biến thiên -->
+    <div id="variationPanel" class="hidden shrink-0 relative z-40 glass-panel border-amber-500/40 flex flex-col">
+        <div class="shrink-0 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-3 sm:px-4 py-2 sm:py-3 border-b border-slate-700/50">
+            <h2 class="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-2 shrink-0">
+                <i class="fa-solid fa-table-list"></i> Bảng Biến Thiên
+            </h2>
+            <select id="variationSelect" onchange="onVariationSelect(this)" class="min-w-0 flex-1 max-w-[16rem] bg-slate-900/80 border border-slate-700 text-slate-200 text-xs font-mono px-2 py-1 rounded-lg outline-none focus:border-amber-500"></select>
+            <button onclick="toggleVariationTable(false)" class="text-slate-500 hover:text-slate-300 transition-colors" title="Đóng (Esc)">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div id="variationBody" class="flex-1 min-h-0 overflow-auto p-3 text-xs text-slate-300"></div>
+    </div>
+
     <script>
         // MODAL SYSTEM
+        let isPlayingParam = false;
+let playInterval = null;
+let playDirection = 1; // 1 là tăng, -1 là giảm
+
+function togglePlayParam() {
+    const btn = document.getElementById('btnPlayParam');
+    const slider = document.getElementById('mSlider');
+    if (!slider) return;
+
+    isPlayingParam = !isPlayingParam;
+
+    if (isPlayingParam) {
+        btn.innerHTML = '<i class="fa-solid fa-pause"></i>';
+        playInterval = setInterval(() => {
+            let val = parseFloat(slider.value);
+            const min = parseFloat(slider.min);
+            const max = parseFloat(slider.max);
+            const step = parseFloat(slider.step) || 0.1;
+
+            val += playDirection * step;
+            if (val >= max) {
+                val = max;
+                playDirection = -1; // Đổi chiều chạy lùi
+            } else if (val <= min) {
+                val = min;
+                playDirection = 1;  // Đổi chiều chạy tiến
+            }
+
+            slider.value = val.toFixed(1);
+            updateParamM(val); // Cập nhật đồ thị theo m mới
+        }, 30); // Cứ 30ms cập nhật 1 khung hình
+    } else {
+        btn.innerHTML = '<i class="fa-solid fa-play"></i>';
+        clearInterval(playInterval);
+    }
+}
+        let parameters = { m: 1.0 };
+
+     function updateParamM(val) {
+            parameters.m = parseFloat(val);
+            const disp = document.getElementById('mValDisplay');
+            if (disp) disp.textContent = parameters.m.toFixed(1);
+
+            // Cập nhật lại toàn bộ hàm số có chứa tham số m
+            functionsData.forEach(item => {
+                if (item.hasParam && typeof item.rawParamFn === 'function') {
+                    item.parsedFn = item.rawParamFn(parameters.m);
+                }
+            });
+
+            render();
+            if (variationOpen) renderVariationTable();
+        }
         let currentModal = null;
         const modalQueue = [];
 
@@ -735,11 +897,93 @@
             return { cleanExpr: s, domain };
         }
 
+        // Chuyển biểu thức người dùng gõ (có nhân ngầm, π, ^, t = thời gian...) thành mã JS an toàn.
+        // Ném lỗi nếu gặp ký hiệu lạ -> compileMathExpression sẽ quay về cách xử lý cũ.
+        function mathToJs(s) {
+            const FN = { sqrt: 'Math.sqrt', sin: 'Math.sin', cos: 'Math.cos', tan: 'Math.tan', abs: 'Math.abs',
+                         exp: 'Math.exp', ln: 'Math.log', log: 'Math.log10' };
+            const NAMES = ['sqrt', 'sin', 'cos', 'tan', 'abs', 'exp', 'log', 'ln', 'pi', 'e', 'x', 't', 'm'];
+            const toks = [];
+            let i = 0;
+            while (i < s.length) {
+                const ch = s[i];
+                if (/\s/.test(ch)) { i++; continue; }
+                const m = s.slice(i).match(/^(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?/);
+                if (m) { toks.push({ t: 'num', v: m[0] }); i += m[0].length; continue; }
+                if (/[a-z]/.test(ch)) {
+                    const nm = NAMES.find(n => s.startsWith(n, i));
+                    if (!nm) throw new Error('token');
+                    toks.push({ t: FN[nm] ? 'fn' : 'id', v: nm });
+                    i += nm.length; continue;
+                }
+                if (ch === '*' && s[i + 1] === '*') { toks.push({ t: 'op', v: '^' }); i += 2; continue; }
+                if ('+-*/^()'.includes(ch)) { toks.push({ t: 'op', v: ch }); i++; continue; }
+                throw new Error('token');
+            }
+            if (!toks.length) throw new Error('empty');
+            const hasX = toks.some(k => k.t === 'id' && k.v === 'x');
+            const hasT = toks.some(k => k.t === 'id' && k.v === 't');
+            if (hasX && hasT) throw new Error('x and t');
+
+            let p = 0;
+            const isOp = v => toks[p] && toks[p].t === 'op' && toks[p].v === v;
+            const startsAtom = () => {
+                const k = toks[p];
+                return !!k && (k.t === 'num' || k.t === 'id' || k.t === 'fn' || (k.t === 'op' && k.v === '('));
+            };
+            function expr() {
+                let a = term();
+                while (isOp('+') || isOp('-')) { const o = toks[p++].v; a = '(' + a + o + term() + ')'; }
+                return a;
+            }
+            function term() {
+                let a = unary();
+                for (;;) {
+                    if (isOp('*') || isOp('/')) { const o = toks[p++].v; a = '(' + a + o + unary() + ')'; }
+                    else if (startsAtom()) { a = '(' + a + '*' + power() + ')'; }   // nhân ngầm: 2x, 2πx, 2cos(x), (x+1)(x-1)
+                    else break;
+                }
+                return a;
+            }
+            function unary() {
+                if (isOp('-')) { p++; return '(-' + unary() + ')'; }
+                if (isOp('+')) { p++; return unary(); }
+                return power();
+            }
+            function power() {
+                const b = atom();
+                if (isOp('^')) { p++; return 'Math.pow(' + b + ',' + unary() + ')'; }
+                return b;
+            }
+            function atom() {
+                const k = toks[p++];
+                if (!k) throw new Error('end');
+                if (k.t === 'num') return k.v;
+                if (k.t === 'id') return k.v === 'pi' ? 'Math.PI' : k.v === 'e' ? 'Math.E' : (k.v === 'm' ? 'm' : 'x');
+                if (k.t === 'fn') {
+                    if (isOp('(')) { p++; const a = expr(); if (!isOp(')')) throw new Error(')'); p++; return FN[k.v] + '(' + a + ')'; }
+                    return FN[k.v] + '(' + power() + ')';
+                }
+                if (k.t === 'op' && k.v === '(') { const a = expr(); if (!isOp(')')) throw new Error(')'); p++; return '(' + a + ')'; }
+                throw new Error('atom');
+            }
+            const js = expr();
+            if (p !== toks.length) throw new Error('rest');
+            return js;
+        }
+
         function compileMathExpression(expr, domain = null) {
             let s = normalizeMathInput(expr);
             if (s.startsWith('y=') || s.startsWith('y =')) {
                 s = s.substring(s.indexOf('=') + 1).trim();
+            } else if (/(^|[^a-z])t([^a-z]|$)/.test(s)) {
+                // Phương trình dao động điều hòa: "x = 5cos(4πt + π/3)", "x(t) = ...", "v = ..." (t là biến thời gian)
+                const lhs = s.match(/^\s*[a-z]\s*(?:\(\s*t\s*\))?\s*=([^=]+)$/);
+                if (lhs) s = lhs[1].trim();
             }
+
+            let parsedJs = null;
+            try { parsedJs = mathToJs(s.replace(/π/g, 'pi')); } catch (e) { parsedJs = null; }
 
             s = s.replace(/π/g, 'pi');
             s = s.replace(/(\d+)\s*\*?\s*pi/gi, '$1*Math.PI');
@@ -761,6 +1005,8 @@
 
             const minX = domain && isFinite(domain.min) ? domain.min : -Infinity;
             const maxX = domain && isFinite(domain.max) ? domain.max : Infinity;
+
+            if (parsedJs !== null) s = parsedJs;
 
             return new Function('x', `
                 if (x < ${minX} || x > ${maxX}) return NaN;
@@ -909,6 +1155,25 @@
             const height = canvas.height;
 
             specialLines.forEach(line => {
+                if (line.type === 'hole') {
+                    const hx = toCanvasX(line.x0), hy = toCanvasY(line.y0);
+                    ctx.setLineDash([]);
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(hx, hy, 5, 0, Math.PI * 2);
+                    ctx.fillStyle = '#0b1120';
+                    ctx.fill();
+                    ctx.strokeStyle = line.color || '#38bdf8';
+                    ctx.stroke();
+                    if (line.label) {
+                        ctx.fillStyle = line.color || '#38bdf8';
+                        ctx.font = 'bold 11px Inter, sans-serif';
+                        ctx.textAlign = 'left';
+                        ctx.textBaseline = 'alphabetic';
+                        ctx.fillText(line.label, hx + 9, hy - 8);
+                    }
+                    return;
+                }
                 ctx.lineWidth = 1.8;
                 ctx.strokeStyle = line.color || '#f59e0b';
                 ctx.setLineDash(line.type === 'asymptote' ? [6, 6] : []);
@@ -1304,6 +1569,27 @@
 
             const P = parsePoly(numStr);
             const Q = parsePoly(denStr);
+
+            if (Q && Q.deg === 1 && Q.a !== 0 && P && P.deg >= 1) {
+                // Tử và mẫu có nghiệm chung x = r  ->  rút gọn được (x - r): KHÔNG có tiệm cận đứng,
+                // chỉ khuyết (lỗ thủng) tại điểm (r, y0).
+                const r = -Q.b / Q.a;
+                const pr = P.deg === 2 ? P.a * r * r + P.b * r + P.c : P.a * r + P.b;
+                const tol = 1e-9 * (1 + Math.abs(P.a) + Math.abs(P.b) + Math.abs(P.c));
+                if (Math.abs(pr) <= tol) {
+                    const y0 = P.deg === 2 ? (2 * P.a * r + P.b) / Q.a : P.a / Q.a;
+                    if (isFinite(r) && isFinite(y0)) {
+                        specialLines.push({
+                            type: 'hole',
+                            x0: r,
+                            y0: y0,
+                            label: `(${Number(r.toFixed(2))}; ${Number(y0.toFixed(2))})`,
+                            color: color || '#38bdf8'
+                        });
+                    }
+                    return;
+                }
+            }
 
             if (Q && Q.deg === 1 && Q.a !== 0) {
                 const xTCD = -Q.b / Q.a;
@@ -1825,8 +2111,25 @@
             return name;
         }
 
-        function addFunction(fullInput, color = null, domain = null) {
+        // Miền xác định lưu trong file JSON / bộ nhớ hoàn tác: ±Infinity bị JSON.stringify đổi thành null,
+        // mà isFinite(null) === true nên bị hiểu thành 0 -> đường đồ thị không còn hiện. Chuẩn hoá lại tại đây.
+        function normalizeDomain(d) {
+            if (!d || typeof d !== 'object') return null;
+            const toNum = (v, def) => {
+                if (v === null || v === undefined || v === '') return def;
+                const n = Number(v);
+                return Number.isFinite(n) ? n : def;
+            };
+            return {
+                min: toNum(d.min, -Infinity),
+                max: toNum(d.max, Infinity),
+                text: typeof d.text === 'string' ? d.text : ''
+            };
+        }
+
+      function addFunction(fullInput, color = null, domain = null) {
             fullInput = normalizeMathInput(fullInput);
+            domain = normalizeDomain(domain);
             let finalDomain = domain;
             let exprToCompile = fullInput;
 
@@ -1836,7 +2139,22 @@
                 finalDomain = extracted.domain;
             }
 
-            const fn = compileMathExpression(exprToCompile, finalDomain);
+            // Kiểm tra xem hàm số có chứa tham số m hay không
+            const hasParam = /\bm\b/.test(exprToCompile);
+            let fn;
+            let rawParamFn = null;
+
+            if (hasParam) {
+                // Nếu có chứa m, tạo hàm tạo động theo giá trị m hiện tại
+                rawParamFn = (mVal) => {
+                    // Biên dịch biểu thức có gắn giá trị m vào môi trường chạy
+                    return compileMathExpression(exprToCompile.replace(/\bm\b/g, `(${mVal})`), finalDomain);
+                };
+                fn = rawParamFn(parameters.m);
+            } else {
+                fn = compileMathExpression(exprToCompile, finalDomain);
+            }
+
             const id = 'fn_' + Math.random().toString(36).substr(2, 9);
             const assignedColor = color || functionColors[functionsData.length % functionColors.length];
 
@@ -1845,6 +2163,8 @@
                 rawExpr: exprToCompile,
                 domain: finalDomain,
                 parsedFn: fn,
+                hasParam,
+                rawParamFn,
                 color: assignedColor,
                 visible: true,
                 showY1: false,
@@ -1853,6 +2173,7 @@
 
             detectAsymptotes(exprToCompile, assignedColor);
 
+            if (variationFnIdx !== -1) variationFnIdx = functionsData.length - 1;
             renderFunctionsList();
             render();
         }
@@ -1869,7 +2190,7 @@
         }
 
         async function promptAddFunction() {
-            const input = await appPrompt("Nhập hàm số y = f(x) (Hỗ trợ khoảng và pi, VD: '(2x - 1)/(x + 1)' hoặc 'sin(x) trên [-pi, pi]'):", "x^3 - 3*x + 1");
+            const input = await appPrompt("Nhập hàm số y = f(x) (Hỗ trợ khoảng và pi, VD: '(2x - 1)/(x + 1)', 'sin(x) trên [-pi, pi]'; dao động điều hòa: 'x = 5cos(4πt + π/3) trên [0, 2]', t hoặc x đều là trục hoành):", "x^3 - 3*x + 1");
             if (input && input.trim()) {
                 pushUndo();
                 addFunction(input.trim());
@@ -1933,6 +2254,7 @@
         function removeFunction(idx) {
             pushUndo();
             functionsData.splice(idx, 1);
+            if (variationFnIdx > idx) variationFnIdx--;
             specialLines = [];
             renderFunctionsList();
             renderTangentsList();
@@ -2044,9 +2366,10 @@
 
         function undoLastAction() {
             if (undoStack.length === 0) return;
+            noteUndoAfterAi();
             const state = JSON.parse(undoStack.pop());
             functionsData = [];
-            specialLines = state.lines || [];
+            specialLines = [];
             pointsData = state.points || [];
 
             (state.functions || []).forEach(f => {
@@ -2057,6 +2380,7 @@
                     item.showY2 = !!f.showY2;
                 }
             });
+            specialLines = state.lines || [];
             renderFunctionsList();
             render();
             renderPointsList();
@@ -2093,7 +2417,7 @@
         // ==========================================
         function saveProjectToFile() {
             const projectData = {
-                version: "1.0.3",
+                version: "1.0.4",
                 app: "DoThi2D",
                 timestamp: new Date().toISOString(),
                 view: {
@@ -2104,7 +2428,11 @@
                 functions: functionsData.map(f => ({
                     expr: f.rawExpr,
                     color: f.color,
-                    domain: f.domain,
+                    domain: f.domain ? {
+                        min: isFinite(f.domain.min) ? f.domain.min : null,
+                        max: isFinite(f.domain.max) ? f.domain.max : null,
+                        text: f.domain.text || ''
+                    } : null,
                     showY1: f.showY1,
                     showY2: f.showY2,
                     visible: f.visible
@@ -2170,7 +2498,7 @@
                     });
 
                     pointsData = projectData.points || [];
-                    specialLines = projectData.lines || [];
+                    if (Array.isArray(projectData.lines)) specialLines = projectData.lines;
 
                     renderFunctionsList();
                     renderPointsList();
@@ -2186,6 +2514,113 @@
             reader.readAsText(file);
         }
 
+        // ==========================================
+        // NHẬT KÝ CÁC CÂU AI LÀM CHƯA TỐT (lưu trong trình duyệt, tải về file .txt để cải thiện app)
+        // ==========================================
+        const AI_LOG_KEY = 'aiIssueLog_2d';
+        const AI_LOG_TITLE = '2D';
+        const AI_LOG_MAX = 200;
+        let aiLastRawReply = '';
+        let lastAiAction = null;
+
+        function readAiLog() {
+            try {
+                const a = JSON.parse(localStorage.getItem(AI_LOG_KEY) || '[]');
+                return Array.isArray(a) ? a : [];
+            } catch (e) { return []; }
+        }
+
+        function updateAiLogBadge() {
+            const el = document.getElementById('aiLogCount');
+            if (el) { const n = readAiLog().length; el.textContent = n ? String(n) : ''; }
+        }
+
+        function aiLogNotify(msg) {
+            try {
+                if (typeof showBuildToast === 'function') showBuildToast(msg, 2500);
+                else if (typeof showInfoToast === 'function') showInfoToast('<i class="fa-solid fa-flag text-amber-400"></i> ' + msg);
+            } catch (e) {}
+        }
+
+        function logAiIssue(reason, prompt, reply) {
+            try {
+                const arr = readAiLog();
+                arr.push({
+                    time: new Date().toISOString(),
+                    reason: String(reason || ''),
+                    prompt: String(prompt || ''),
+                    reply: String(reply === undefined ? aiLastRawReply : reply || '').slice(0, 4000)
+                });
+                while (arr.length > AI_LOG_MAX) arr.shift();
+                localStorage.setItem(AI_LOG_KEY, JSON.stringify(arr));
+                updateAiLogBadge();
+            } catch (e) { console.error(e); }
+        }
+
+        // Người dùng tự bấm cờ khi thấy AI vẽ sai / chưa đúng ý
+        function reportLastAiIssue() {
+            if (!lastAiAction) { aiLogNotify('Chưa có lệnh AI nào để báo.'); return; }
+            logAiIssue('Người dùng báo AI vẽ sai / chưa đúng ý', lastAiAction.prompt, lastAiAction.reply);
+            lastAiAction.undoLogged = true;
+            aiLogNotify('Đã ghi vào nhật ký: "' + lastAiAction.prompt.slice(0, 40) + '"');
+        }
+
+        // Hoàn tác ngay sau khi AI vẽ => nhiều khả năng AI vẽ chưa đúng
+        function noteUndoAfterAi() {
+            if (lastAiAction && !lastAiAction.undoLogged && Date.now() - lastAiAction.time < 30000) {
+                lastAiAction.undoLogged = true;
+                logAiIssue('Người dùng hoàn tác ngay sau khi AI vẽ', lastAiAction.prompt, lastAiAction.reply);
+            }
+        }
+
+        async function downloadAiLog() {
+            const arr = readAiLog();
+            if (arr.length === 0) { aiLogNotify('Nhật ký đang trống.'); return; }
+            const lines = ['NHẬT KÝ CÁC CÂU AI CHƯA TỐT (' + AI_LOG_TITLE + ') - ' + arr.length + ' mục', ''];
+            arr.forEach((it, i) => {
+                lines.push('[' + (i + 1) + '] ' + it.time);
+                lines.push('Lý do: ' + it.reason);
+                lines.push('Câu lệnh: ' + it.prompt);
+                if (it.reply) lines.push('AI trả về: ' + it.reply);
+                lines.push('');
+            });
+            const text = lines.join('\n');
+            const stamp = new Date().toISOString().slice(0, 10);
+            const filename = 'nhat-ky-ai-' + AI_LOG_TITLE.toLowerCase() + '-' + stamp + '.txt';
+            if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() && typeof saveJsonFile === 'function') {
+                await saveJsonFile(filename, text);
+                return;
+            }
+            const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 3000);
+        }
+
+        window.addEventListener('load', updateAiLogBadge);
+
+        // Kiểm tra hàm AI vừa thêm có tính được không (không chặn vẽ, chỉ ghi nhật ký)
+        function checkFunctionsEvaluable(startIdx) {
+            const reasons = [];
+            for (let i = startIdx; i < functionsData.length; i++) {
+                const f = functionsData[i];
+                let ok = 0;
+                const lo = (f.domain && isFinite(f.domain.min)) ? f.domain.min : -10;
+                const hi = (f.domain && isFinite(f.domain.max)) ? f.domain.max : 10;
+                for (let k = 0; k <= 40; k++) {
+                    let y; try { y = f.parsedFn(lo + (hi - lo) * k / 40); } catch (e) { y = NaN; }
+                    if (typeof y === 'number' && isFinite(y)) ok++;
+                }
+                if (ok === 0) reasons.push('Hàm y = ' + f.rawExpr + ' không tính được giá trị nào');
+            }
+            return reasons;
+        }
+
         async function handleCommandSubmit() {
             const input = document.getElementById('aiCommandInput');
             const text = input.value.trim();
@@ -2197,11 +2632,13 @@
             if (directMath) {
                 pushUndo();
                 addFunction(cleanExpr, null, domain);
+                recordCommand(text);
                 input.value = '';
                 return;
             }
 
             const btn = document.getElementById('btnSubmitPlot');
+            aiLastRawReply = '';
             btn.disabled = true;
             btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Xử lý...`;
 
@@ -2233,7 +2670,10 @@ Chỉ trả về JSON thuần túy theo cấu trúc:
                     replyText = replyText.substring(firstBrace, lastBrace + 1);
                 }
 
+                aiLastRawReply = replyText;
                 const res = JSON.parse(replyText);
+                const fnCountBefore = functionsData.length;
+                lastAiAction = { prompt: text, reply: replyText, time: Date.now(), undoLogged: false };
 
                 pushUndo();
                 if (res.functions) {
@@ -2261,14 +2701,170 @@ Chỉ trả về JSON thuần túy theo cấu trúc:
                     });
                     renderPointsList();
                 }
+                {
+                    const issues = checkFunctionsEvaluable(fnCountBefore);
+                    if (!(res.functions && res.functions.length) && !(res.points && res.points.length)) issues.push('AI không trả về hàm số hay điểm nào');
+                    if (issues.length) logAiIssue('Kết quả AI nghi sai: ' + issues.join('; '), text, replyText);
+                }
+                recordCommand(text);
                 input.value = '';
             } catch (err) {
+                logAiIssue('Lỗi khi AI vẽ: ' + err.message, text, aiLastRawReply);
                 await appAlert("Lỗi AI: " + err.message);
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = `<i class="fa-solid fa-pen-nib"></i><span>Vẽ Đồ Thị</span>`;
             }
         }
+
+        // ==========================================
+        // LỊCH SỬ CHAT AI (lưu trong trình duyệt)
+        // ==========================================
+        const CHAT_HISTORY_KEY = 'chatHistory_2d';
+        const CHAT_HISTORY_MAX = 60;
+        let chatGreetingHTML = null;
+
+        function saveChatHistory() {
+            try {
+                if (formulaChatHistory.length > CHAT_HISTORY_MAX) {
+                    formulaChatHistory = formulaChatHistory.slice(-CHAT_HISTORY_MAX);
+                }
+                localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(formulaChatHistory));
+            } catch (e) {}
+        }
+
+        function loadChatHistory() {
+            const container = document.getElementById('formulaChatMessages');
+            if (container && chatGreetingHTML === null) chatGreetingHTML = container.innerHTML;
+            let saved = [];
+            try { saved = JSON.parse(localStorage.getItem(CHAT_HISTORY_KEY) || '[]'); } catch (e) { saved = []; }
+            if (!Array.isArray(saved) || saved.length === 0) return;
+            formulaChatHistory = saved.filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string');
+            formulaChatHistory.forEach(m => appendChatMessage(m.content, m.role === 'user' ? 'user' : 'model'));
+        }
+
+        async function clearChatHistory() {
+            const ok = await appConfirm('Xóa toàn bộ lịch sử chat với AI?');
+            if (!ok) return;
+            formulaChatHistory = [];
+            try { localStorage.removeItem(CHAT_HISTORY_KEY); } catch (e) {}
+            const container = document.getElementById('formulaChatMessages');
+            if (container && chatGreetingHTML !== null) container.innerHTML = chatGreetingHTML;
+        }
+
+        window.addEventListener('load', loadChatHistory);
+
+        // ==========================================
+        // LỊCH SỬ LỆNH Ở Ô VẼ ĐỒ THỊ
+        // ==========================================
+        const CMD_HISTORY_KEY = 'cmdHistory_2d';
+        const CMD_HISTORY_MAX = 30;
+        let cmdHistory = [];
+        let cmdHistIdx = -1;
+        let cmdHistDraft = '';
+
+        function loadCommandHistory() {
+            try {
+                const saved = JSON.parse(localStorage.getItem(CMD_HISTORY_KEY) || '[]');
+                cmdHistory = Array.isArray(saved) ? saved.filter(s => typeof s === 'string') : [];
+            } catch (e) { cmdHistory = []; }
+        }
+
+        function persistCommandHistory() {
+            try { localStorage.setItem(CMD_HISTORY_KEY, JSON.stringify(cmdHistory)); } catch (e) {}
+        }
+
+        function recordCommand(text) {
+            text = String(text || '').trim();
+            if (!text) return;
+            cmdHistory = cmdHistory.filter(c => c !== text);
+            cmdHistory.unshift(text);
+            if (cmdHistory.length > CMD_HISTORY_MAX) cmdHistory.length = CMD_HISTORY_MAX;
+            cmdHistIdx = -1;
+            persistCommandHistory();
+            renderCommandHistory();
+        }
+
+        function renderCommandHistory() {
+            const list = document.getElementById('cmdHistoryList');
+            if (!list) return;
+            list.innerHTML = '';
+            if (cmdHistory.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'text-center text-xs text-slate-500 py-4';
+                empty.textContent = 'Chưa có lệnh nào.';
+                list.appendChild(empty);
+                return;
+            }
+            cmdHistory.forEach((cmd, i) => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center gap-2 px-2 py-1.5 rounded-lg bg-slate-800/50 hover:bg-slate-700/60 text-xs';
+                const use = document.createElement('button');
+                use.type = 'button';
+                use.className = 'flex-1 text-left font-mono text-slate-200 truncate';
+                use.title = cmd;
+                use.textContent = cmd;
+                use.onclick = () => {
+                    const input = document.getElementById('aiCommandInput');
+                    input.value = cmd;
+                    toggleCommandHistory(false);
+                    input.focus();
+                };
+                const del = document.createElement('button');
+                del.type = 'button';
+                del.className = 'text-slate-500 hover:text-rose-400 shrink-0';
+                del.title = 'Xóa lệnh này';
+                del.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+                del.onclick = () => {
+                    cmdHistory.splice(i, 1);
+                    persistCommandHistory();
+                    renderCommandHistory();
+                };
+                row.appendChild(use);
+                row.appendChild(del);
+                list.appendChild(row);
+            });
+        }
+
+        function toggleCommandHistory(force) {
+            const panel = document.getElementById('cmdHistoryPanel');
+            if (!panel) return;
+            const open = typeof force === 'boolean' ? force : panel.classList.contains('hidden');
+            panel.classList.toggle('hidden', !open);
+            if (open) renderCommandHistory();
+        }
+
+        async function clearCommandHistory() {
+            const ok = await appConfirm('Xóa toàn bộ lịch sử lệnh vẽ?');
+            if (!ok) return;
+            cmdHistory = [];
+            cmdHistIdx = -1;
+            persistCommandHistory();
+            renderCommandHistory();
+        }
+
+        window.addEventListener('load', () => {
+            loadCommandHistory();
+            renderCommandHistory();
+            const input = document.getElementById('aiCommandInput');
+            if (!input) return;
+            // Bấm ↑ / ↓ trong ô nhập để lục lại các lệnh đã vẽ
+            input.addEventListener('keydown', (e) => {
+                if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+                if (cmdHistory.length === 0) return;
+                e.preventDefault();
+                if (e.key === 'ArrowUp') {
+                    if (cmdHistIdx === -1) cmdHistDraft = input.value;
+                    if (cmdHistIdx < cmdHistory.length - 1) cmdHistIdx++;
+                    input.value = cmdHistory[cmdHistIdx];
+                } else {
+                    if (cmdHistIdx === -1) return;
+                    cmdHistIdx--;
+                    input.value = cmdHistIdx === -1 ? cmdHistDraft : cmdHistory[cmdHistIdx];
+                }
+                input.selectionStart = input.selectionEnd = input.value.length;
+            });
+        });
 
         function toggleFormulaChat() {
             document.getElementById('formulaChatPanel').classList.toggle('hidden');
@@ -2398,8 +2994,10 @@ Quy định phản hồi:
 
                 formulaChatHistory.push({ role: "assistant", content: replyText });
                 renderFormattedMath(loadingBubble, replyText);
+                saveChatHistory();
             } catch (err) {
                 console.error(err);
+                logAiIssue('Lỗi chat AI: ' + err.message, question, '');
                 loadingBubble.textContent = "Lỗi: " + err.message;
                 loadingBubble.className += ' text-rose-300 border-rose-500/40';
                 formulaChatHistory.pop();
@@ -2408,17 +3006,37 @@ Quy định phản hồi:
             }
         }
 
-        function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+        function resize(keepCenter) {
+            const box = document.getElementById('canvas-container');
+            const w = Math.max(1, Math.round(box.clientWidth || window.innerWidth));
+            const h = Math.max(1, Math.round(box.clientHeight || window.innerHeight));
+            const oldW = canvas.width, oldH = canvas.height;
+            const pr = window._customPixelRatio || (window.getAppSettings ? getEffectivePixelRatio(getAppSettings().resolution) : (window.devicePixelRatio || 1));
+            const targetW = Math.round(w * pr);
+            const targetH = Math.round(h * pr);
+            if (oldW === targetW && oldH === targetH && keepCenter === true) return;
+            canvas.width = targetW;
+            canvas.height = targetH;
+            canvas.style.width = w + 'px';
+            canvas.style.height = h + 'px';
+            ctx.setTransform(pr, 0, 0, pr, 0, 0);
+
             if (view.originX === 0 && view.originY === 0) {
-                view.originX = canvas.width / 2;
-                view.originY = canvas.height / 2;
+                view.originX = w / 2;
+                view.originY = h / 2;
+            } else if (keepCenter === true) {
+                view.originX += (w - (oldW / pr)) / 2;
+                view.originY += (h - (oldH / pr)) / 2;
             }
             render();
         }
 
-        window.addEventListener('resize', resize);
+        // Tự co giãn theo mọi thay đổi của vùng vẽ: xoay màn hình, mở/đóng bảng phải, bảng biến thiên, thanh công cụ xuống dòng...
+        window.addEventListener('resize', () => resize(true));
+        window.addEventListener('orientationchange', () => setTimeout(() => resize(true), 250));
+        if (window.ResizeObserver) {
+            new ResizeObserver(() => resize(true)).observe(document.getElementById('canvas-container'));
+        }
         canvas.addEventListener('mousedown', onMouseDown);
         window.addEventListener('mousemove', onMouseMove);
         window.addEventListener('mouseup', onMouseUp);
@@ -3068,7 +3686,7 @@ Quy định phản hồi:
                 s += line(A.arrow, A.y, B.arrow, B.y, { stroke: C.arrow, w: 1.9, marker: true });
             });
 
-            return '<svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" style="display:block;margin:0 auto;max-width:none">' + s + '</svg>';
+            return '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" style="display:block;margin:0 auto;max-width:none">' + s + '</svg>';
         }
 
         function buildVariationSummary(data) {
@@ -3096,40 +3714,210 @@ Quy định phản hồi:
             h += row('Nghịch biến trên:', '<span class="font-mono text-rose-300">' + (dec.length ? escapeHtml(dec.join(' và ')) : 'không có') + '</span>');
             if (ext.length) h += row('Cực trị:', '<span class="text-amber-200">' + ext.join(' &nbsp;|&nbsp; ') + '</span>');
             if (data.note) h += '<div class="text-[11px] text-slate-500 pt-1">' + escapeHtml(data.note) + '</div>';
-            return '<div class="mt-3 space-y-1 leading-relaxed">' + h + '</div>';
+            return '<div class="space-y-1 leading-relaxed">' + h + '</div>';
         }
 
         function renderVariationTable() {
             const body = document.getElementById('variationBody');
             const sel = document.getElementById('variationSelect');
             if (!body || !sel) return;
-            if (functionsData.length === 0) {
+            const n = functionsData.length;
+            if (n === 0) {
                 sel.innerHTML = '';
                 sel.style.display = 'none';
                 body.innerHTML = '<div class="text-center text-slate-500 py-6">Chưa có hàm số nào. Hãy vẽ một hàm số rồi mở lại bảng biến thiên.</div>';
                 return;
             }
-            if (variationFnIdx >= functionsData.length) variationFnIdx = 0;
-            sel.innerHTML = functionsData.map((f, i) => '<option value="' + i + '"' + (i === variationFnIdx ? ' selected' : '') + '>y = ' + escapeHtml(f.rawExpr) + '</option>').join('');
-            sel.style.display = functionsData.length > 1 ? '' : 'none';
+            // variationFnIdx = -1: hiện bảng của TẤT CẢ các hàm
+            if (variationFnIdx === -1 && n === 1) variationFnIdx = 0;
+            if (variationFnIdx >= n) variationFnIdx = n - 1;
+            if (variationFnIdx < -1) variationFnIdx = 0;
+            const isAll = variationFnIdx === -1;
+
+            sel.innerHTML = functionsData.map((f, i) => '<option value="' + i + '"' + (i === variationFnIdx ? ' selected' : '') + '>Hàm ' + (i + 1) + ': y = ' + escapeHtml(f.rawExpr) + '</option>').join('')
+                + (n > 1 ? '<option value="all"' + (isAll ? ' selected' : '') + '>Tất cả các hàm (' + n + ')</option>' : '');
+            sel.style.display = n > 1 ? '' : 'none';
+
+            const calc = (item) => {
+                try {
+                    const d = computeVariationData(item);
+                    return (d && !d.empty && d.nodes && d.nodes.length >= 2) ? d : null;
+                } catch (err) {
+                    console.error('Variation table error', err);
+                    return null;
+                }
+            };
+
+            if (isAll) {
+                const blocks = functionsData.map((f, i) => {
+                    const d = calc(f);
+                    return '<div class="shrink-0 max-w-full">'
+                        + '<div class="flex items-center gap-2 text-xs font-mono text-slate-200 mb-1">'
+                        + '<span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color:' + f.color + '"></span>'
+                        + 'Hàm ' + (i + 1) + ': y = ' + escapeHtml(f.rawExpr) + '</div>'
+                        + '<div class="overflow-x-auto pb-1">'
+                        + (d ? buildVariationSvg(d) : '<div class="text-slate-500 text-xs py-4">Không lập được bảng biến thiên cho hàm số này.</div>')
+                        + '</div></div>';
+                });
+                body.innerHTML = '<div class="flex flex-wrap items-start gap-x-6 gap-y-4">' + blocks.join('') + '</div>';
+                return;
+            }
 
             const item = functionsData[variationFnIdx];
-            let data;
-            try {
-                data = computeVariationData(item);
-            } catch (err) {
-                console.error('Variation table error', err);
-                data = { empty: true };
-            }
-            if (!data || data.empty || !data.nodes || data.nodes.length < 2) {
+            const data = calc(item);
+            if (!data) {
                 body.innerHTML = '<div class="text-center text-slate-500 py-6">Không lập được bảng biến thiên cho hàm số này.</div>';
                 return;
             }
-            body.innerHTML = '<div class="overflow-x-auto pb-1">' + buildVariationSvg(data) + '</div>' + buildVariationSummary(data);
+            body.innerHTML = '<div class="flex flex-wrap items-start gap-x-6 gap-y-3">'
+                + '<div class="overflow-x-auto pb-1 max-w-full shrink-0">' + buildVariationSvg(data) + '</div>'
+                + '<div class="flex-1 min-w-[260px]">' + buildVariationSummary(data) + '</div></div>';
+        }
+
+        // ==========================================
+        // LƯU ẢNH (PNG): ĐỒ THỊ & BẢNG BIẾN THIÊN
+        // ==========================================
+        function downloadCanvasPng(cv, name) {
+            cv.toBlob(blob => {
+                if (!blob) return;
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = name;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 3000);
+            }, 'image/png');
+        }
+
+        function buildGraphImageCanvas() {
+            const hp = hoverCurvePoint;
+            hoverCurvePoint = null;
+            render();
+
+            const out = document.createElement('canvas');
+            out.width = canvas.width;
+            out.height = canvas.height;
+            const c = out.getContext('2d');
+            c.fillStyle = '#0b1120';
+            c.fillRect(0, 0, out.width, out.height);
+            c.drawImage(canvas, 0, 0);
+
+            const drawLabel = (text, px, py, color) => {
+                if (px < -50 || px > out.width + 50 || py < -50 || py > out.height + 50) return;
+                c.font = 'bold 11px Inter, sans-serif';
+                const w = c.measureText(text).width + 12, h = 20;
+                const bx = px - w / 2, by = py - h - 8;
+                c.fillStyle = 'rgba(15, 23, 42, 0.92)';
+                c.strokeStyle = color;
+                c.lineWidth = 1.5;
+                c.beginPath();
+                c.rect(bx, by, w, h);
+                c.fill();
+                c.stroke();
+                c.fillStyle = '#ffffff';
+                c.textAlign = 'center';
+                c.textBaseline = 'middle';
+                c.fillText(text, px, by + h / 2);
+            };
+            pointsData.forEach(p => drawLabel(`${p.name} (${p.x.toFixed(2)}, ${p.y.toFixed(2)})`, toCanvasX(p.x), toCanvasY(p.y), p.color || '#38bdf8'));
+            if (currentIntersections.length <= 8) {
+                currentIntersections.forEach(it => drawLabel(`(${it.x.toFixed(2)}, ${it.y.toFixed(2)})`, toCanvasX(it.x), toCanvasY(it.y) - 6, IX_COLOR));
+            }
+
+            hoverCurvePoint = hp;
+            render();
+            return out;
+        }
+
+        function loadVariationImage(item) {
+            return new Promise(resolve => {
+                if (!item) return resolve(null);
+                let data;
+                try { data = computeVariationData(item); } catch (e) { return resolve(null); }
+                if (!data || data.empty || !data.nodes || data.nodes.length < 2) return resolve(null);
+                const svg = buildVariationSvg(data);
+                const m = svg.match(/width="(\d+)" height="(\d+)"/);
+                const sw = m ? parseInt(m[1], 10) : 600, sh = m ? parseInt(m[2], 10) : 300;
+                const img = new Image();
+                img.onload = () => resolve({ img, sw, sh });
+                img.onerror = () => resolve(null);
+                img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+            });
+        }
+
+        // Lưu 1 ảnh PNG: đồ thị (trên) + bảng biến thiên đúng như đang hiển thị (1 hàm đã chọn hoặc tất cả các hàm)
+        async function saveGraphImage() {
+            const graph = buildGraphImageCanvas();
+            let items = [];
+            if (variationOpen && functionsData.length) {
+                items = variationFnIdx === -1
+                    ? functionsData.slice()
+                    : [functionsData[Math.min(Math.max(variationFnIdx, 0), functionsData.length - 1)]];
+            }
+            const multi = items.length > 1;
+            const tables = [];
+            for (const it of items) {
+                const vt = await loadVariationImage(it);
+                if (vt) tables.push({ it, vt });
+            }
+            if (!tables.length) {
+                downloadCanvasPng(graph, 'do-thi.png');
+                return;
+            }
+            const gw = graph.width, gh = graph.height, pad = 24, titleH = 44, gap = 10;
+            const blocks = tables.map(t => {
+                const ts = Math.min(1.5, (gw - pad * 2) / t.vt.sw);
+                return { t, tw: t.vt.sw * ts, th: t.vt.sh * ts };
+            });
+            const totalH = blocks.reduce((sum, b) => sum + titleH + b.th + gap, 0);
+            const out = document.createElement('canvas');
+            out.width = gw;
+            out.height = Math.round(gh + totalH + pad);
+            const c = out.getContext('2d');
+            c.fillStyle = '#0f172a';
+            c.fillRect(0, 0, out.width, out.height);
+            c.drawImage(graph, 0, 0);
+            c.strokeStyle = '#334155';
+            c.lineWidth = 2;
+            c.beginPath();
+            c.moveTo(0, gh);
+            c.lineTo(gw, gh);
+            c.stroke();
+
+            let y = gh;
+            blocks.forEach((b, i) => {
+                const label = 'Bảng biến thiên' + (multi ? ' hàm ' + (functionsData.indexOf(b.t.it) + 1) : '') + ': y = ' + b.t.it.rawExpr;
+                let tx = pad;
+                if (multi) {
+                    c.fillStyle = b.t.it.color;
+                    c.beginPath();
+                    c.arc(pad + 6, y + titleH / 2 + 2, 6, 0, Math.PI * 2);
+                    c.fill();
+                    tx = pad + 20;
+                }
+                c.fillStyle = '#fbbf24';
+                c.font = 'bold 18px Inter, sans-serif';
+                c.textAlign = 'left';
+                c.textBaseline = 'middle';
+                c.fillText(label, tx, y + titleH / 2 + 2);
+                c.drawImage(b.t.vt.img, (gw - b.tw) / 2, y + titleH, b.tw, b.th);
+                y += titleH + b.th + gap;
+                if (multi && i < blocks.length - 1) {
+                    c.strokeStyle = '#1e293b';
+                    c.lineWidth = 1;
+                    c.beginPath();
+                    c.moveTo(pad, y - gap / 2);
+                    c.lineTo(gw - pad, y - gap / 2);
+                    c.stroke();
+                }
+            });
+            downloadCanvasPng(out, multi ? 'do-thi-cac-bang-bien-thien.png' : 'do-thi-bang-bien-thien.png');
         }
 
         function onVariationSelect(sel) {
-            variationFnIdx = parseInt(sel.value, 10) || 0;
+            variationFnIdx = sel.value === 'all' ? -1 : (parseInt(sel.value, 10) || 0);
             renderVariationTable();
             sel.blur();
         }
@@ -3146,6 +3934,14 @@ Quy định phản hồi:
                 btn.classList.toggle('border-transparent', !variationOpen);
             }
             if (variationOpen) renderVariationTable();
+            applyVariationLayout();
+        }
+
+        // Bảng nằm trong luồng bố cục: đồ thị tự co lại, chỉ cần đo lại kích thước canvas
+        function applyVariationLayout() {
+            document.body.classList.toggle('vt-open', variationOpen);
+            resize(true);
+            requestAnimationFrame(() => resize(true));
         }
 
         applyIntersectionBtnStyle();
@@ -3305,25 +4101,96 @@ Quy định phản hồi:
         })();
 
         let rightSidebarCollapsed = false;
+        const narrowMQ = window.matchMedia('(max-width: 1023px)');
 
-        function setRightSidebarCollapsed(collapsed) {
+        function readSidebarPref() {
+            try { return localStorage.getItem('sidebarCollapsed_2d') === '1'; } catch (e) { return false; }
+        }
+
+        function setRightSidebarCollapsed(collapsed, persist) {
             const aside = document.getElementById('right-sidebar');
             const icon = document.getElementById('sidebarToggleIcon');
             if (!aside) return;
             rightSidebarCollapsed = collapsed;
-            aside.style.transform = collapsed ? 'translateX(calc(100% + 1rem))' : 'translateX(0)';
+            aside.classList.toggle('collapsed', collapsed);
+            document.body.classList.toggle('sb-open', !collapsed);
             if (icon) icon.className = 'fa-solid text-sm ' + (collapsed ? 'fa-chevron-left' : 'fa-chevron-right');
-            try { localStorage.setItem('sidebarCollapsed_2d', collapsed ? '1' : '0'); } catch (e) {}
+            if (persist !== false && !narrowMQ.matches) {
+                try { localStorage.setItem('sidebarCollapsed_2d', collapsed ? '1' : '0'); } catch (e) {}
+            }
         }
 
         function toggleRightSidebar() {
             setRightSidebarCollapsed(!rightSidebarCollapsed);
         }
 
+        // Màn hình hẹp: bảng phải là ngăn kéo, mặc định đóng; màn hình rộng: nhớ lựa chọn của người dùng
+        setRightSidebarCollapsed(narrowMQ.matches ? true : readSidebarPref(), false);
+        const onNarrowChange = (e) => setRightSidebarCollapsed(e.matches ? true : readSidebarPref(), false);
+        if (narrowMQ.addEventListener) narrowMQ.addEventListener('change', onNarrowChange);
+        else if (narrowMQ.addListener) narrowMQ.addListener(onNarrowChange);
+
+        // Chạm vào đồ thị thì tự đóng ngăn kéo (chỉ trên màn hình hẹp)
+        canvas.addEventListener('pointerdown', () => {
+            if (narrowMQ.matches && !rightSidebarCollapsed) setRightSidebarCollapsed(true, false);
+        });
+
+        
+        // Tự co giãn giao diện theo tỷ lệ chuẩn
+        const UI_DESIGN_WIDTH = 1700;
+        const UI_DESIGN_HEIGHT = 820;
+        const UI_MIN_SCALE = 0.55;
+
+        let maxScreenH_2D = Math.max(window.innerHeight || 0, 750);
+        window.addEventListener('resize', () => {
+            const isTyping = document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName);
+            if (!isTyping && window.innerHeight > 400) {
+                maxScreenH_2D = Math.max(maxScreenH_2D, window.innerHeight);
+            }
+        });
+
+        function getUIPanels() {
+            return {
+                all: [
+                    document.getElementById('topbar'),
+                    document.getElementById('leftStack'),
+                    document.getElementById('bottomStack'),
+                    document.getElementById('right-sidebar'),
+                    document.getElementById('formulaChatPanel')
+                ].filter(Boolean)
+            };
+        }
+
+        function applyUIScale(panels, s) {
+            panels.all.forEach(el => { el.style.zoom = s >= 0.999 ? '' : String(s); });
+        }
+
+        function fitUI() {
+            const isTyping = document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName);
+            const effectiveH = isTyping ? maxScreenH_2D : Math.max(window.innerHeight, maxScreenH_2D * 0.72);
+            const panels = getUIPanels();
+            let s = Math.min(1, window.innerWidth / UI_DESIGN_WIDTH, effectiveH / UI_DESIGN_HEIGHT);
+            s = Math.max(UI_MIN_SCALE, s);
+            applyUIScale(panels, s);
+
+            const cmdBox = document.getElementById('cmdBar');
+            if (cmdBox) {
+                cmdBox.style.zoom = isTyping ? '1' : String(Math.max(0.92, s));
+            }
+
+            document.documentElement.style.setProperty('--ui-scale', s.toFixed(2));
+        }
+
+        let fitUITimer = null;
+        function scheduleFitUI() {
+            clearTimeout(fitUITimer);
+            fitUITimer = setTimeout(fitUI, 60);
+        }
+        window.addEventListener('resize', scheduleFitUI);
         window.addEventListener('load', () => {
-            let saved = false;
-            try { saved = localStorage.getItem('sidebarCollapsed_2d') === '1'; } catch (e) {}
-            if (saved) setRightSidebarCollapsed(true);
+            fitUI();
+            setTimeout(fitUI, 400);
+            if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitUI);
         });
 
         window.onload = () => {

@@ -48,6 +48,7 @@
             background: radial-gradient(circle, rgba(99, 102, 241, 0.18) 0%, rgba(11, 17, 32, 0) 70%);
         }
     </style>
+    <script src="settings.js"></script>
 </head>
 <body class="relative overflow-x-hidden flex flex-col justify-between selection:bg-cyan-500 selection:text-white" style="min-height: 100vh; min-height: 100dvh;">
 
@@ -64,13 +65,17 @@
             <div>
                 <div class="flex items-center gap-2">
                     <span class="font-extrabold text-base tracking-wide text-white block leading-tight">MATH AI LAB</span>
-                    <span class="px-2 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-400/40 text-[10px] font-bold text-cyan-300">v1.0.3</span>
+                    <span class="px-2 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-400/40 text-[10px] font-bold text-cyan-300">v1.0.4</span>
                 </div>
                 <span class="text-[11px] text-cyan-400 font-semibold tracking-wider uppercase">Nền Tảng Toán Trực Quan</span>
             </div>
         </div>
 
         <div class="flex items-center gap-2.5">
+                        <button onclick="openSettingsModal()" id="btnOpenSettings" title="Cài đặt độ phân giải & giao diện" class="glass-panel px-3.5 py-1.5 rounded-full flex items-center gap-1.5 border border-slate-700/60 text-slate-300 hover:text-cyan-300 hover:border-cyan-500/40 text-xs font-semibold transition-all shadow-sm active:scale-95">
+                <i class="fa-solid fa-gear text-[11px] text-cyan-400"></i>
+                <span>Cài đặt</span>
+            </button>
             <button onclick="checkAppUpdate(true)" id="btnCheckUpdate" class="glass-panel px-3.5 py-1.5 rounded-full flex items-center gap-1.5 border border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/20 text-xs font-semibold transition-all shadow-sm active:scale-95">
                 <i class="fa-solid fa-arrows-rotate text-[11px]"></i>
                 <span id="updateBtnText">Cập nhật</span>
@@ -210,7 +215,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v1.0.3";
+        const CURRENT_APP_VERSION = "v1.0.4";
         const GITHUB_REPO = "CrisDevil222/Math-AI-Lab";
 
         function showUpdateModal(title, subtitle, content, downloadUrl = null) {
