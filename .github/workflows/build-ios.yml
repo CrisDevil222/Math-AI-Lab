@@ -1,10 +1,7 @@
 name: Build iOS App
 
 on:
-  push:
-    tags:
-      - 'v*'
-  workflow_dispatch:
+  workflow_dispatch: # Chỉ chạy thủ công khi cần, không tự động build/up khi push tag
 
 permissions:
   contents: write
@@ -79,10 +76,3 @@ jobs:
         with:
           name: ${{ env.IPA_NAME }}
           path: build/${{ env.IPA_NAME }}
-
-      - name: Upload to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release upload ${{ github.ref_name }} "build/${{ env.IPA_NAME }}" --clobber
