@@ -136,7 +136,39 @@
             background: rgba(100, 116, 139, 0.5);
             border-radius: 2px;
         }
-    
+        /* ===== Bảng bên phải (gọn) ===== */
+        .sb-tab {
+            flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.375rem;
+            padding: 0.4rem 0.25rem; border-radius: 0.6rem; font-size: 12px; font-weight: 600;
+            color: #94a3b8; border: 1px solid transparent; transition: background .15s, color .15s;
+            white-space: nowrap;
+        }
+        .sb-tab:hover { color: #e2e8f0; }
+        .sb-tab.active { background: rgba(34, 211, 238, 0.14); color: #67e8f9; border-color: rgba(34, 211, 238, 0.35); }
+        .sb-sec-title { font-size: 12px; font-weight: 600; color: #cbd5e1; display: flex; align-items: center; gap: 0.4rem; }
+        .sb-hint { font-size: 10.5px; line-height: 1.35; color: #64748b; }
+        .sb-card { border-radius: 0.8rem; background: rgba(30, 41, 59, 0.45); border: 1px solid rgba(100, 116, 139, 0.25); padding: 0.5rem 0.6rem; }
+        .sb-tile {
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.25rem;
+            min-height: 3.1rem; padding: 0.4rem 0.2rem; border-radius: 0.7rem; border-width: 1px; border-style: solid;
+            font-size: 10.5px; font-weight: 600; line-height: 1.15; text-align: center; transition: background .15s;
+        }
+        .sb-tile i { font-size: 14px; }
+        .sb-toggle {
+            display: flex; align-items: center; justify-content: center; gap: 0.35rem; padding: 0.4rem 0.3rem;
+            border-radius: 0.65rem; border-width: 1px; border-style: solid; font-size: 11px; font-weight: 600;
+            white-space: nowrap; transition: background .15s, color .15s, border-color .15s;
+        }
+        .sb-mini {
+            min-width: 2rem; height: 1.9rem; padding: 0 0.5rem; border-radius: 0.55rem; border-width: 1px; border-style: solid;
+            font-weight: 700; display: flex; align-items: center; justify-content: center; transition: background .15s;
+        }
+        details.sb-acc { border-radius: 0.8rem; background: rgba(30, 41, 59, 0.35); border: 1px solid rgba(100, 116, 139, 0.2); padding: 0.45rem 0.55rem; }
+        details.sb-acc > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 0.45rem; user-select: none; }
+        details.sb-acc > summary::-webkit-details-marker { display: none; }
+        details.sb-acc .sb-chev { font-size: 9px; color: #64748b; transition: transform .15s; width: 0.6rem; }
+        details.sb-acc[open] > summary .sb-chev { transform: rotate(90deg); }
+
         /* Tối ưu kích cỡ chữ ô nhập lệnh khi mở bàn phím ảo không bao giờ bị thu nhỏ */
         #aiCommandInput {
             font-size: 15px !important;
@@ -160,7 +192,6 @@
             opacity: 0.1 !important;
             pointer-events: none !important;
         }
-
     </style>
     <style>
         /* Tùy chỉnh kích thước khung chat chatbot */
@@ -261,7 +292,364 @@
         }
         #inkFlash { position: fixed; inset: 0; display: none; z-index: 90; background: #fff; pointer-events: none; opacity: 0; }
     </style>
-    <script src="settings.js"></script>
+    <script>
+// ==========================================
+// MATH AI LAB - HỆ THỐNG CÀI ĐẶT TOÀN DIỆN (NHÚNG TRỰC TIẾP STANDALONE)
+// ==========================================
+
+const MATH_SETTINGS_KEY = 'mathailab_app_settings';
+
+const DEFAULT_SETTINGS = {
+    resolution: 'high',     // 'low' (0.8x), 'medium' (1.0x), 'high' (1.8x), 'ultra' (native)
+    uiScale: 'compact',     // 'compact' (1700), 'standard' (1450), 'large' (1150)
+    exportQuality: 'fhd',   // 'hd' (1.0x), 'fhd' (1.8x), '4k' (2.8x)
+    cameraMode: 'free'      // 'free' (Camera Tự Do - không tự lia cam), 'focus' (Tự động căn giữa hình)
+};
+
+function getAppSettings() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(MATH_SETTINGS_KEY) || '{}');
+        return { ...DEFAULT_SETTINGS, ...saved };
+    } catch (e) {
+        return { ...DEFAULT_SETTINGS };
+    }
+}
+
+function saveAppSettings(settings) {
+    try {
+        localStorage.setItem(MATH_SETTINGS_KEY, JSON.stringify(settings));
+    } catch (e) {
+        console.error('Không thể lưu cài đặt:', e);
+    }
+    applyAppSettings(settings);
+    showSettingsToast('Đã lưu và áp dụng cài đặt thành công!');
+}
+
+function getEffectivePixelRatio(resLevel) {
+    const dpr = window.devicePixelRatio || 1;
+    switch (resLevel) {
+        case 'low':
+            return 0.8;
+        case 'medium':
+            return 1.0;
+        case 'high':
+            return Math.min(dpr, 1.8);
+        case 'ultra':
+            return Math.max(dpr, 2.2);
+        default:
+            return Math.min(dpr, 1.8);
+    }
+}
+
+function getEffectiveViewportWidth(scaleLevel) {
+    switch (scaleLevel) {
+        case 'compact':
+            return 1700;
+        case 'standard':
+            return 1450;
+        case 'large':
+            return 1150;
+        default:
+            return 1700;
+    }
+}
+
+function applyAppSettings(settings) {
+    if (!settings) settings = getAppSettings();
+
+    // 1. Áp dụng UI Scale qua thẻ meta viewport
+    const targetWidth = getEffectiveViewportWidth(settings.uiScale);
+    let vpMeta = document.querySelector('meta[name="viewport"]');
+    if (!vpMeta) {
+        vpMeta = document.createElement('meta');
+        vpMeta.name = 'viewport';
+        document.head.appendChild(vpMeta);
+    }
+    vpMeta.setAttribute('content', `width=${targetWidth}, user-scalable=no, viewport-fit=cover`);
+
+    // Gắn class vào body để CSS có thể tinh chỉnh nếu cần
+    document.body.classList.remove('ui-scale-compact', 'ui-scale-standard', 'ui-scale-large');
+    document.body.classList.add(`ui-scale-${settings.uiScale}`);
+
+    // 2. Áp dụng cho 3D (Three.js WebGL renderer)
+    if (typeof renderer !== 'undefined' && renderer && typeof renderer.setPixelRatio === 'function') {
+        const pr = getEffectivePixelRatio(settings.resolution);
+        renderer.setPixelRatio(pr);
+        if (typeof onWindowResize === 'function') onWindowResize();
+    }
+
+    // 3. Áp dụng cho 2D Canvas
+    if (typeof canvas !== 'undefined' && canvas && typeof resize === 'function') {
+        window._customPixelRatio = getEffectivePixelRatio(settings.resolution);
+        resize(true);
+    }
+
+    // 4. Nếu có hàm fitUI, gọi lại fitUI
+    if (typeof fitUI === 'function') {
+        fitUI();
+    }
+}
+
+function showSettingsToast(msg) {
+    let t = document.getElementById('settingsToast');
+    if (!t) {
+        t = document.createElement('div');
+        t.id = 'settingsToast';
+        t.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:999999;background:rgba(15,23,42,0.96);color:#38bdf8;border:1px solid rgba(56,189,248,0.5);border-radius:12px;padding:8px 18px;font-size:13px;font-weight:bold;box-shadow:0 10px 30px rgba(0,0,0,0.6);display:flex;align-items:center;gap:8px;pointer-events:none;transition:opacity .3s;';
+        document.body.appendChild(t);
+    }
+    t.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400"></i> ${msg}`;
+    t.style.opacity = '1';
+    t.style.display = 'flex';
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => {
+        t.style.opacity = '0';
+        setTimeout(() => { t.style.display = 'none'; }, 300);
+    }, 2500);
+}
+
+// ==========================================
+// GIAO DIỆN MODAL CÀI ĐẶT CHUNG (SETTINGS MODAL)
+// ==========================================
+function openSettingsModal() {
+    let modal = document.getElementById('globalSettingsModal');
+    if (modal) modal.remove();
+
+    const cur = getAppSettings();
+
+    modal = document.createElement('div');
+    modal.id = 'globalSettingsModal';
+    modal.className = 'fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 select-none';
+    modal.style.cssText = 'background:rgba(0,0,0,0.65);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);';
+
+    modal.innerHTML = `
+        <div class="glass-panel w-full max-w-xl rounded-2xl border border-slate-700/80 shadow-2xl p-5 sm:p-6 flex flex-col gap-4 text-slate-100 max-h-[92vh] overflow-y-auto">
+            <!-- Header -->
+            <div class="flex items-center justify-between border-b border-slate-700/60 pb-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-cyan-500/20 text-cyan-300 flex items-center justify-center text-sm font-bold border border-cyan-500/40">
+                        <i class="fa-solid fa-gear"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm sm:text-base font-bold text-white leading-tight">Cài Đặt Hệ Thống</h3>
+                        <p class="text-[11px] text-cyan-400 font-medium">Áp dụng đồng bộ cho toàn bộ ứng dụng</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeSettingsModal()" class="text-slate-400 hover:text-white p-1 text-lg leading-none transition-colors">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Mục 1: Độ phân giải đồ họa -->
+            <div class="flex flex-col gap-2">
+                <label class="text-xs font-bold text-slate-300 flex items-center justify-between">
+                    <span class="flex items-center gap-1.5"><i class="fa-solid fa-display text-cyan-400"></i> Độ Phân Giải Đồ Họa</span>
+                    <span class="text-[10px] text-slate-400 font-normal">Mật độ điểm ảnh & Khử răng cưa</span>
+                </label>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <button type="button" data-cfg-res="low" onclick="selectCfgOption('res', 'low')"
+                            class="cfg-btn flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-700 bg-slate-800/50 hover:bg-slate-700/60 transition-all text-center">
+                        <i class="fa-solid fa-battery-half text-amber-400 text-sm mb-1"></i>
+                        <span class="text-xs font-bold">Thấp</span>
+                        <span class="text-[10px] text-slate-400">Tiết kiệm pin</span>
+                    </button>
+                    <button type="button" data-cfg-res="medium" onclick="selectCfgOption('res', 'medium')"
+                            class="cfg-btn flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-700 bg-slate-800/50 hover:bg-slate-700/60 transition-all text-center">
+                        <i class="fa-solid fa-gauge-simple text-blue-400 text-sm mb-1"></i>
+                        <span class="text-xs font-bold">Chuẩn</span>
+                        <span class="text-[10px] text-slate-400">1.0x Cân bằng</span>
+                    </button>
+                    <button type="button" data-cfg-res="high" onclick="selectCfgOption('res', 'high')"
+                            class="cfg-btn flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-700 bg-slate-800/50 hover:bg-slate-700/60 transition-all text-center">
+                        <i class="fa-solid fa-wand-magic-sparkles text-cyan-300 text-sm mb-1"></i>
+                        <span class="text-xs font-bold text-cyan-300">Cao</span>
+                        <span class="text-[10px] text-slate-400">Mặc định</span>
+                    </button>
+                    <button type="button" data-cfg-res="ultra" onclick="selectCfgOption('res', 'ultra')"
+                            class="cfg-btn flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-700 bg-slate-800/50 hover:bg-slate-700/60 transition-all text-center">
+                        <i class="fa-solid fa-gem text-purple-400 text-sm mb-1"></i>
+                        <span class="text-xs font-bold text-purple-300">Cực Nét</span>
+                        <span class="text-[10px] text-slate-400">Max 2K/4K</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Mục 2: Kích cỡ giao diện (UI Scale) -->
+            <div class="flex flex-col gap-2">
+                <label class="text-xs font-bold text-slate-300 flex items-center justify-between">
+                    <span class="flex items-center gap-1.5"><i class="fa-solid fa-up-right-and-down-left-from-center text-emerald-400"></i> Kích Cỡ Giao Diện (UI Scale)</span>
+                    <span class="text-[10px] text-slate-400 font-normal">Độ lớn thanh công cụ & đồ thị</span>
+                </label>
+                <div class="grid grid-cols-3 gap-2">
+                    <button type="button" data-cfg-scale="compact" onclick="selectCfgOption('scale', 'compact')"
+                            class="cfg-btn flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-700 bg-slate-800/50 hover:bg-slate-700/60 transition-all text-center">
+                        <i class="fa-solid fa-compress text-cyan-300 text-sm mb-1"></i>
+                        <span class="text-xs font-bold">Nhỏ Gọn</span>
+                        <span class="text-[10px] text-slate-400">Đồ thị rộng</span>
+                    </button>
+                    <button type="button" data-cfg-scale="standard" onclick="selectCfgOption('scale', 'standard')"
+                            class="cfg-btn flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-700 bg-slate-800/50 hover:bg-slate-700/60 transition-all text-center">
+                        <i class="fa-solid fa-desktop text-emerald-400 text-sm mb-1"></i>
+                        <span class="text-xs font-bold">Vừa Vặn</span>
+                        <span class="text-[10px] text-slate-400">Chuẩn tầm mắt</span>
+                    </button>
+                    <button type="button" data-cfg-scale="large" onclick="selectCfgOption('scale', 'large')"
+                            class="cfg-btn flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-700 bg-slate-800/50 hover:bg-slate-700/60 transition-all text-center">
+                        <i class="fa-solid fa-expand text-amber-300 text-sm mb-1"></i>
+                        <span class="text-xs font-bold">To Rõ</span>
+                        <span class="text-[10px] text-slate-400">Nút & Chữ to</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Mục 3: Chất lượng xuất ảnh (Lưu PNG) -->
+            <div class="flex flex-col gap-2">
+                <label class="text-xs font-bold text-slate-300 flex items-center justify-between">
+                    <span class="flex items-center gap-1.5"><i class="fa-solid fa-image text-amber-400"></i> Chất Lượng Xuất Ảnh (PNG)</span>
+                    <span class="text-[10px] text-slate-400 font-normal">Độ phân giải khi bấm "Lưu Ảnh"</span>
+                </label>
+                <div class="grid grid-cols-3 gap-2">
+                    <button type="button" data-cfg-exp="hd" onclick="selectCfgOption('exp', 'hd')"
+                            class="cfg-btn flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-700 bg-slate-800/50 hover:bg-slate-700/60 transition-all text-center">
+                        <span class="text-xs font-bold">HD 720p</span>
+                        <span class="text-[10px] text-slate-400">File nhẹ gửi nhanh</span>
+                    </button>
+                    <button type="button" data-cfg-exp="fhd" onclick="selectCfgOption('exp', 'fhd')"
+                            class="cfg-btn flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-700 bg-slate-800/50 hover:bg-slate-700/60 transition-all text-center">
+                        <span class="text-xs font-bold text-cyan-300">Full HD 1080p</span>
+                        <span class="text-[10px] text-slate-400">Tiêu chuẩn</span>
+                    </button>
+                    <button type="button" data-cfg-exp="4k" onclick="selectCfgOption('exp', '4k')"
+                            class="cfg-btn flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-700 bg-slate-800/50 hover:bg-slate-700/60 transition-all text-center">
+                        <span class="text-xs font-bold text-purple-300">2K / 4K</span>
+                        <span class="text-[10px] text-slate-400">Sắc nét để in ấn</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Mục 4: Chế độ Camera 3D -->
+            <div class="flex flex-col gap-2">
+                <label class="text-xs font-bold text-slate-300 flex items-center justify-between">
+                    <span class="flex items-center gap-1.5"><i class="fa-solid fa-video text-emerald-400"></i> Chế Độ Camera 3D</span>
+                    <span class="text-[10px] text-slate-400 font-normal">Góc nhìn khi vẽ & dựng hình</span>
+                </label>
+                <div class="grid grid-cols-2 gap-2">
+                    <button type="button" data-cfg-cam="free" onclick="selectCfgOption('cam', 'free')"
+                            class="cfg-btn flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-700 bg-slate-800/50 hover:bg-slate-700/60 transition-all text-center">
+                        <i class="fa-solid fa-arrows-up-down-left-right text-emerald-400 text-sm mb-1"></i>
+                        <span class="text-xs font-bold text-emerald-300">Camera Tự Do</span>
+                        <span class="text-[10px] text-slate-400">Không tự lia góc, góc nhìn rộng không bị khuất</span>
+                    </button>
+                    <button type="button" data-cfg-cam="focus" onclick="selectCfgOption('cam', 'focus')"
+                            class="cfg-btn flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-700 bg-slate-800/50 hover:bg-slate-700/60 transition-all text-center">
+                        <i class="fa-solid fa-crosshairs text-cyan-300 text-sm mb-1"></i>
+                        <span class="text-xs font-bold text-cyan-300">Tự Động Căn Giữa</span>
+                        <span class="text-[10px] text-slate-400">Tự động lia và zoom vừa vặn khối hình</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Footer nút bấm -->
+            <div class="flex items-center justify-between border-t border-slate-700/60 pt-3 mt-1">
+                <button type="button" onclick="resetToDefaultSettings()" class="text-xs text-slate-400 hover:text-rose-400 transition-colors flex items-center gap-1 font-semibold">
+                    <i class="fa-solid fa-rotate-left"></i> Khôi phục mặc định
+                </button>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="closeSettingsModal()" class="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-all">
+                        Hủy
+                    </button>
+                    <button type="button" onclick="applyAndCloseSettings()" class="px-4 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white text-xs font-bold shadow-md transition-all flex items-center gap-1.5">
+                        <i class="fa-solid fa-check"></i> Lưu & Áp Dụng
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Gán dữ liệu tạm thời
+    modal._tempSettings = { ...cur };
+    highlightSelectedOptions(modal._tempSettings);
+
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeSettingsModal();
+    });
+}
+
+function selectCfgOption(type, val) {
+    const modal = document.getElementById('globalSettingsModal');
+    if (!modal || !modal._tempSettings) return;
+
+    if (type === 'res') modal._tempSettings.resolution = val;
+    else if (type === 'scale') modal._tempSettings.uiScale = val;
+    else if (type === 'exp') modal._tempSettings.exportQuality = val;
+    else if (type === 'cam') modal._tempSettings.cameraMode = val;
+
+    highlightSelectedOptions(modal._tempSettings);
+}
+
+function highlightSelectedOptions(s) {
+    document.querySelectorAll('[data-cfg-res]').forEach(el => {
+        const sel = el.dataset.cfgRes === s.resolution;
+        el.classList.toggle('border-cyan-400', sel);
+        el.classList.toggle('bg-cyan-500/20', sel);
+        el.classList.toggle('text-cyan-200', sel);
+    });
+    document.querySelectorAll('[data-cfg-scale]').forEach(el => {
+        const sel = el.dataset.cfgScale === s.uiScale;
+        el.classList.toggle('border-emerald-400', sel);
+        el.classList.toggle('bg-emerald-500/20', sel);
+        el.classList.toggle('text-emerald-200', sel);
+    });
+    document.querySelectorAll('[data-cfg-exp]').forEach(el => {
+        const sel = el.dataset.cfgExp === s.exportQuality;
+        el.classList.toggle('border-purple-400', sel);
+        el.classList.toggle('bg-purple-500/20', sel);
+        el.classList.toggle('text-purple-200', sel);
+    });
+    document.querySelectorAll('[data-cfg-cam]').forEach(el => {
+        const sel = el.dataset.cfgCam === (s.cameraMode || 'free');
+        el.classList.toggle('border-emerald-400', sel);
+        el.classList.toggle('bg-emerald-500/20', sel);
+        el.classList.toggle('text-emerald-200', sel);
+    });
+}
+
+function resetToDefaultSettings() {
+    const modal = document.getElementById('globalSettingsModal');
+    if (!modal) return;
+    modal._tempSettings = { ...DEFAULT_SETTINGS };
+    highlightSelectedOptions(modal._tempSettings);
+}
+
+function applyAndCloseSettings() {
+    const modal = document.getElementById('globalSettingsModal');
+    if (modal && modal._tempSettings) {
+        saveAppSettings(modal._tempSettings);
+    }
+    closeSettingsModal();
+}
+
+function closeSettingsModal() {
+    const modal = document.getElementById('globalSettingsModal');
+    if (modal) modal.remove();
+}
+
+// Lắng nghe thay đổi cài đặt từ các trang khác qua storage event
+window.addEventListener('storage', (e) => {
+    if (e.key === MATH_SETTINGS_KEY && e.newValue) {
+        try {
+            applyAppSettings(JSON.parse(e.newValue));
+        } catch (err) {}
+    }
+});
+
+// Tự động khởi chạy cài đặt khi tải trang
+window.addEventListener('DOMContentLoaded', () => {
+    applyAppSettings();
+});
+    </script>
 </head>
 <body class="w-screen relative select-none" style="height: 100vh; height: 100dvh;">
 
@@ -347,7 +735,7 @@
             <div>
                 <div class="flex items-center gap-2">
                     <h1 class="font-bold text-base text-slate-100 tracking-wide leading-tight">Vẽ Hình Học 3D</h1>
-                    <span class="px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-mono text-[10px] font-bold border border-cyan-500/30">v1.0.4</span>
+                    <span class="px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-mono text-[10px] font-bold border border-cyan-500/30">v1.0.5</span>
                 </div>
                 <p class="text-xs text-cyan-400 font-medium">Hỗ Trợ Đường Tròn, Vector & Giao Diện Tương Tác</p>
             </div>
@@ -462,6 +850,10 @@
                 <i class="fa-solid fa-draw-polygon text-purple-400"></i>
                 <span>Tạo Mặt</span>
             </button>
+            <button onclick="setToolMode('section')" id="tool-section" class="tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800 transition-all whitespace-nowrap" title="Cắt thiết diện: chọn 3 điểm xác định mặt phẳng cắt, tự tô màu mặt cắt">
+                <i class="fa-solid fa-scissors text-orange-400"></i>
+                <span>Cắt Thiết Diện</span>
+            </button>
             <button onclick="setToolMode('delete')" id="tool-delete" class="tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800 transition-all whitespace-nowrap">
                 <i class="fa-solid fa-trash-can text-rose-400"></i>
                 <span>Xóa Đỉnh</span>
@@ -504,210 +896,228 @@
         </div>
     </div>
 
-    <!-- Right Sidebar Controls & Lists -->
-    <aside id="right-sidebar" class="absolute top-4 right-4 bottom-24 w-80 sm:w-88 z-20 flex flex-col gap-4 pointer-events-none" style="transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);">
+    <!-- Right Sidebar Controls & Lists (gọn: thống kê cố định + 3 tab + chân bảng cố định) -->
+    <aside id="right-sidebar" class="absolute top-4 right-4 bottom-24 w-80 z-20 flex flex-col pointer-events-none" style="transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);">
         <!-- Nút thu/mở bảng bên phải -->
         <button id="sidebarToggleBtn" type="button" onclick="toggleRightSidebar()" title="Thu gọn / mở rộng bảng bên phải"
                 class="glass-panel absolute top-3 -left-10 w-9 h-9 rounded-xl border border-slate-600/60 text-cyan-300 hover:bg-cyan-500/15 shadow-xl flex items-center justify-center pointer-events-auto transition-colors">
             <i id="sidebarToggleIcon" class="fa-solid fa-chevron-right text-sm"></i>
         </button>
-        <div class="glass-panel rounded-2xl p-4 sm:p-5 shadow-2xl flex-1 flex flex-col pointer-events-auto overflow-y-auto">
-            
-            <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2.5 flex items-center gap-2">
-                <i class="fa-solid fa-wand-magic-sparkles text-cyan-400"></i> Mẫu Có Sẵn
-            </h2>
 
-            <div class="grid grid-cols-2 gap-2 mb-4">
-                <button onclick="loadSABCDPreset()" class="p-2.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 text-xs font-semibold transition-all flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-pyramid text-sm"></i> Chóp S.ABCD
-                </button>
-                <button onclick="loadCubePreset()" class="p-2.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 text-xs font-semibold transition-all flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-cube text-sm"></i> Lập Phương
-                </button>
-                <button onclick="loadCylinderPreset()" class="p-2.5 rounded-xl bg-pink-500/10 hover:bg-pink-500/20 border border-pink-500/40 text-pink-300 text-xs font-semibold transition-all flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-database text-sm"></i> Hình Trụ
-                </button>
-                <button onclick="loadSpherePreset()" class="p-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-semibold transition-all flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-globe text-sm"></i> Hình Cầu
-                </button>
-                <button onclick="loadConePreset()" class="p-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-semibold transition-all flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-caret-up text-base"></i> Hình Nón
-                </button>
-                <button onclick="loadTruncatedConePreset()" class="p-2.5 rounded-xl bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/40 text-orange-300 text-xs font-semibold transition-all flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-bucket text-sm"></i> Nón Cụt
-                </button>
-                <button onclick="loadPyramidFrustumPreset()" class="col-span-2 p-2.5 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/40 text-sky-300 text-xs font-semibold transition-all flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-layer-group text-sm"></i> Chóp Cụt Đều
-                </button>
-            </div>
+        <div class="glass-panel rounded-2xl shadow-2xl flex-1 min-h-0 flex flex-col pointer-events-auto overflow-hidden">
 
-            <!-- Tùy chọn hiển thị -->
-            <div class="grid grid-cols-2 gap-2 mb-4">
-                <button id="btnHiddenEdges" onclick="toggleHiddenEdges()" title="Cạnh bị khuất hiển thị bằng nét đứt (chỉ với hình có mặt)" class="p-2 rounded-xl border text-xs font-semibold transition-all flex items-center justify-center gap-1.5">
-                    <i class="fa-solid fa-ellipsis"></i> <span>Nét đứt khuất</span>
-                </button>
-                <button id="btnFaceFill" onclick="toggleFaceFill()" title="Tô màu nhạt cho các mặt phẳng" class="p-2 rounded-xl border text-xs font-semibold transition-all flex items-center justify-center gap-1.5">
-                    <i class="fa-solid fa-fill-drip"></i> <span>Tô mặt</span>
-                </button>
-            </div>
-
-            <!-- Công cụ phóng to / thu nhỏ -->
-            <div class="mb-4 p-2.5 rounded-xl bg-slate-800/40 border border-slate-700/50">
-                <div class="flex items-center justify-between text-xs font-semibold text-slate-300 mb-2">
-                    <span class="flex items-center gap-1.5 text-teal-300">
-                        <i class="fa-solid fa-magnifying-glass-plus"></i> Kích thước hình:
-                    </span>
-                    <span id="scale-indicator" class="text-cyan-400 font-mono text-[11px]">100%</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <button onclick="scaleEntireShape(0.85)" title="Thu nhỏ 15%" class="flex-1 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 border border-slate-600 transition-all flex items-center justify-center gap-1">
-                        <i class="fa-solid fa-minus text-[10px]"></i> Thu nhỏ
-                    </button>
-                    <button onclick="resetShapeScale()" title="Đặt lại tỷ lệ chuẩn" class="px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-semibold text-cyan-400 border border-slate-600">
-                        1x
-                    </button>
-                    <button onclick="scaleEntireShape(1.15)" title="Phóng to 15%" class="flex-1 py-1.5 rounded-lg bg-teal-500/20 hover:bg-teal-500/30 text-xs font-bold text-teal-300 border border-teal-500/40 transition-all flex items-center justify-center gap-1">
-                        <i class="fa-solid fa-plus text-[10px]"></i> Phóng to
-                    </button>
+            <!-- Thống kê: luôn hiển thị -->
+            <div class="px-3 pt-3">
+                <div class="grid grid-cols-4 divide-x divide-slate-700/60 rounded-xl bg-slate-800/50 border border-slate-700/40 py-1.5">
+                    <div class="text-center"><div id="stat-vertices" class="font-bold text-base leading-5 text-rose-400">0</div><div class="text-[10.5px] text-slate-400">Đỉnh</div></div>
+                    <div class="text-center"><div id="stat-edges" class="font-bold text-base leading-5 text-amber-400">0</div><div class="text-[10.5px] text-slate-400">Cạnh</div></div>
+                    <div class="text-center"><div id="stat-circles" class="font-bold text-base leading-5 text-pink-400">0</div><div class="text-[10.5px] text-slate-400">Tròn</div></div>
+                    <div class="text-center"><div id="stat-vectors" class="font-bold text-base leading-5 text-yellow-400">0</div><div class="text-[10.5px] text-slate-400">Vector</div></div>
                 </div>
             </div>
 
-            <hr class="border-slate-700/50 mb-4">
-
-            <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2.5 flex items-center gap-2">
-                <i class="fa-solid fa-chart-pie text-cyan-400"></i> Thống Kê Hình Học
-            </h2>
-
-            <div class="grid grid-cols-4 gap-1.5 mb-4">
-                <div class="p-2 rounded-xl bg-slate-800/60 border border-slate-700/40 text-center">
-                    <div class="text-[9px] text-slate-400 uppercase font-medium">Đỉnh</div>
-                    <div id="stat-vertices" class="font-extrabold text-sm text-rose-400 mt-0.5">0</div>
-                </div>
-                <div class="p-2 rounded-xl bg-slate-800/60 border border-slate-700/40 text-center">
-                    <div class="text-[9px] text-slate-400 uppercase font-medium">Cạnh</div>
-                    <div id="stat-edges" class="font-extrabold text-sm text-amber-400 mt-0.5">0</div>
-                </div>
-                <div class="p-2 rounded-xl bg-slate-800/60 border border-slate-700/40 text-center">
-                    <div class="text-[9px] text-slate-400 uppercase font-medium">Tròn</div>
-                    <div id="stat-circles" class="font-extrabold text-sm text-pink-400 mt-0.5">0</div>
-                </div>
-                <div class="p-2 rounded-xl bg-slate-800/60 border border-slate-700/40 text-center">
-                    <div class="text-[9px] text-slate-400 uppercase font-medium">Vector</div>
-                    <div id="stat-vectors" class="font-extrabold text-sm text-yellow-400 mt-0.5">0</div>
-                </div>
-            </div>
-
-            <hr class="border-slate-700/50 mb-4">
-
-            <!-- Active Vertices List -->
-            <div class="flex items-center justify-between mb-2">
-                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                    <i class="fa-solid fa-list-ul text-cyan-400"></i> Danh Sách Đỉnh
-                </h2>
-                <span class="text-[10px] text-slate-500">(X, Y, Z)</span>
-            </div>
-
-            <div id="vertices-list" class="min-h-[60px] max-h-[90px] overflow-y-auto space-y-1.5 pr-1 mb-3">
-                <div class="text-center text-xs text-slate-500 py-3">Chưa có đỉnh nào.</div>
-            </div>
-
-            <!-- Active Circles List -->
-            <div class="flex items-center justify-between mb-2">
-                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                    <i class="fa-regular fa-circle text-pink-400"></i> Đường Tròn
-                </h2>
-                <span class="text-[10px] text-slate-500">Tâm & Bán kính R</span>
-            </div>
-
-            <div id="circles-list" class="min-h-[50px] max-h-[80px] overflow-y-auto space-y-1.5 pr-1 mb-3">
-                <div class="text-center text-xs text-slate-500 py-2">Chưa có đường tròn nào.</div>
-            </div>
-
-            <!-- Active Vectors List -->
-            <div class="flex items-center justify-between mb-2">
-                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                    <i class="fa-solid fa-arrow-right-long text-yellow-400"></i> Vector
-                </h2>
-                <span class="text-[10px] text-slate-500">Mũi tên hướng</span>
-            </div>
-
-            <div id="vectors-list" class="min-h-[45px] max-h-[75px] overflow-y-auto space-y-1.5 pr-1 mb-3">
-                <div class="text-center text-xs text-slate-500 py-2">Chưa có vector nào.</div>
-            </div>
-
-            <!-- Active Edges List -->
-            <div class="flex items-center justify-between mb-2">
-                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                    <i class="fa-solid fa-ruler text-amber-400"></i> Danh Sách Cạnh
-                </h2>
-                <span class="text-[10px] text-slate-500">✎ tên · = ký hiệu</span>
-            </div>
-
-            <div id="edges-list" class="min-h-[60px] max-h-[45vh] overflow-y-auto space-y-1.5 pr-1 mb-4">
-                <div class="text-center text-xs text-slate-500 py-3">Chưa có cạnh nào.</div>
-            </div>
-
-            <hr class="border-slate-700/50 mb-4">
-
-            <!-- Face Action Controls -->
-            <div id="face-creation-controls" class="mb-4 hidden">
-                <div class="p-3 rounded-xl bg-purple-500/10 border border-purple-500/30 text-xs text-purple-200 space-y-2">
-                    <p class="font-semibold text-purple-300"><i class="fa-solid fa-info-circle"></i> Đang tạo mặt phẳng:</p>
-                    <p>Chọn các đỉnh theo thứ tự vòng quanh mặt canvas, sau đó bấm <b>Tạo Mặt</b>.</p>
-                    <div class="flex gap-2 pt-1">
-                        <button onclick="finishFaceCreation()" class="flex-1 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-semibold text-xs shadow">Hoàn Thành Mặt</button>
+            <!-- Đang tạo mặt phẳng (chỉ hiện khi dùng công cụ tạo mặt) -->
+            <div id="face-creation-controls" class="hidden px-3 pt-2">
+                <div class="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/30 text-xs text-purple-200 space-y-1.5">
+                    <p class="font-semibold text-purple-300"><i class="fa-solid fa-info-circle"></i> Đang tạo mặt phẳng</p>
+                    <p class="text-[11px] leading-snug">Chọn các đỉnh theo thứ tự vòng quanh mặt, rồi bấm <b>Hoàn thành mặt</b>.</p>
+                    <div class="flex gap-2">
+                        <button onclick="finishFaceCreation()" class="flex-1 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-semibold text-xs shadow">Hoàn thành mặt</button>
                         <button onclick="cancelFaceCreation()" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-xs">Hủy</button>
                     </div>
                 </div>
             </div>
 
-            <!-- Action Buttons -->
-            <div class="mt-auto space-y-2">
-                <div class="grid grid-cols-2 gap-2">
-                    <button onclick="promptCreateCircleByRadius()" class="py-2 px-2.5 rounded-xl bg-pink-500/10 hover:bg-pink-500/20 border border-pink-500/40 text-xs text-pink-300 font-semibold transition-all flex items-center justify-center gap-1.5" title="Chọn tâm và nhập bán kính R">
-                        <i class="fa-regular fa-circle"></i> Vẽ Tròn (R)
-                    </button>
-                    <button onclick="promptSetEqualEdgeMarks()" class="py-2 px-2.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/40 text-xs text-cyan-300 font-semibold transition-all flex items-center justify-center gap-1.5" title="Đặt ký hiệu cạnh bằng nhau và đặt tên">
-                        <i class="fa-solid fa-equals"></i> Đặt Cạnh =
-                    </button>
+            <!-- Thanh tab -->
+            <div class="px-3 pt-2.5">
+                <div class="flex gap-1 p-1 rounded-xl bg-slate-900/60 border border-slate-700/50" role="tablist">
+                    <button type="button" class="sb-tab active" data-tab="build" onclick="sbShowTab('build')"><i class="fa-solid fa-shapes"></i> Dựng hình</button>
+                    <button type="button" class="sb-tab" data-tab="cut" onclick="sbShowTab('cut')"><i class="fa-solid fa-scissors"></i> Mặt cắt</button>
+                    <button type="button" class="sb-tab" data-tab="data" onclick="sbShowTab('data')"><i class="fa-solid fa-list-ul"></i> Danh sách</button>
                 </div>
-
-<div class="grid grid-cols-3 gap-1.5 mt-2">
-    <button onclick="constructPerpendicularBisector()" class="py-2 px-1.5 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/40 text-[11px] text-purple-300 font-semibold transition-all flex items-center justify-center gap-1" title="Dựng đường trung trực của đoạn thẳng">
-        <i class="fa-solid fa-compass"></i> Trung Trực
-    </button>
-    <button onclick="constructPerpendicularLine()" class="py-2 px-1.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/40 text-[11px] text-indigo-300 font-semibold transition-all flex items-center justify-center gap-1" title="Hạ đường vuông góc từ điểm xuống đường thẳng">
-        <i class="fa-solid fa-angles-down"></i> Vuông Góc
-    </button>
-    <button onclick="constructParallelLine()" class="py-2 px-1.5 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/40 text-[11px] text-teal-300 font-semibold transition-all flex items-center justify-center gap-1" title="Dựng đường thẳng song song qua một điểm">
-        <i class="fa-solid fa-bars"></i> Song Song
-    </button>
-</div>
-                <div class="grid grid-cols-2 gap-2">
-                    <button onclick="promptEditRightAngleLabel()" class="py-2 px-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/40 text-xs text-rose-300 font-semibold transition-all flex items-center justify-center gap-1.5" title="Đặt tên/nhãn cho góc vuông">
-                        <i class="fa-solid fa-square-full"></i> Tên Góc ⊥
-                    </button>
-                    <button onclick="addAngleMarker()" class="py-2 px-3 rounded-xl bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/40 text-xs text-orange-300 font-semibold transition-all flex items-center justify-center gap-1.5">
-                        <i class="fa-solid fa-angle-left"></i> Đo Góc
-                    </button>
-                </div>
-
-                <div class="grid grid-cols-2 gap-2">
-                    <button onclick="removeAngleMarker()" class="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-300 font-medium transition-all flex items-center justify-center gap-1.5">
-                        <i class="fa-solid fa-eraser"></i> Xóa Góc
-                    </button>
-                    <button onclick="resetCamera()" class="py-2 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-300 font-medium transition-all flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-rotate-left text-cyan-400"></i> Đặt Lại Cam
-                    </button>
-                </div>
-
-                <button onclick="clearAllData()" class="w-full py-2.5 px-4 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/40 text-xs text-rose-300 font-semibold transition-all flex items-center justify-center gap-2 shadow-lg">
-                    <i class="fa-solid fa-trash-arrow-up"></i> Xóa Tẩy Tất Cả
-                </button>
             </div>
 
+            <!-- Nội dung tab (cuộn riêng) -->
+            <div class="flex-1 min-h-0 overflow-y-auto px-3 py-3">
+
+                <!-- ============ TAB: DỰNG HÌNH ============ -->
+                <div id="sb-pane-build" class="sb-pane space-y-3.5">
+
+                    <section>
+                        <h2 class="sb-sec-title mb-1.5"><i class="fa-solid fa-wand-magic-sparkles text-cyan-400"></i> Mẫu có sẵn</h2>
+                        <div class="grid grid-cols-4 gap-1.5">
+                            <button onclick="loadSABCDPreset()" title="Hình chóp S.ABCD" class="sb-tile bg-cyan-500/10 hover:bg-cyan-500/20 border-cyan-500/40 text-cyan-300"><i class="fa-solid fa-mountain"></i><span>Chóp S.ABCD</span></button>
+                            <button onclick="loadCubePreset()" title="Hình lập phương" class="sb-tile bg-indigo-500/10 hover:bg-indigo-500/20 border-indigo-500/40 text-indigo-300"><i class="fa-solid fa-cube"></i><span>Lập phương</span></button>
+                            <button onclick="loadCylinderPreset()" title="Hình trụ" class="sb-tile bg-pink-500/10 hover:bg-pink-500/20 border-pink-500/40 text-pink-300"><i class="fa-solid fa-database"></i><span>Hình trụ</span></button>
+                            <button onclick="loadSpherePreset()" title="Hình cầu" class="sb-tile bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/40 text-emerald-300"><i class="fa-solid fa-globe"></i><span>Hình cầu</span></button>
+                            <button onclick="loadConePreset()" title="Hình nón" class="sb-tile bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/40 text-amber-300"><i class="fa-solid fa-caret-up"></i><span>Hình nón</span></button>
+                            <button onclick="loadTruncatedConePreset()" title="Hình nón cụt" class="sb-tile bg-orange-500/10 hover:bg-orange-500/20 border-orange-500/40 text-orange-300"><i class="fa-solid fa-bucket"></i><span>Nón cụt</span></button>
+                            <button onclick="loadPyramidFrustumPreset()" title="Hình chóp cụt đều" class="sb-tile bg-sky-500/10 hover:bg-sky-500/20 border-sky-500/40 text-sky-300"><i class="fa-solid fa-layer-group"></i><span>Chóp cụt đều</span></button>
+                        </div>
+                    </section>
+
+                    <section>
+                        <h2 class="sb-sec-title mb-1.5"><i class="fa-solid fa-eye text-teal-400"></i> Hiển thị</h2>
+                        <div class="grid grid-cols-3 gap-1.5">
+                            <button id="btnHiddenEdges" onclick="toggleHiddenEdges()" title="Cạnh bị khuất hiển thị bằng nét đứt (chỉ với hình có mặt)" class="sb-toggle bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700">
+                                <i class="fa-solid fa-ellipsis"></i> <span>Nét đứt</span>
+                            </button>
+                            <button id="btnFaceFill" onclick="toggleFaceFill()" title="Tô màu nhạt cho các mặt phẳng" class="sb-toggle bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700">
+                                <i class="fa-solid fa-fill-drip"></i> <span>Tô mặt</span>
+                            </button>
+                            <button id="btnNet" onclick="toggleNet()" title="Khai triển hình (lưới) của hình chóp, lăng trụ, hình nón, nón cụt, hình trụ" class="sb-toggle bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700">
+                                <i class="fa-solid fa-box-open"></i> <span>Khai triển</span>
+                            </button>
+                        </div>
+                    </section>
+
+                    <!-- Phóng to / thu nhỏ -->
+                    <section class="sb-card flex items-center gap-2">
+                        <div class="flex-1 min-w-0 leading-tight">
+                            <div class="text-xs font-semibold text-slate-300 flex items-center gap-1.5"><i class="fa-solid fa-magnifying-glass-plus text-teal-300"></i> Kích thước hình</div>
+                            <div id="scale-indicator" class="text-cyan-400 font-mono text-[11px] mt-0.5">100%</div>
+                        </div>
+                        <button onclick="scaleEntireShape(0.85)" title="Thu nhỏ 15%" class="sb-mini bg-slate-800 hover:bg-slate-700 border-slate-600 text-slate-200"><i class="fa-solid fa-minus text-[10px]"></i></button>
+                        <button onclick="resetShapeScale()" title="Đặt lại tỷ lệ chuẩn" class="sb-mini bg-slate-800 hover:bg-slate-700 border-slate-600 text-cyan-400 text-[11px]">1x</button>
+                        <button onclick="scaleEntireShape(1.15)" title="Phóng to 15%" class="sb-mini bg-teal-500/20 hover:bg-teal-500/30 border-teal-500/40 text-teal-300"><i class="fa-solid fa-plus text-[10px]"></i></button>
+                    </section>
+
+                    <section>
+                        <h2 class="sb-sec-title mb-1.5"><i class="fa-solid fa-compass-drafting text-purple-400"></i> Dựng &amp; đo</h2>
+                        <div class="grid grid-cols-4 gap-1.5">
+                            <button onclick="promptCreateCircleByRadius()" title="Chọn tâm và nhập bán kính R" class="sb-tile bg-pink-500/10 hover:bg-pink-500/20 border-pink-500/40 text-pink-300"><i class="fa-regular fa-circle"></i><span>Vẽ tròn (R)</span></button>
+                            <button onclick="promptSetEqualEdgeMarks()" title="Đặt ký hiệu cạnh bằng nhau và đặt tên" class="sb-tile bg-cyan-500/10 hover:bg-cyan-500/20 border-cyan-500/40 text-cyan-300"><i class="fa-solid fa-equals"></i><span>Cạnh bằng</span></button>
+                            <button onclick="constructPerpendicularBisector()" title="Dựng đường trung trực của đoạn thẳng" class="sb-tile bg-purple-500/10 hover:bg-purple-500/20 border-purple-500/40 text-purple-300"><i class="fa-solid fa-compass"></i><span>Trung trực</span></button>
+                            <button onclick="constructPerpendicularLine()" title="Hạ đường vuông góc từ điểm xuống đường thẳng" class="sb-tile bg-indigo-500/10 hover:bg-indigo-500/20 border-indigo-500/40 text-indigo-300"><i class="fa-solid fa-angles-down"></i><span>Vuông góc</span></button>
+                            <button onclick="constructParallelLine()" title="Dựng đường thẳng song song qua một điểm" class="sb-tile bg-teal-500/10 hover:bg-teal-500/20 border-teal-500/40 text-teal-300"><i class="fa-solid fa-bars"></i><span>Song song</span></button>
+                            <button onclick="promptEditRightAngleLabel()" title="Đặt tên/nhãn cho góc vuông" class="sb-tile bg-rose-500/10 hover:bg-rose-500/20 border-rose-500/40 text-rose-300"><i class="fa-solid fa-square-full"></i><span>Tên góc ⊥</span></button>
+                            <button onclick="addAngleMarker()" title="Đo góc" class="sb-tile bg-orange-500/10 hover:bg-orange-500/20 border-orange-500/40 text-orange-300"><i class="fa-solid fa-angle-left"></i><span>Đo góc</span></button>
+                            <button onclick="removeAngleMarker()" title="Xóa góc đã đo" class="sb-tile bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300"><i class="fa-solid fa-eraser"></i><span>Xóa góc</span></button>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- ============ TAB: MẶT CẮT ============ -->
+                <div id="sb-pane-cut" class="sb-pane hidden space-y-3">
+
+                    <!-- Cắt thiết diện & tô màu mặt cắt -->
+                    <div id="section-panel" class="p-2.5 rounded-xl bg-orange-500/5 border border-orange-500/30">
+                        <div class="flex items-center justify-between gap-2 mb-1">
+                            <span class="text-xs font-bold text-orange-300 flex items-center gap-1.5"><i class="fa-solid fa-scissors"></i> Cắt thiết diện</span>
+                            <button onclick="setToolMode('section')" class="px-2.5 py-1 rounded-lg bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/50 text-[11px] font-semibold text-orange-200 whitespace-nowrap">Bắt đầu cắt</button>
+                        </div>
+                        <p class="sb-hint mb-2">Chọn <b class="text-slate-300">3 điểm</b> (đỉnh, trung điểm hoặc điểm trên cạnh) để xác định mặt phẳng cắt.</p>
+                        <div class="flex items-center gap-1.5 mb-2">
+                            <span class="text-[11px] text-slate-400 w-12 shrink-0">Màu</span>
+                            <div id="section-swatches" class="flex items-center gap-1.5 flex-wrap"></div>
+                            <input id="sectionColorCustom" type="color" value="#f97316" oninput="selectSectionColor(this.value)" title="Chọn màu khác" class="w-5 h-5 shrink-0 rounded cursor-pointer bg-transparent border border-slate-600 p-0">
+                        </div>
+                        <div class="flex items-center gap-1.5 mb-2">
+                            <span class="text-[11px] text-slate-400 w-12 shrink-0">Độ đậm</span>
+                            <input id="sectionOpacityRange" type="range" min="10" max="95" value="55" oninput="setSectionOpacity(this.value / 100)" class="flex-1 accent-orange-400">
+                        </div>
+                        <div class="grid grid-cols-2 gap-1.5 mb-2">
+                            <button id="btnSectionFill" onclick="toggleSectionFill()" class="sb-toggle bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700"><i class="fa-solid fa-fill-drip"></i> <span>Tô mặt cắt</span></button>
+                            <button onclick="clearAllSections()" class="sb-toggle bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300"><i class="fa-solid fa-eraser"></i> <span>Xóa thiết diện</span></button>
+                        </div>
+                        <div id="sections-list" class="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                            <div class="text-center text-[11px] text-slate-500 py-1">Chưa có thiết diện nào.</div>
+                        </div>
+                    </div>
+
+                    <!-- Mặt phẳng theo phương trình -->
+                    <div id="eqplane-panel" class="p-2.5 rounded-xl bg-sky-500/5 border border-sky-500/30">
+                        <div class="mb-1">
+                            <span class="text-xs font-bold text-sky-300 flex items-center gap-1.5"><i class="fa-solid fa-square"></i> Mặt phẳng theo phương trình</span>
+                        </div>
+                        <p class="sb-hint mb-2">Dạng <b class="text-slate-300">ax + by + cz + d = 0</b>, hoặc <b class="text-slate-300">x = 2</b>, <b class="text-slate-300">2x - y + 3z = 6</b>.</p>
+                        <div class="flex items-center gap-1.5 mb-1.5">
+                            <input id="eqplane-input" type="text" autocomplete="off" spellcheck="false" placeholder="VD: x + 2y - z - 3 = 0" class="flex-1 min-w-0 px-2 py-1.5 rounded-lg bg-slate-900/80 border border-slate-600 text-xs text-slate-100 font-mono focus:outline-none focus:border-sky-400">
+                            <button onclick="drawEquationPlane()" class="px-2.5 py-1.5 rounded-lg bg-sky-500/25 hover:bg-sky-500/40 border border-sky-500/60 text-[11px] font-semibold text-sky-100 whitespace-nowrap"><i class="fa-solid fa-pen-ruler"></i> Vẽ</button>
+                        </div>
+                        <div class="flex flex-wrap gap-1 mb-2">
+                            <button onclick="setEqPlaneExample('z = 0')" class="px-1.5 py-0.5 rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[10px] font-mono text-slate-300">z = 0</button>
+                            <button onclick="setEqPlaneExample('x + y + z - 4 = 0')" class="px-1.5 py-0.5 rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[10px] font-mono text-slate-300">x + y + z - 4 = 0</button>
+                            <button onclick="setEqPlaneExample('2x - y + 3z = 6')" class="px-1.5 py-0.5 rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[10px] font-mono text-slate-300">2x - y + 3z = 6</button>
+                        </div>
+                        <div class="flex items-center gap-1.5 mb-2">
+                            <span class="text-[11px] text-slate-400 w-12 shrink-0">Màu</span>
+                            <input id="eqplane-color" type="color" value="#38bdf8" class="w-5 h-5 shrink-0 rounded cursor-pointer bg-transparent border border-slate-600 p-0">
+                            <span class="text-[11px] text-slate-400 ml-1 shrink-0">Độ đậm</span>
+                            <input id="eqplane-opacity" type="range" min="5" max="90" value="35" oninput="setEqPlaneOpacity(this.value / 100)" class="flex-1 min-w-0 accent-sky-400">
+                        </div>
+                        <div class="flex items-center gap-1.5 mb-2">
+                            <span class="text-[11px] text-slate-400 w-12 shrink-0">Cỡ</span>
+                            <input id="eqplane-size" type="range" min="2" max="30" value="6" oninput="setEqPlaneSize(+this.value)" class="flex-1 min-w-0 accent-sky-400">
+                            <span id="eqplane-size-val" class="text-[11px] font-mono text-sky-300 w-6 text-right">6</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-1.5 mb-2">
+                            <button id="btnEqNormal" onclick="toggleEqPlaneNormals()" class="sb-toggle bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700"><i class="fa-solid fa-arrow-up-long"></i> <span>Pháp tuyến</span></button>
+                            <button onclick="clearAllEqPlanes()" class="sb-toggle bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300"><i class="fa-solid fa-eraser"></i> <span>Xóa tất cả</span></button>
+                        </div>
+                        <div id="eqplane-list" class="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                            <div class="text-center text-[11px] text-slate-500 py-1">Chưa có mặt phẳng nào.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ============ TAB: DANH SÁCH ============ -->
+                <div id="sb-pane-data" class="sb-pane hidden space-y-2">
+
+                    <details class="sb-acc" open>
+                        <summary><i class="fa-solid fa-chevron-right sb-chev"></i><i class="fa-solid fa-list-ul text-cyan-400"></i><span class="sb-sec-title">Đỉnh</span><span class="sb-hint ml-auto">(X, Y, Z)</span></summary>
+                        <div id="vertices-list" class="min-h-[40px] max-h-40 overflow-y-auto space-y-1.5 pr-1 pt-1.5">
+                            <div class="text-center text-xs text-slate-500 py-3">Chưa có đỉnh nào.</div>
+                        </div>
+                    </details>
+
+                    <details class="sb-acc" open>
+                        <summary><i class="fa-solid fa-chevron-right sb-chev"></i><i class="fa-regular fa-circle text-pink-400"></i><span class="sb-sec-title">Đường tròn</span><span class="sb-hint ml-auto">Tâm &amp; bán kính R</span></summary>
+                        <div id="circles-list" class="min-h-[36px] max-h-32 overflow-y-auto space-y-1.5 pr-1 pt-1.5">
+                            <div class="text-center text-xs text-slate-500 py-2">Chưa có đường tròn nào.</div>
+                        </div>
+                    </details>
+
+                    <details class="sb-acc" open>
+                        <summary><i class="fa-solid fa-chevron-right sb-chev"></i><i class="fa-solid fa-arrow-right-long text-yellow-400"></i><span class="sb-sec-title">Vector</span><span class="sb-hint ml-auto">Mũi tên hướng</span></summary>
+                        <div id="vectors-list" class="min-h-[36px] max-h-28 overflow-y-auto space-y-1.5 pr-1 pt-1.5">
+                            <div class="text-center text-xs text-slate-500 py-2">Chưa có vector nào.</div>
+                        </div>
+                    </details>
+
+                    <details class="sb-acc" open>
+                        <summary><i class="fa-solid fa-chevron-right sb-chev"></i><i class="fa-solid fa-ruler text-amber-400"></i><span class="sb-sec-title">Cạnh</span><span class="sb-hint ml-auto">✎ tên · = ký hiệu</span></summary>
+                        <div id="edges-list" class="min-h-[40px] max-h-72 overflow-y-auto space-y-1.5 pr-1 pt-1.5">
+                            <div class="text-center text-xs text-slate-500 py-3">Chưa có cạnh nào.</div>
+                        </div>
+                    </details>
+                </div>
+            </div>
+
+            <!-- Chân bảng: luôn hiển thị -->
+            <div class="px-3 py-2.5 border-t border-slate-700/50 flex gap-2">
+                <button onclick="resetCamera()" title="Đặt lại góc nhìn" class="flex-1 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-300 font-medium transition-all flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-rotate-left text-cyan-400"></i> Đặt lại cam
+                </button>
+                <button onclick="clearAllData()" title="Xóa toàn bộ hình đã vẽ" class="flex-1 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/40 text-xs text-rose-300 font-semibold transition-all flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-trash-arrow-up"></i> Xóa tất cả
+                </button>
+            </div>
         </div>
     </aside>
+    <script>
+        // Chuyển tab bảng bên phải (nhớ tab đang xem)
+        function sbShowTab(name) {
+            document.querySelectorAll('#right-sidebar .sb-pane').forEach(p => p.classList.toggle('hidden', p.id !== 'sb-pane-' + name));
+            document.querySelectorAll('#right-sidebar .sb-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+            try { localStorage.setItem('sbTab', name); } catch (e) {}
+        }
+        (function () {
+            let saved = null;
+            try { saved = localStorage.getItem('sbTab'); } catch (e) {}
+            if (saved && document.getElementById('sb-pane-' + saved)) sbShowTab(saved);
+        })();
+    </script>
 
     <!-- Ô NHẬP LỆNH AI CỐ ĐỊNH Ở ĐÁY MÀN HÌNH -->
     <div id="aiCommandBox" class="fixed bottom-4 left-1/2 -translate-x-1/2 w-[92%] max-w-3xl z-30 glass-panel p-3 rounded-2xl border border-slate-700/80 shadow-2xl flex flex-col gap-2">
@@ -764,54 +1174,6 @@
     </div>
 
     <script>
-        function updateConstrainedVertices() {
-    verticesData.forEach(v => {
-        if (!v.constraint) return;
-        
-        // 1. Ràng buộc điểm là trung điểm của 2 đỉnh khác
-        if (v.constraint.type === 'midpoint') {
-            const p1 = verticesData.find(item => item.id === v.constraint.aId);
-            const p2 = verticesData.find(item => item.id === v.constraint.bId);
-            if (p1 && p2) {
-                v.point.copy(p1.point).add(p2.point).multiplyScalar(0.5);
-                v.mesh.position.copy(v.point);
-            }
-        } 
-        // 2. Ràng buộc điểm hình chiếu vuông góc luôn nằm trên cạnh AB
-        else if (v.constraint.type === 'projection_on_edge') {
-            const A = verticesData.find(item => item.id === v.constraint.aId);
-            const B = verticesData.find(item => item.id === v.constraint.bId);
-            const S = verticesData.find(item => item.id === v.constraint.pointId);
-            if (A && B && S) {
-                const AB = B.point.clone().sub(A.point);
-                const AS = S.point.clone().sub(A.point);
-                const lenSq = AB.lengthSq();
-                if (lenSq > 1e-6) {
-                    let t = AS.dot(AB) / lenSq;
-                    t = Math.max(0, Math.min(1, t)); // Giới hạn đoạn thẳng AB
-                    v.point.copy(A.point).add(AB.multiplyScalar(t));
-                    v.mesh.position.copy(v.point);
-                }
-            }
-        }
-    });
-    // Đồng bộ lại toàn bộ cạnh, mặt và nhãn hiển thị
-    if (typeof applyGeometryUpdateAfterScale === 'function') {
-        applyGeometryUpdateAfterScale();
-    }
-}
-
-// Tự động gọi hàm ràng buộc liên tục mỗi khi chuyển động khung hình 3D
-const originalAnimate = window.animate || function(){};
-// Chèn trực tiếp vào vòng lặp render của Three.js
-function enhancedAnimate() {
-    requestAnimationFrame(enhancedAnimate);
-    if (typeof controls !== 'undefined') controls.update();
-    updateConstrainedVertices(); // Cập nhật ràng buộc hình học động
-    if (typeof renderer !== 'undefined' && typeof scene !== 'undefined' && typeof camera !== 'undefined') {
-        renderer.render(scene, camera);
-    }
-}
         // Modal Prompt Helper (Thay thế hoàn toàn window.prompt cho WebView / EXE)
         function appPrompt(title, message, defaultValue = "") {
             return new Promise((resolve) => {
@@ -1011,6 +1373,12 @@ function enhancedAnimate() {
         let selectedVerticesForVector = [];
         let selectedVerticesForFace = [];
         let selectedVerticesForCircle = [];
+        let selectedVerticesForSection = [];
+        const sectionsData = [];          // thiết diện: { id, vIds, color, opacity, mesh, line }
+        const SECTION_COLORS = ['#f97316', '#22c55e', '#ec4899', '#a855f7', '#eab308', '#06b6d4'];
+        let sectionColor = SECTION_COLORS[0];
+        let sectionOpacity = 0.55;
+        let sectionFillOn = true;
 
         const labelsContainer = document.getElementById('labels-container');
 
@@ -1465,7 +1833,7 @@ async function constructParallelLine() {
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(window.getAppSettings ? getEffectivePixelRatio(getAppSettings().resolution) : Math.min(window.devicePixelRatio, 2));
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             container.appendChild(renderer.domElement);
 
             controls = new THREE.OrbitControls(camera, renderer.domElement);
@@ -1513,8 +1881,10 @@ async function constructParallelLine() {
         // CẬP NHẬT VÒNG LẶP ĐỘNG (DYNAMIC CONSTRAINTS LOOP)
         // ==========================================
         function updateConstrainedVertices() {
+            let changed = false;
             verticesData.forEach(v => {
                 if (!v.constraint) return;
+                const prevX = v.point.x, prevY = v.point.y, prevZ = v.point.z;
                 
                 // 1. Ràng buộc điểm là trung điểm của 2 đỉnh khác
                 if (v.constraint.type === 'midpoint') {
@@ -1525,7 +1895,16 @@ async function constructParallelLine() {
                         v.mesh.position.copy(v.point);
                     }
                 } 
-                // 2. Ràng buộc điểm hình chiếu vuông góc luôn nằm trên cạnh AB
+                // 2. Ràng buộc điểm nằm trên cạnh AB theo tỉ lệ t
+                else if (v.constraint.type === 'on_edge') {
+                    const EA = verticesData.find(item => item.id === v.constraint.aId);
+                    const EB = verticesData.find(item => item.id === v.constraint.bId);
+                    if (EA && EB) {
+                        v.point.copy(EA.point).lerp(EB.point, v.constraint.t);
+                        v.mesh.position.copy(v.point);
+                    }
+                }
+                // 3. Ràng buộc điểm hình chiếu vuông góc luôn nằm trên cạnh AB
                 else if (v.constraint.type === 'projection_on_edge') {
                     const A = verticesData.find(item => item.id === v.constraint.aId);
                     const B = verticesData.find(item => item.id === v.constraint.bId);
@@ -1542,8 +1921,14 @@ async function constructParallelLine() {
                         }
                     }
                 }
+
+                if (Math.abs(v.point.x - prevX) > 1e-6 ||
+                    Math.abs(v.point.y - prevY) > 1e-6 ||
+                    Math.abs(v.point.z - prevZ) > 1e-6) {
+                    changed = true;
+                }
             });
-            if (typeof applyGeometryUpdateAfterScale === 'function') {
+            if (changed && typeof applyGeometryUpdateAfterScale === 'function') {
                 applyGeometryUpdateAfterScale();
             }
         }
@@ -1608,6 +1993,8 @@ async function constructParallelLine() {
                 } else if (mode === 'add_face') {
                     instEl.textContent = "Chế độ: Chạm chọn các Đỉnh để tạo Mặt phẳng";
                     faceCtrl.classList.remove('hidden');
+                } else if (mode === 'section') {
+                    instEl.textContent = "Chế độ: Cắt thiết diện - chạm chọn 3 điểm (đỉnh, trung điểm hoặc điểm trên cạnh) để xác định mặt phẳng cắt (0/3)";
                 } else if (mode === 'delete') {
                     instEl.textContent = "Chế độ: Chạm vào một Đỉnh để Xóa";
                 }
@@ -1619,6 +2006,7 @@ async function constructParallelLine() {
             selectedVerticesForVector = [];
             selectedVerticesForFace = [];
             selectedVerticesForCircle = [];
+            selectedVerticesForSection = [];
             verticesData.forEach(v => {
                 if (v.mesh) v.mesh.material.color.setHex(v.name === 'S' ? 0xf43f5e : 0x38bdf8);
                 if (v.labelEl) v.labelEl.classList.remove('selected');
@@ -1664,7 +2052,7 @@ async function constructParallelLine() {
                     const dir = vTo.point.clone().sub(vFrom.point);
                     const len = dir.length();
                     if (len > 1e-4) {
-                        dir.normalize
+                        dir.normalize();
                         vec.arrowHelper.position.copy(vFrom.point);
                         vec.arrowHelper.setDirection(dir);
                         vec.arrowHelper.setLength(len, Math.min(0.5, len * 0.3), Math.min(0.3, len * 0.18));
@@ -1687,6 +2075,7 @@ async function constructParallelLine() {
             });
 
             refreshFaceGeometries();
+            refreshSectionGeometries();
             refreshMidpointMarkers();
             refreshRightAngleMarkers();
             refreshEdgeEqualMarks();
@@ -1720,110 +2109,13 @@ async function constructParallelLine() {
             if (ind) ind.textContent = '100%';
         }
 
-       let pointerDownPos = null;
+        let pointerDownPos = null;
         let pointerDownTime = 0;
         let isVertexDragging = false;
         let draggedVertex = null;
         const vertexDragPlane = new THREE.Plane();
 
-        // 1. Tìm điểm trên cạnh theo khoảng cách màn hình 2D (Screen-Space Hit-test)
-        function findPointOnEdge(mouseScreen, rect, maxPx) {
-            const toScreen = (p) => {
-                const t = p.clone().project(camera);
-                return new THREE.Vector2((t.x * 0.5 + 0.5) * rect.width, (-(t.y * 0.5) + 0.5) * rect.height);
-            };
-
-            let best = null;
-            let bestDist = maxPx;
-
-            edgesData.forEach(e => {
-                const v1 = verticesData.find(v => v.id === e.v1Id);
-                const v2 = verticesData.find(v => v.id === e.v2Id);
-                if (!v1 || !v2) return;
-
-                const s1 = toScreen(v1.point);
-                const s2 = toScreen(v2.point);
-
-                // Chiếu tọa độ chuột lên đoạn thẳng s1-s2 trên màn hình
-                const lineVec = s2.clone().sub(s1);
-                const lenSq = lineVec.lengthSq();
-                if (lenSq < 1e-4) return;
-
-                let t = mouseScreen.clone().sub(s1).dot(lineVec) / lenSq;
-                t = Math.max(0, Math.min(1, t));
-
-                const projScreen = s1.clone().add(lineVec.multiplyScalar(t));
-                const dist = mouseScreen.distanceTo(projScreen);
-
-                // Nếu click gần trung điểm của cạnh trong phạm vi 18px thì tự hút vào chính giữa
-                if (Math.abs(t - 0.5) < 0.08) t = 0.5;
-
-                // Bỏ qua nếu bấm quá sát 2 đầu mút để tránh bị trùng đỉnh
-                const d1 = mouseScreen.distanceTo(s1);
-                const d2 = mouseScreen.distanceTo(s2);
-                if (d1 < 18 || d2 < 18) return;
-
-                if (dist < bestDist) {
-                    bestDist = dist;
-                    best = new THREE.Vector3().lerpVectors(v1.point, v2.point, t);
-                }
-            });
-
-            return best;
-        }
-
-        // 2. Xử lý chạm/click chọn đỉnh hoặc chọn cạnh
-        function handleTap(event) {
-            const rect = renderer.domElement.getBoundingClientRect();
-            let closestVertex = null;
-            let minDist = event.pointerType === 'touch' ? 30 : 18;
-
-            const mouseScreen = new THREE.Vector2(
-                event.clientX - rect.left,
-                event.clientY - rect.top
-            );
-
-            // Tìm đỉnh gần nhất
-            if (currentTool !== 'add_vertex') {
-                verticesData.forEach(v => {
-                    const tempV = v.point.clone().project(camera);
-                    const screenX = (tempV.x * 0.5 + 0.5) * rect.width;
-                    const screenY = (-(tempV.y * 0.5) + 0.5) * rect.height;
-                    const dist = Math.hypot(screenX - mouseScreen.x, screenY - mouseScreen.y);
-                    if (dist < minDist) {
-                        minDist = dist;
-                        closestVertex = v;
-                    }
-                });
-            }
-
-            if (closestVertex) {
-                handleVertexClick(closestVertex);
-            } else if (currentTool === 'add_vertex') {
-                mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-                mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-                raycaster.setFromCamera(mouse, camera);
-
-                // 1. Ưu tiên kiểm tra click vào cạnh (Screen-space 24px)
-                const onEdge = findPointOnEdge(mouseScreen, rect, 24);
-                if (onEdge) {
-                    pushUndoSnapshot();
-                    addVertex(getNextVertexName(), onEdge);
-                    return;
-                }
-
-                // 2. Chấm trên mặt phẳng Oxy nếu không bấm trúng cạnh
-                const intersects = raycaster.intersectObject(gridPlane);
-                if (intersects.length > 0) {
-                    const p = intersects[0].point;
-                    p.y = 0;
-                    pushUndoSnapshot();
-                    addVertex(getNextVertexName(), p);
-                }
-            }
-        }
-
-        // 3. Sự kiện chuột/chạm duy nhất, hợp nhất kéo đỉnh và điều khiển
+        // Sự kiện chuột/chạm duy nhất, hợp nhất kéo đỉnh và điều khiển
         function onPointerDown(event) {
             const rect = renderer.domElement.getBoundingClientRect();
             mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -2013,6 +2305,18 @@ async function constructParallelLine() {
 
             if (closestVertex) {
                 handleVertexClick(closestVertex);
+            } else if (currentTool === 'section') {
+                // Chạm vào một điểm trên cạnh -> tạo điểm mới trên cạnh và chọn luôn
+                mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+                raycaster.setFromCamera(mouse, camera);
+                const onEdgeSec = findPointOnEdge(mouseScreen, rect, event.pointerType === 'touch' ? 24 : 12);
+                if (onEdgeSec) {
+                    pushUndoSnapshot();
+                    const nv = addVertex(getUniqueVertexName(), onEdgeSec);
+                    attachVertexToEdge(nv);
+                    handleVertexClick(nv);
+                }
             } else if (currentTool === 'add_vertex') {
                 mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
                 mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
@@ -2100,6 +2404,27 @@ async function constructParallelLine() {
                     pushUndoSnapshot();
                     createVector(selectedVerticesForVector[0].id, selectedVerticesForVector[1].id);
                     clearSelections();
+                }
+            }
+
+            if (currentTool === 'section') {
+                const k = selectedVerticesForSection.indexOf(vObj);
+                if (k >= 0) {
+                    selectedVerticesForSection.splice(k, 1);
+                    vObj.mesh.material.color.setHex(vObj.name === 'S' ? 0xf43f5e : 0x38bdf8);
+                    if (vObj.labelEl) vObj.labelEl.classList.remove('selected');
+                } else {
+                    selectedVerticesForSection.push(vObj);
+                    vObj.mesh.material.color.setHex(0xf97316);
+                    if (vObj.labelEl) vObj.labelEl.classList.add('selected');
+                }
+                const instEl = document.getElementById('mode-instruction');
+                if (instEl) instEl.textContent = `Chế độ: Cắt thiết diện - đã chọn ${selectedVerticesForSection.length}/3 điểm` + (selectedVerticesForSection.length ? ' (' + selectedVerticesForSection.map(v => v.name).join(', ') + ')' : '');
+                if (selectedVerticesForSection.length === 3) {
+                    const picked = selectedVerticesForSection.slice();
+                    clearSelections();
+                    cutSection(picked);
+                    if (instEl) instEl.textContent = "Chế độ: Cắt thiết diện - chạm chọn 3 điểm tiếp theo để cắt thêm, hoặc bấm Esc để thoát (0/3)";
                 }
             }
 
@@ -2279,7 +2604,7 @@ async function constructParallelLine() {
             });
         }
 
-        // Đã sửa: Vẽ chính xác các góc vuông mà bạn gán qua nút "Tên Góc ⊥"
+        // Vẽ chính xác các góc vuông được gán qua nút "Tên Góc ⊥" hoặc AI trả về
         function refreshRightAngleMarkers() {
             rightAngleMarkers.forEach(m => { 
                 if (m.mesh) { scene.remove(m.mesh); disposeLine(m.mesh); }
@@ -2290,35 +2615,66 @@ async function constructParallelLine() {
             const assignedKeys = Object.keys(rightAngleCustomLabels);
             if (assignedKeys.length === 0) return;
 
+            const drawnSet = new Set();
+
             assignedKeys.forEach(key => {
                 const parts = key.split('_');
                 if (parts.length !== 3) return;
-                const [n1Name, vName, n2Name] = parts;
+                let [n1Name, vName, n2Name] = parts;
 
-                // Tránh vẽ lặp 2 lần do lưu cả chiều ngược (A_B_C và C_B_A)
-                if (n1Name > n2Name) return;
-
-                const n1 = verticesData.find(v => v.name === n1Name);
-                const v = verticesData.find(v => v.name === vName);
-                const n2 = verticesData.find(v => v.name === n2Name);
-
+                let n1 = verticesData.find(v => v.name === n1Name);
+                let v = verticesData.find(v => v.name === vName);
+                let n2 = verticesData.find(v => v.name === n2Name);
                 if (!n1 || !v || !n2) return;
 
-                const dirA = n1.point.clone().sub(v.point).normalize();
-                const dirB = n2.point.clone().sub(v.point).normalize();
+                // Nếu AI trả nhầm thứ tự (ví dụ S_B_A thay vì S_A_B trong đó góc vuông thực sự ở A),
+                // kiểm tra đỉnh nào trong bộ 3 có góc gần 90° nhất
+                const checkCos = (pA, pV, pB) => {
+                    const d1 = pA.clone().sub(pV);
+                    const d2 = pB.clone().sub(pV);
+                    if (d1.lengthSq() < 1e-6 || d2.lengthSq() < 1e-6) return 1;
+                    return Math.abs(d1.normalize().dot(d2.normalize()));
+                };
+                const cosAtV = checkCos(n1.point, v.point, n2.point);
+                if (cosAtV > 0.25) {
+                    const cosAtN1 = checkCos(v.point, n1.point, n2.point);
+                    const cosAtN2 = checkCos(n1.point, n2.point, v.point);
+                    if (cosAtN1 < 0.15 && cosAtN1 < cosAtN2) {
+                        const tmp = v; v = n1; n1 = tmp;
+                        const tmpName = vName; vName = n1Name; n1Name = tmpName;
+                    } else if (cosAtN2 < 0.15) {
+                        const tmp = v; v = n2; n2 = tmp;
+                        const tmpName = vName; vName = n2Name; n2Name = tmpName;
+                    }
+                }
 
-                const offset = 0.35;
+                // Khóa chuẩn tránh vẽ trùng A_B_C và C_B_A nhưng vẫn vẽ đủ nếu chỉ có 1 chiều
+                const canonicalKey = vName + ':' + [n1Name, n2Name].sort().join('_');
+                if (drawnSet.has(canonicalKey)) return;
+                drawnSet.add(canonicalKey);
+
+                const vecA = n1.point.clone().sub(v.point);
+                const vecB = n2.point.clone().sub(v.point);
+                const lenA = vecA.length();
+                const lenB = vecB.length();
+                if (lenA < 1e-4 || lenB < 1e-4) return;
+
+                const dirA = vecA.normalize();
+                const dirB = vecB.normalize();
+
+                const offset = Math.min(0.32, lenA * 0.22, lenB * 0.22);
                 const p1 = v.point.clone().add(dirA.clone().multiplyScalar(offset));
                 const p2 = p1.clone().add(dirB.clone().multiplyScalar(offset));
                 const p3 = v.point.clone().add(dirB.clone().multiplyScalar(offset));
 
-                // Tạo vạch vuông góc đỏ
+                // Tạo ký hiệu góc vuông đỏ
                 const marker = makeThickLine([p1, p2, p3], 0xf43f5e, LINE_WIDTH.marker);
                 scene.add(marker);
 
-                const customLabel = rightAngleCustomLabels[key];
+                const customLabel = String(rightAngleCustomLabels[key] || '').trim();
                 let labelEl = null;
-                if (customLabel) {
+                // Không hiển thị khung chữ "⊥" đè lên chính ký hiệu góc vuông 3D
+                if (customLabel && customLabel !== '⊥') {
                     labelEl = document.createElement('div');
                     labelEl.className = 'marker-name-label border border-rose-500/60 text-rose-300';
                     labelEl.textContent = customLabel;
@@ -2328,6 +2684,7 @@ async function constructParallelLine() {
                 rightAngleMarkers.push({
                     mesh: marker,
                     labelEl,
+                    labelText: customLabel,
                     centerPos: p2.clone(),
                     n1Name,
                     vName,
@@ -2338,21 +2695,25 @@ async function constructParallelLine() {
 
         async function promptEditRightAngleLabel() {
             const input = await appPrompt(
-                "Đổi tên góc vuông",
-                "Nhập 3 đỉnh của góc vuông cần đặt tên (VD: 'S A B' với A là đỉnh góc vuông):", 
+                "Gán / Đổi tên góc vuông",
+                "Nhập 3 đỉnh của góc vuông (VD: 'S A B' hoặc 'SAB' với A là đỉnh góc vuông):", 
                 ""
             );
             if (!input) return;
-            const names = input.trim().split(/\s+/);
+            let names = input.trim().toUpperCase().split(/\s+/);
+            if (names.length === 1 && names[0].length === 3) {
+                names = names[0].split('');
+            }
             if (names.length !== 3) {
-                await appAlert("Cần nhập đúng 3 tên đỉnh cách nhau bằng dấu cách!");
+                await appAlert("Cần nhập 3 tên đỉnh (VD: 'S A B' hoặc 'SAB')!");
                 return;
             }
             const key = `${names[0]}_${names[1]}_${names[2]}`;
-            const cur = rightAngleCustomLabels[key] || "⊥";
+            const revKey = `${names[2]}_${names[1]}_${names[0]}`;
+            const cur = rightAngleCustomLabels[key] || rightAngleCustomLabels[revKey] || "⊥";
             const newLabel = await appPrompt(
                 "Nhãn hiển thị",
-                `Nhập tên / nhãn hiển thị cho góc vuông tại đỉnh ${names[1]} (VD: ⊥, 90°, hoặc tên nhãn. Để trống để xóa):`, 
+                `Nhập nhãn cho góc vuông tại đỉnh ${names[1]} (Để '⊥' để chỉ vẽ ký hiệu góc vuông, nhập chữ để hiện thêm nhãn, hoặc để trống để xóa):`, 
                 cur
             );
             if (newLabel === null) return;
@@ -2360,16 +2721,15 @@ async function constructParallelLine() {
             pushUndoSnapshot();
             if (!newLabel.trim()) {
                 delete rightAngleCustomLabels[key];
-                delete rightAngleCustomLabels[`${names[2]}_${names[1]}_${names[0]}`];
+                delete rightAngleCustomLabels[revKey];
             } else {
                 rightAngleCustomLabels[key] = newLabel.trim();
-                rightAngleCustomLabels[`${names[2]}_${names[1]}_${names[0]}`] = newLabel.trim();
+                rightAngleCustomLabels[revKey] = newLabel.trim();
             }
             refreshRightAngleMarkers();
         }
 
         function refreshEdgeEqualMarks() {
-            // Đã tắt tự động vẽ vạch ký hiệu bằng nhau trên các cạnh
             edgesData.forEach(e => {
                 if (e.tickMeshes) {
                     e.tickMeshes.forEach(tm => { scene.remove(tm); disposeLine(tm); });
@@ -2379,55 +2739,140 @@ async function constructParallelLine() {
                     e.equalMarkLabelEl.remove();
                     e.equalMarkLabelEl = null;
                 }
+
+                if (!e.equalMarkType) return;
+
+                const v1 = verticesData.find(v => v.id === e.v1Id);
+                const v2 = verticesData.find(v => v.id === e.v2Id);
+                if (!v1 || !v2) return;
+
+                const dir = v2.point.clone().sub(v1.point);
+                const len = dir.length();
+                if (len < 1e-4) return;
+                dir.normalize();
+
+                const mid = v1.point.clone().add(v2.point).multiplyScalar(0.5);
+
+                // Vector vuông góc với cạnh, luôn hướng lên hoặc ra ngoài để không bị khuất
+                const refUp = Math.abs(dir.y) < 0.85 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+                let perp1 = new THREE.Vector3().crossVectors(dir, refUp).normalize();
+                let perp2 = new THREE.Vector3().crossVectors(dir, perp1).normalize();
+                const tickDir = perp1.clone().add(perp2.clone().multiplyScalar(0.8)).normalize();
+
+                // Tăng kích thước vạch rõ nét gấp 2.5 lần (0.35 thay vì 0.15)
+                const tickHalfLen = Math.min(0.35, Math.max(0.22, len * 0.12));
+                const spacing = Math.min(0.16, Math.max(0.09, len * 0.05));
+                const tickColor = paperMode ? 0x000000 : (e.highlighted ? (e.highlightColor || DEFAULT_HIGHLIGHT_COLOR) : 0xfbbf24);
+
+                // Vẽ các vạch tick 3D
+                if (e.equalMarkType === 1 || e.equalMarkType === 2 || e.equalMarkType === 3) {
+                    const count = e.equalMarkType;
+                    for (let i = 0; i < count; i++) {
+                        const offset = (i - (count - 1) / 2) * spacing;
+                        const center = mid.clone().add(dir.clone().multiplyScalar(offset));
+                        const pA = center.clone().add(tickDir.clone().multiplyScalar(tickHalfLen));
+                        const pB = center.clone().add(tickDir.clone().multiplyScalar(-tickHalfLen));
+                        const tickMesh = makeThickLine([pA, pB], tickColor, 3.5);
+                        tickMesh.renderOrder = 4; // Vẽ đè lên trên đường cạnh chính, không bị che khuất
+                        if (tickMesh.material) tickMesh.material.depthTest = false;
+                        scene.add(tickMesh);
+                        e.tickMeshes.push(tickMesh);
+                    }
+                } else if (e.equalMarkType === 'x') {
+                    const dA = dir.clone().multiplyScalar(tickHalfLen * 0.75).add(tickDir.clone().multiplyScalar(tickHalfLen));
+                    const dB = dir.clone().multiplyScalar(tickHalfLen * 0.75).add(tickDir.clone().multiplyScalar(-tickHalfLen));
+                    const m1 = makeThickLine([mid.clone().sub(dA), mid.clone().add(dA)], tickColor, 3.5);
+                    const m2 = makeThickLine([mid.clone().sub(dB), mid.clone().add(dB)], tickColor, 3.5);
+                    m1.renderOrder = 4; m2.renderOrder = 4;
+                    if (m1.material) m1.material.depthTest = false;
+                    if (m2.material) m2.material.depthTest = false;
+                    scene.add(m1);
+                    scene.add(m2);
+                    e.tickMeshes.push(m1, m2);
+                }
+
+                // LUÔN TẠO NHÃN TRỰC QUAN (Badge) trên màn hình để từ mọi góc xoay 3D đều nhìn thấy 100%
+                let signText = '';
+                if (e.equalMarkType === 1) signText = '|';
+                else if (e.equalMarkType === 2) signText = '||';
+                else if (e.equalMarkType === 3) signText = '|||';
+                else if (e.equalMarkType === 'x') signText = '×';
+
+                const fullLabelText = (signText + (e.equalMarkName ? ' ' + e.equalMarkName : '')).trim();
+                if (fullLabelText) {
+                    const lbl = document.createElement('div');
+                    lbl.className = 'marker-name-label border border-amber-400/80 bg-amber-950/80 text-amber-300 font-bold px-1.5 py-0.5 rounded shadow';
+                    lbl.textContent = fullLabelText;
+                    labelsContainer.appendChild(lbl);
+                    e.equalMarkLabelEl = lbl;
+                }
             });
         }
 
         async function promptSetEqualEdgeMarks() {
             const input = await appPrompt(
-                "Chọn cạnh bằng nhau",
-                "Nhập 2 đỉnh của cạnh (VD: 'A B' hoặc 'S A'):", 
+                "Gán ký hiệu cạnh bằng nhau",
+                "Nhập tên cạnh hoặc danh sách các cạnh bằng nhau (VD: 'A B', 'AB', hoặc nhiều cạnh 'AB BC CD DA'):", 
                 ""
             );
             if (!input) return;
-            const names = input.trim().split(/\s+/);
-            if (names.length !== 2) {
-                await appAlert("Cần nhập đúng 2 tên đỉnh cách nhau bằng dấu cách!");
-                return;
+
+            const raw = input.trim().toUpperCase();
+            const tokens = raw.split(/[\s,;]+/).filter(Boolean);
+            const targetEdges = [];
+
+            if (tokens.length === 2 && tokens[0].length === 1 && tokens[1].length === 1) {
+                const v1 = verticesData.find(v => v.name.toUpperCase() === tokens[0]);
+                const v2 = verticesData.find(v => v.name.toUpperCase() === tokens[1]);
+                if (v1 && v2) {
+                    const edge = findEdge(v1.id, v2.id);
+                    if (edge) targetEdges.push(edge);
+                }
+            } else {
+                const vMap = {};
+                verticesData.forEach(v => { vMap[v.name.toUpperCase()] = v; });
+                tokens.forEach(tok => {
+                    const pair = splitEdgeName(tok, vMap);
+                    if (pair) {
+                        const v1 = vMap[pair[0]], v2 = vMap[pair[1]];
+                        if (v1 && v2) {
+                            const edge = findEdge(v1.id, v2.id);
+                            if (edge && !targetEdges.includes(edge)) targetEdges.push(edge);
+                        }
+                    }
+                });
             }
-            const v1 = verticesData.find(v => v.name === names[0]);
-            const v2 = verticesData.find(v => v.name === names[1]);
-            if (!v1 || !v2) {
-                await appAlert("Không tìm thấy cạnh có 2 đỉnh này!");
-                return;
-            }
-            const edge = findEdge(v1.id, v2.id);
-            if (!edge) {
-                await appAlert("Hai đỉnh này chưa được nối cạnh!");
+
+            if (targetEdges.length === 0) {
+                await appAlert("Không tìm thấy cạnh nào khớp! Hãy chắc chắn các đỉnh đã được nối cạnh (VD: 'A B' hoặc 'AB BC').");
                 return;
             }
 
+            const firstEdge = targetEdges[0];
             const typeInput = await appPrompt(
                 "Loại ký hiệu bằng nhau",
-                `Chọn loại ký hiệu cho cạnh ${v1.name}${v2.name}:\n1: Một vạch (|)\n2: Hai vạch (||)\n3: Ba vạch (|||)\nx: Dấu nhân (X)\n0: Xóa ký hiệu`, 
-                edge.equalMarkType || "1"
+                `Chọn loại ký hiệu cho ${targetEdges.length} cạnh đã chọn:\n1: Một vạch (|)\n2: Hai vạch (||)\n3: Ba vạch (|||)\nx: Dấu nhân (×)\n0: Xóa ký hiệu`, 
+                String(firstEdge.equalMarkType || "1")
             );
             if (typeInput === null) return;
 
             let markType = 0;
-            if (['1', '2', '3'].includes(typeInput.trim())) markType = parseInt(typeInput.trim());
+            if (['1', '2', '3'].includes(typeInput.trim())) markType = parseInt(typeInput.trim(), 10);
             else if (typeInput.trim().toLowerCase() === 'x') markType = 'x';
 
-            let markName = edge.equalMarkName || "";
+            let markName = firstEdge.equalMarkName || "";
             if (markType !== 0) {
-                const nameInput = await appPrompt("Tên nhãn", "Nhập tên / nhãn cho ký hiệu bằng nhau này (VD: a, x, hoặc để trống):", markName);
+                const nameInput = await appPrompt("Tên nhãn (tùy chọn)", "Nhập tên / nhãn đi kèm ký hiệu bằng nhau (VD: a, x, hoặc để trống nếu chỉ hiện vạch):", markName);
                 if (nameInput !== null) markName = nameInput.trim();
             } else {
                 markName = "";
             }
 
             pushUndoSnapshot();
-            edge.equalMarkType = markType;
-            edge.equalMarkName = markName;
+            targetEdges.forEach(edge => {
+                edge.equalMarkType = markType;
+                edge.equalMarkName = markName;
+            });
             refreshEdgeEqualMarks();
             renderEdgesList();
         }
@@ -2504,7 +2949,15 @@ async function constructParallelLine() {
 
         function serializeState() {
             return {
-                vertices: verticesData.map(v => ({ name: v.name, pos: [v.point.x, v.point.y, v.point.z] })),
+                vertices: verticesData.map(v => {
+                    const o = { name: v.name, pos: [v.point.x, v.point.y, v.point.z] };
+                    if (v.constraint && v.constraint.type === 'on_edge') {
+                        const a = verticesData.find(x => x.id === v.constraint.aId);
+                        const b = verticesData.find(x => x.id === v.constraint.bId);
+                        if (a && b) o.con = { a: a.name, b: b.name, t: v.constraint.t };
+                    }
+                    return o;
+                }),
                 edges: edgesData.map(e => {
                     const v1 = verticesData.find(v => v.id === e.v1Id);
                     const v2 = verticesData.find(v => v.id === e.v2Id);
@@ -2536,6 +2989,11 @@ async function constructParallelLine() {
                     const v = verticesData.find(x => x.id === id);
                     return v ? v.name : null;
                 }).filter(Boolean)).filter(names => names.length >= 3),
+                sections: sectionsData.map(sec => ({
+                    v: sec.vIds.map(id => { const v = verticesData.find(x => x.id === id); return v ? v.name : null; }).filter(Boolean),
+                    color: sec.color,
+                    opacity: sec.opacity
+                })).filter(sec => sec.v.length >= 3),
                 rightAngleLabels: { ...rightAngleCustomLabels },
                 angles: anglesData.map(a => {
                     const v1 = verticesData.find(v => v.id === a.v1Id);
@@ -2572,6 +3030,7 @@ async function constructParallelLine() {
                 if (e.equalMarkLabelEl) e.equalMarkLabelEl.remove();
             });
             facesData.forEach(f => scene.remove(f.mesh));
+            clearSectionObjects();
             anglesData.forEach(a => {
                 scene.remove(a.arcMesh);
                 if (a.labelEl) a.labelEl.remove();
@@ -2604,6 +3063,12 @@ async function constructParallelLine() {
             state.vertices.forEach(v => {
                 const pos = new THREE.Vector3(v.pos[0], v.pos[1], v.pos[2]);
                 created[v.name] = addVertex(v.name, pos);
+            });
+
+            state.vertices.forEach(v => {
+                if (v.con && created[v.name] && created[v.con.a] && created[v.con.b]) {
+                    created[v.name].constraint = { type: 'on_edge', aId: created[v.con.a].id, bId: created[v.con.b].id, t: v.con.t };
+                }
             });
 
             state.edges.forEach(e => {
@@ -2645,6 +3110,10 @@ async function constructParallelLine() {
             (state.faces || []).forEach(names => {
                 const vObjs = names.map(n => created[n]).filter(Boolean);
                 if (vObjs.length >= 3) createFaceFromVertices(vObjs);
+            });
+            (state.sections || []).forEach(sec => {
+                const vObjs = (sec.v || []).map(n => created[n]).filter(Boolean);
+                if (vObjs.length >= 3) createSectionObject(vObjs, sec.color, sec.opacity);
             });
             (state.angles || []).forEach(a => {
                 const v1 = created[a.v1];
@@ -3047,6 +3516,10 @@ async function constructParallelLine() {
                 }
             }
 
+            for (let i = sectionsData.length - 1; i >= 0; i--) {
+                if (sectionsData[i].vIds.includes(vId)) removeSectionByIndex(i);
+            }
+
             for (let i = facesData.length - 1; i >= 0; i--) {
                 if (facesData[i].vIds.includes(vId)) {
                     scene.remove(facesData[i].mesh);
@@ -3071,6 +3544,392 @@ async function constructParallelLine() {
             updateUI();
         }
 
+        // ==========================================
+        // CẮT THIẾT DIỆN & TÔ MÀU MẶT CẮT
+        // Mặt phẳng cắt xác định bởi 3 điểm; thiết diện = bao lồi các giao điểm
+        // của mặt phẳng với các cạnh của khối (khối lồi: chóp, lăng trụ, hộp...).
+        // ==========================================
+        const SECTION_PREFERRED_NAMES = ['M', 'N', 'P', 'Q', 'R', 'T', 'U', 'V', 'X', 'Y', 'Z', 'K', 'L'];
+
+        function getUniqueVertexName() {
+            const used = new Set(verticesData.map(v => v.name.toUpperCase()));
+            for (let i = 0; i < 300; i++) {
+                const nm = getNextVertexName();
+                if (!used.has(nm.toUpperCase())) return nm;
+            }
+            return 'P' + Math.floor(Math.random() * 1000);
+        }
+
+        function getSectionVertexName() {
+            const used = new Set(verticesData.map(v => v.name.toUpperCase()));
+            for (const nm of SECTION_PREFERRED_NAMES) if (!used.has(nm)) return nm;
+            return getUniqueVertexName();
+        }
+
+        // Gắn ràng buộc "nằm trên cạnh" cho điểm vừa tạo (để điểm đi theo cạnh khi phóng to/thu nhỏ)
+        function attachVertexToEdge(vObj) {
+            let best = null, bestD = 1e-4;
+            edgesData.forEach(e => {
+                const a = verticesData.find(v => v.id === e.v1Id);
+                const b = verticesData.find(v => v.id === e.v2Id);
+                if (!a || !b || a === vObj || b === vObj) return;
+                const ab = new THREE.Vector3().subVectors(b.point, a.point);
+                const L2 = ab.lengthSq();
+                if (L2 < 1e-9) return;
+                const t = new THREE.Vector3().subVectors(vObj.point, a.point).dot(ab) / L2;
+                if (t <= 0 || t >= 1) return;
+                const d = new THREE.Vector3().copy(a.point).addScaledVector(ab, t).distanceTo(vObj.point);
+                if (d < bestD) { bestD = d; best = { aId: a.id, bId: b.id, t }; }
+            });
+            if (best) vObj.constraint = { type: 'on_edge', aId: best.aId, bId: best.bId, t: best.t };
+        }
+
+        // Các cạnh biên của khối: ưu tiên cạnh của các mặt đã tạo, nếu chưa có mặt thì dùng mọi cạnh
+        function getSolidBoundaryEdges() {
+            const map = new Map();
+            if (facesData.length) {
+                facesData.forEach(f => {
+                    const n = f.vIds.length;
+                    for (let i = 0; i < n; i++) {
+                        const a = f.vIds[i], b = f.vIds[(i + 1) % n];
+                        const key = a < b ? a + '|' + b : b + '|' + a;
+                        if (!map.has(key)) map.set(key, [a, b]);
+                    }
+                });
+            } else {
+                edgesData.forEach(e => map.set(e.v1Id + '|' + e.v2Id, [e.v1Id, e.v2Id]));
+            }
+            const out = [];
+            map.forEach(([a, b]) => {
+                const va = verticesData.find(v => v.id === a), vb = verticesData.find(v => v.id === b);
+                if (va && vb) out.push([va, vb]);
+            });
+            return out;
+        }
+
+        function convexHull2D(pts) {
+            // pts: [{x, y, ref}] -> bao lồi ngược chiều kim đồng hồ
+            const P = pts.slice().sort((p, q) => p.x - q.x || p.y - q.y);
+            if (P.length < 3) return P;
+            const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+            const lower = [];
+            P.forEach(p => {
+                while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 1e-12) lower.pop();
+                lower.push(p);
+            });
+            const upper = [];
+            for (let i = P.length - 1; i >= 0; i--) {
+                const p = P[i];
+                while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 1e-12) upper.pop();
+                upper.push(p);
+            }
+            upper.pop(); lower.pop();
+            return lower.concat(upper);
+        }
+
+        function cutSection(picked) {
+            if (verticesData.length < 4 || edgesData.length < 3) {
+                appAlert('Hãy dựng một khối (hình chóp, lăng trụ, hộp...) trước khi cắt thiết diện.');
+                return;
+            }
+            const A = picked[0].point, B = picked[1].point, C = picked[2].point;
+            const n = new THREE.Vector3().subVectors(B, A).cross(new THREE.Vector3().subVectors(C, A));
+            if (n.length() < 1e-6) {
+                appAlert('3 điểm đã chọn thẳng hàng, không xác định được mặt phẳng cắt. Hãy chọn lại 3 điểm không thẳng hàng.');
+                return;
+            }
+            n.normalize();
+
+            const box = new THREE.Box3();
+            verticesData.forEach(v => box.expandByPoint(v.point));
+            const size = Math.max(box.getSize(new THREE.Vector3()).length(), 1e-3);
+            const eps = size * 1e-5;
+            const dist = p => n.dot(new THREE.Vector3().subVectors(p, A));
+
+            // 1) Giao điểm của mặt phẳng với các cạnh khối
+            const cands = [];
+            getSolidBoundaryEdges().forEach(([a, b]) => {
+                const da = dist(a.point), db = dist(b.point);
+                if (Math.abs(da) <= eps) cands.push({ pos: a.point.clone() });
+                if (Math.abs(db) <= eps) cands.push({ pos: b.point.clone() });
+                if ((da > eps && db < -eps) || (da < -eps && db > eps)) {
+                    const t = da / (da - db);
+                    cands.push({ pos: new THREE.Vector3().lerpVectors(a.point, b.point, t), edge: { aId: a.id, bId: b.id, t } });
+                }
+            });
+
+            // 2) Gộp điểm trùng
+            const uniq = [];
+            cands.forEach(c => {
+                if (!uniq.some(u => u.pos.distanceTo(c.pos) <= size * 1e-4)) uniq.push(c);
+            });
+            if (uniq.length < 3) {
+                appAlert('Mặt phẳng này không cắt xuyên qua khối (chỉ chạm tại đỉnh hoặc cạnh). Hãy chọn 3 điểm khác.');
+                return;
+            }
+
+            // 3) Sắp xếp thành đa giác lồi trong mặt phẳng cắt
+            const ref = Math.abs(n.x) < 0.9 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
+            const u = ref.clone().addScaledVector(n, -ref.dot(n)).normalize();
+            const w = new THREE.Vector3().crossVectors(n, u);
+            const flat = uniq.map(c => {
+                const d = new THREE.Vector3().subVectors(c.pos, A);
+                return { x: d.dot(u), y: d.dot(w), ref: c };
+            });
+            const hull = convexHull2D(flat);
+            if (hull.length < 3) {
+                appAlert('Thiết diện bị suy biến (chỉ là một đoạn thẳng hoặc một điểm).');
+                return;
+            }
+
+            // 4) Tạo / dùng lại đỉnh cho từng góc của thiết diện
+            pushUndoSnapshot();
+            const secVerts = [];
+            hull.forEach(h => {
+                const c = h.ref;
+                let v = verticesData.find(x => x.point.distanceTo(c.pos) <= size * 1e-4);
+                if (!v) {
+                    v = addVertex(getSectionVertexName(), c.pos);
+                    if (c.edge) v.constraint = { type: 'on_edge', aId: c.edge.aId, bId: c.edge.bId, t: c.edge.t };
+                }
+                secVerts.push(v);
+            });
+
+            // Tránh tạo trùng thiết diện cùng tập đỉnh
+            const keyOf = arr => arr.map(v => v.id).sort().join('|');
+            const newKey = keyOf(secVerts);
+            if (sectionsData.some(sec => sec.vIds.slice().sort().join('|') === newKey)) {
+                appAlert('Thiết diện này đã có rồi.');
+                return;
+            }
+
+            createSectionObject(secVerts, sectionColor, sectionOpacity);
+            updateUI();
+
+            const names = secVerts.map(v => v.name).join('');
+            const shape = { 3: 'tam giác', 4: 'tứ giác', 5: 'ngũ giác', 6: 'lục giác' }[secVerts.length] || (secVerts.length + ' cạnh');
+            if (typeof showBuildToast === 'function') showBuildToast(`<b>Thiết diện</b> là ${shape} <b>${names}</b>`, 3500);
+        }
+
+        function sectionPolyPoints(sec) {
+            return sec.vIds.map(id => verticesData.find(v => v.id === id)).filter(Boolean).map(v => v.point);
+        }
+
+        function sectionAreaPerimeter(pts) {
+            let area = 0, per = 0;
+            for (let i = 1; i < pts.length - 1; i++) {
+                area += 0.5 * new THREE.Vector3().subVectors(pts[i], pts[0]).cross(new THREE.Vector3().subVectors(pts[i + 1], pts[0])).length();
+            }
+            for (let i = 0; i < pts.length; i++) per += pts[i].distanceTo(pts[(i + 1) % pts.length]);
+            return { area, per };
+        }
+
+        function createSectionObject(vObjs, colorHex, opacity) {
+            colorHex = colorHex || sectionColor;
+            opacity = (typeof opacity === 'number') ? opacity : sectionOpacity;
+
+            const geom = new THREE.BufferGeometry();
+            geom.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array((vObjs.length - 2) * 9), 3));
+            const mat = new THREE.MeshBasicMaterial({
+                color: new THREE.Color(colorHex),
+                transparent: true,
+                opacity,
+                side: THREE.DoubleSide,
+                depthWrite: false,
+                visible: sectionFillOn
+            });
+            const mesh = new THREE.Mesh(geom, mat);
+            mesh.renderOrder = 2;
+            mesh.frustumCulled = false;
+            scene.add(mesh);
+
+            const pts = vObjs.map(v => v.point);
+            const line = makeThickLine(pts.concat([pts[0]]), new THREE.Color(colorHex).getHex(), 4.5);
+            line.renderOrder = 3;
+            line.frustumCulled = false;
+            scene.add(line);
+
+            const sec = {
+                id: 's_' + Math.random().toString(36).substr(2, 9),
+                vIds: vObjs.map(v => v.id),
+                color: colorHex,
+                opacity,
+                mesh,
+                line,
+                _sig: ''
+            };
+            sectionsData.push(sec);
+            refreshSectionGeometries(true);
+            return sec;
+        }
+
+        function refreshSectionGeometries(force) {
+            sectionsData.forEach(sec => {
+                const pts = sectionPolyPoints(sec);
+                if (pts.length < 3) return;
+                const sig = pts.map(p => p.x.toFixed(4) + ',' + p.y.toFixed(4) + ',' + p.z.toFixed(4)).join(';');
+                if (!force && sig === sec._sig) return;
+                sec._sig = sig;
+
+                const arr = [];
+                for (let i = 1; i < pts.length - 1; i++) {
+                    arr.push(pts[0].x, pts[0].y, pts[0].z, pts[i].x, pts[i].y, pts[i].z, pts[i + 1].x, pts[i + 1].y, pts[i + 1].z);
+                }
+                sec.mesh.geometry.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3));
+                sec.mesh.geometry.computeBoundingSphere();
+
+                const loop = pts.concat([pts[0]]);
+                if (sec.line.geometry.setPositions) {
+                    const flat = [];
+                    loop.forEach(p => flat.push(p.x, p.y, p.z));
+                    sec.line.geometry.setPositions(flat);
+                } else {
+                    sec.line.geometry.setFromPoints(loop);
+                }
+
+                const info = document.getElementById('sec-info-' + sec.id);
+                if (info) info.textContent = sectionInfoText(sec);
+            });
+        }
+
+        function fmtSectionNum(x) {
+            return (Math.round(x * 100) / 100).toString();
+        }
+
+        function sectionInfoText(sec) {
+            const pts = sectionPolyPoints(sec);
+            if (pts.length < 3) return '';
+            const { area, per } = sectionAreaPerimeter(pts);
+            return `S = ${fmtSectionNum(area)}  ·  chu vi = ${fmtSectionNum(per)}`;
+        }
+
+        function sectionName(sec) {
+            const names = sec.vIds.map(id => { const v = verticesData.find(x => x.id === id); return v ? v.name : '?'; }).join('');
+            const shape = { 3: 'tam giác', 4: 'tứ giác', 5: 'ngũ giác', 6: 'lục giác' }[sec.vIds.length] || (sec.vIds.length + ' cạnh');
+            return { names, shape };
+        }
+
+        function renderSectionsList() {
+            const box = document.getElementById('sections-list');
+            if (!box) return;
+            if (sectionsData.length === 0) {
+                box.innerHTML = '<div class="text-center text-[11px] text-slate-500 py-1.5">Chưa có thiết diện nào.</div>';
+                return;
+            }
+            box.innerHTML = '';
+            sectionsData.forEach(sec => {
+                const { names, shape } = sectionName(sec);
+                const row = document.createElement('div');
+                row.className = 'flex items-center gap-2 p-1.5 rounded-xl bg-slate-800/50 border border-slate-700/40 text-xs';
+                row.innerHTML = `
+                    <input type="color" value="${sec.color}" title="Đổi màu mặt cắt" class="w-6 h-6 shrink-0 rounded cursor-pointer bg-transparent border border-slate-600 p-0">
+                    <div class="flex-1 min-w-0">
+                        <div class="font-semibold text-slate-200 truncate">${shape} ${names}</div>
+                        <div id="sec-info-${sec.id}" class="text-[10px] text-slate-400 font-mono truncate">${sectionInfoText(sec)}</div>
+                    </div>
+                    <button title="Xóa thiết diện" class="text-slate-500 hover:text-rose-400 p-1 transition-colors"><i class="fa-solid fa-xmark"></i></button>`;
+                row.querySelector('input').addEventListener('input', e => setSectionColorById(sec.id, e.target.value));
+                row.querySelector('button').addEventListener('click', () => removeSectionById(sec.id));
+                box.appendChild(row);
+            });
+        }
+
+        function setSectionColorById(id, hex) {
+            const sec = sectionsData.find(x => x.id === id);
+            if (!sec) return;
+            sec.color = hex;
+            sec.mesh.material.color.set(hex);
+            sec.line.material.color.set(hex);
+        }
+
+        function disposeSection(sec) {
+            scene.remove(sec.mesh); scene.remove(sec.line);
+            if (sec.mesh.geometry) sec.mesh.geometry.dispose();
+            if (sec.mesh.material) sec.mesh.material.dispose();
+            disposeLine(sec.line);
+        }
+
+        function removeSectionByIndex(i) {
+            const sec = sectionsData[i];
+            if (!sec) return;
+            disposeSection(sec);
+            sectionsData.splice(i, 1);
+        }
+
+        function removeSectionById(id) {
+            const i = sectionsData.findIndex(x => x.id === id);
+            if (i < 0) return;
+            pushUndoSnapshot();
+            removeSectionByIndex(i);
+            renderSectionsList();
+        }
+
+        function clearSectionObjects() {
+            sectionsData.forEach(disposeSection);
+            sectionsData.length = 0;
+        }
+
+        function clearAllSections() {
+            if (!sectionsData.length) return;
+            pushUndoSnapshot();
+            clearSectionObjects();
+            renderSectionsList();
+        }
+
+        function selectSectionColor(hex) {
+            sectionColor = hex;
+            refreshSectionSwatches();
+        }
+
+        function setSectionOpacity(v) {
+            sectionOpacity = v;
+            sectionsData.forEach(sec => { sec.opacity = v; sec.mesh.material.opacity = v; });
+        }
+
+        function toggleSectionFill() {
+            sectionFillOn = !sectionFillOn;
+            sectionsData.forEach(sec => { sec.mesh.material.visible = sectionFillOn; });
+            refreshSectionFillButton();
+        }
+
+        function refreshSectionFillButton() {
+            const b = document.getElementById('btnSectionFill');
+            if (!b) return;
+            b.className = 'sb-toggle ' +
+                (sectionFillOn ? 'bg-orange-500/20 border-orange-500/60 text-orange-200' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700');
+        }
+
+        function refreshSectionSwatches() {
+            const box = document.getElementById('section-swatches');
+            if (!box) return;
+            box.querySelectorAll('button').forEach(b => {
+                const on = b.dataset.color.toLowerCase() === String(sectionColor).toLowerCase();
+                b.style.outline = on ? '2px solid #f8fafc' : 'none';
+                b.style.outlineOffset = '1px';
+            });
+            const custom = document.getElementById('sectionColorCustom');
+            if (custom) custom.value = sectionColor;
+        }
+
+        function initSectionPanel() {
+            const box = document.getElementById('section-swatches');
+            if (box && !box.childElementCount) {
+                SECTION_COLORS.forEach(hex => {
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.dataset.color = hex;
+                    b.title = hex;
+                    b.className = 'w-5 h-5 rounded-full border border-slate-600';
+                    b.style.background = hex;
+                    b.addEventListener('click', () => selectSectionColor(hex));
+                    box.appendChild(b);
+                });
+            }
+            refreshSectionSwatches();
+            refreshSectionFillButton();
+            renderSectionsList();
+        }
+
         function clearAllData() {
             pushUndoSnapshot();
 
@@ -3082,14 +3941,22 @@ async function constructParallelLine() {
             edgesData.forEach(e => {
                 scene.remove(e.lineMesh);
                 if (e.lengthLabelEl) e.lengthLabelEl.remove();
-                if (e.tickMeshes) e.tickMeshes.forEach(tm => scene.remove(tm));
+                if (e.tickMeshes) e.tickMeshes.forEach(tm => { scene.remove(tm); disposeLine(tm); });
                 if (e.equalMarkLabelEl) e.equalMarkLabelEl.remove();
             });
             facesData.forEach(f => scene.remove(f.mesh));
+            clearSectionObjects();
             anglesData.forEach(a => {
                 scene.remove(a.arcMesh);
                 if (a.labelEl) a.labelEl.remove();
             });
+            rightAngleMarkers.forEach(m => {
+                if (m.mesh) { scene.remove(m.mesh); disposeLine(m.mesh); }
+                if (m.labelEl) m.labelEl.remove();
+            });
+            rightAngleMarkers.length = 0;
+            for (const k in rightAngleCustomLabels) delete rightAngleCustomLabels[k];
+
             vectorsData.forEach(vec => {
                 if (vec.arrowHelper) scene.remove(vec.arrowHelper);
             });
@@ -3110,6 +3977,50 @@ async function constructParallelLine() {
             if (ind) ind.textContent = '100%';
 
             updateUI();
+        }
+
+        // Tự động căn tâm và khoảng cách camera vừa vặn toàn bộ hình (đỉnh S không bị tràn khỏi màn hình)
+        function fitCameraToShape(force = false) {
+            if (paperMode) { fitPaperCamera(); return; }
+            if (!verticesData.length && !circlesData.length) return;
+
+            // Nếu người dùng chọn "Camera Tự Do" và không ấn cưỡng bức (force): giữ nguyên góc nhìn tự do, không tự lia cam
+            if (!force && typeof getAppSettings === 'function') {
+                const cfg = getAppSettings();
+                if (cfg && cfg.cameraMode === 'free') return;
+            }
+
+            const box = new THREE.Box3();
+            verticesData.forEach(v => box.expandByPoint(v.point));
+            circlesData.forEach(c => {
+                const centerObj = verticesData.find(v => v.id === c.centerId);
+                if (centerObj) {
+                    const r = c.radius || 1;
+                    box.expandByPoint(centerObj.point.clone().add(new THREE.Vector3(r, r, r)));
+                    box.expandByPoint(centerObj.point.clone().add(new THREE.Vector3(-r, -r, -r)));
+                }
+            });
+
+            if (box.isEmpty()) return;
+
+            const center = box.getCenter(new THREE.Vector3());
+            const size = box.getSize(new THREE.Vector3());
+            const maxDim = Math.max(size.x, size.y, size.z, 2.5);
+
+            // Dịch tâm nhìn hơi nhích lên một chút để chừa không gian cho thanh công cụ trên cùng
+            const target = center.clone();
+            target.y += size.y * 0.08;
+
+            const fovRad = (camera.fov || 45) * (Math.PI / 180);
+            const aspect = Math.max(0.5, window.innerWidth / Math.max(1, window.innerHeight));
+            const fitDistV = (maxDim * 0.85) / Math.tan(fovRad / 2);
+            const fitDistH = (maxDim * 0.85) / (Math.tan(fovRad / 2) * aspect);
+            const dist = Math.max(fitDistV, fitDistH, 7.5);
+
+            const viewDir = new THREE.Vector3(6, 4.2, 8).normalize();
+            camera.position.copy(target).add(viewDir.multiplyScalar(dist));
+            controls.target.copy(target);
+            controls.update();
         }
 
         // ==========================================
@@ -3156,6 +4067,7 @@ async function constructParallelLine() {
             addCircle3D(vO2.id, R, up);
 
             setToolMode('rotate');
+            fitCameraToShape();
         }
 
         // ==========================================
@@ -3192,7 +4104,7 @@ async function constructParallelLine() {
             const set = (id, on, onCls, offCls) => {
                 const b = document.getElementById(id);
                 if (!b) return;
-                b.className = 'p-2 rounded-xl border text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ' + (on ? onCls : offCls);
+                b.className = 'sb-toggle ' + (on ? onCls : offCls);
             };
             const off = 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700';
             set('btnHiddenEdges', hiddenEdgeDashed, 'bg-cyan-500/20 border-cyan-500/60 text-cyan-300', off);
@@ -3386,6 +4298,7 @@ async function constructParallelLine() {
             addCircle3D(vO2.id, r, up);
 
             setToolMode('rotate');
+            fitCameraToShape();
         }
 
         async function loadPyramidFrustumPreset() {
@@ -3435,6 +4348,7 @@ async function constructParallelLine() {
             }
 
             setToolMode('rotate');
+            fitCameraToShape();
         }
 
         async function loadConePreset() {
@@ -3466,6 +4380,7 @@ async function constructParallelLine() {
             addCircle3D(vO.id, R, new THREE.Vector3(0, 1, 0));
 
             setToolMode('rotate');
+            fitCameraToShape();
         }
 
         async function loadSpherePreset() {
@@ -3495,6 +4410,7 @@ async function constructParallelLine() {
             addCircle3D(vO.id, R, new THREE.Vector3(1, 0, 0), 0x818cf8);   // kinh tuyến 2
 
             setToolMode('rotate');
+            fitCameraToShape();
         }
 
         function loadSABCDPreset() {
@@ -3523,6 +4439,7 @@ async function constructParallelLine() {
             selectedVerticesForFace = [vS, vD, vA]; finishFaceCreation();
 
             setToolMode('rotate');
+            fitCameraToShape();
         }
 
         function loadCubePreset() {
@@ -3550,6 +4467,7 @@ async function constructParallelLine() {
             selectedVerticesForFace = [vD, vA, vE, vH]; finishFaceCreation();
 
             setToolMode('rotate');
+            fitCameraToShape();
         }
 
         const GROQ_API_KEY_DRAW = (typeof window !== "undefined" && window.APP_CONFIG && (window.APP_CONFIG.GROQ_KEY_DRAW_3D || window.APP_CONFIG.GROQ_API_KEY)) || "";
@@ -4660,8 +5578,13 @@ Quy tắc toán học bắt buộc:
             if (data.equalEdges && Array.isArray(data.equalEdges)) {
                 data.equalEdges.forEach(group => {
                     if (!Array.isArray(group)) return;
-                    const markType = typeof group[group.length - 2] === 'number' ? group[group.length - 2] : 1;
-                    const markName = typeof group[group.length - 1] === 'string' ? group[group.length - 1] : "";
+                    let markType = 1;
+                    let markName = "";
+                    group.forEach(el => {
+                        if (typeof el === 'number' && [1, 2, 3].includes(el)) markType = el;
+                        else if (typeof el === 'string' && el.toLowerCase() === 'x') markType = 'x';
+                        else if (typeof el === 'string') markName = el;
+                    });
                     group.forEach(item => {
                         if (Array.isArray(item) && item.length === 2) {
                             const v1 = createdVertices[item[0]];
@@ -4689,32 +5612,33 @@ Quy tắc toán học bắt buộc:
             renderVectorsList();
             renderCirclesList();
             setToolMode('rotate');
-           
-if (data.vertices && Array.isArray(data.vertices)) {
-    data.vertices.forEach(vData => {
-        if (vData.constraint) {
-            const vObj = createdVertices[vData.name];
-            if (vObj) {
-                // Map tên đỉnh từ AI sang ID thực tế trong Three.js
-                const c = vData.constraint;
-                if (c.type === 'midpoint') {
-                    const pa = createdVertices[c.a];
-                    const pb = createdVertices[c.b];
-                    if (pa && pb) {
-                        vObj.constraint = { type: 'midpoint', aId: pa.id, bId: pb.id };
+
+            if (data.vertices && Array.isArray(data.vertices)) {
+                data.vertices.forEach(vData => {
+                    if (vData.constraint) {
+                        const vObj = createdVertices[vData.name];
+                        if (vObj) {
+                            const c = vData.constraint;
+                            if (c.type === 'midpoint') {
+                                const pa = createdVertices[c.a];
+                                const pb = createdVertices[c.b];
+                                if (pa && pb) {
+                                    vObj.constraint = { type: 'midpoint', aId: pa.id, bId: pb.id };
+                                }
+                            } else if (c.type === 'projection_on_edge') {
+                                const pa = createdVertices[c.a];
+                                const pb = createdVertices[c.b];
+                                const ps = createdVertices[c.point];
+                                if (pa && pb && ps) {
+                                    vObj.constraint = { type: 'projection_on_edge', aId: pa.id, bId: pb.id, pointId: ps.id };
+                                }
+                            }
+                        }
                     }
-                } else if (c.type === 'projection_on_edge') {
-                    const pa = createdVertices[c.a];
-                    const pb = createdVertices[c.b];
-                    const ps = createdVertices[c.point];
-                    if (pa && pb && ps) {
-                        vObj.constraint = { type: 'projection_on_edge', aId: pa.id, bId: pb.id, pointId: ps.id };
-                    }
-                }
+                });
             }
-        }
-    });
-}
+
+            fitCameraToShape();
         }
 
 
@@ -4732,6 +5656,7 @@ if (data.vertices && Array.isArray(data.vertices)) {
                 renderEdgesList();
                 renderVectorsList();
                 renderCirclesList();
+                renderSectionsList();
             }
 
             const listContainer = document.getElementById('vertices-list');
@@ -4829,7 +5754,7 @@ if (data.vertices && Array.isArray(data.vertices)) {
             });
         }
 
-        async function quickToggleEdgeMark(edgeIdx) {
+        function quickToggleEdgeMark(edgeIdx) {
             const e = edgesData[edgeIdx];
             if (!e) return;
             pushUndoSnapshot();
@@ -4838,10 +5763,7 @@ if (data.vertices && Array.isArray(data.vertices)) {
             const curIdx = cycle.indexOf(e.equalMarkType || 0);
             e.equalMarkType = cycle[(curIdx + 1) % cycle.length];
 
-            if (e.equalMarkType !== 0 && !e.equalMarkName) {
-                const optName = await appPrompt("Nhãn bằng nhau", "Nhập tên / nhãn cho ký hiệu bằng nhau (hoặc bấm Xác nhận để bỏ qua):", "");
-                if (optName !== null) e.equalMarkName = optName.trim();
-            } else if (e.equalMarkType === 0) {
+            if (e.equalMarkType === 0) {
                 e.equalMarkName = "";
             }
 
@@ -5114,7 +6036,10 @@ if (data.vertices && Array.isArray(data.vertices)) {
 
         // Nét đen, chấm đỉnh đen (chạy mỗi khung hình để hình mới vẽ trong lúc xem giấy cũng đúng kiểu)
         function applyPaperStyleFrame() {
-            edgesData.forEach(e => { if (!e.highlighted && e.lineMesh) e.lineMesh.material.color.setHex(0x000000); });
+            edgesData.forEach(e => {
+                if (!e.highlighted && e.lineMesh) e.lineMesh.material.color.setHex(0x000000);
+                if (e.tickMeshes) e.tickMeshes.forEach(tm => { if (tm.material) tm.material.color.setHex(0x000000); });
+            });
             circlesData.forEach(c => { if (c.mesh) c.mesh.material.color.setHex(0x000000); });
             anglesData.forEach(a => { if (a.arcMesh) a.arcMesh.material.color.setHex(0x000000); });
             rightAngleMarkers.forEach(m => { if (m.mesh) m.mesh.material.color.setHex(0x000000); });
@@ -5126,7 +6051,13 @@ if (data.vertices && Array.isArray(data.vertices)) {
         }
 
         function restoreNormalStyle() {
-            edgesData.forEach(e => { if (e.lineMesh) setEdgeHighlight(e, e.highlighted); });
+            edgesData.forEach(e => {
+                if (e.lineMesh) setEdgeHighlight(e, e.highlighted);
+                if (e.tickMeshes) {
+                    const col = e.highlighted ? (e.highlightColor || DEFAULT_HIGHLIGHT_COLOR) : 0xfde047;
+                    e.tickMeshes.forEach(tm => { if (tm.material) tm.material.color.setHex(col); });
+                }
+            });
             circlesData.forEach(c => { if (c.mesh) c.mesh.material.color.setHex(c.color || 0xf472b6); });
             anglesData.forEach(a => { if (a.arcMesh) a.arcMesh.material.color.setHex(0xfb923c); });
             rightAngleMarkers.forEach(m => { if (m.mesh) m.mesh.material.color.setHex(0xf43f5e); });
@@ -5214,6 +6145,11 @@ if (data.vertices && Array.isArray(data.vertices)) {
 
         function resetCamera() {
             if (paperMode) { fitPaperCamera(); return; }
+            const cfg = typeof getAppSettings === 'function' ? getAppSettings() : null;
+            if (cfg && cfg.cameraMode === 'focus' && (verticesData.length > 0 || circlesData.length > 0)) {
+                fitCameraToShape(true);
+                return;
+            }
             camera.position.set(6, 5, 8);
             controls.target.set(0, 0, 0);
             controls.update();
@@ -5266,7 +6202,7 @@ if (data.vertices && Array.isArray(data.vertices)) {
 
         function getUIPanels() {
             return {
-                toolbarInner: null,
+                toolbarInner: null,   // thanh công cụ tự xuống dòng nên không bao giờ tràn ngang
                 all: [
                     document.querySelector('header'),
                     document.getElementById('topBarInner'),
@@ -5301,6 +6237,7 @@ if (data.vertices && Array.isArray(data.vertices)) {
                 cmdBox.style.zoom = isTyping ? '1' : String(Math.max(0.92, s));
             }
 
+            // Tinh chỉnh: nếu thanh công cụ vẫn tràn mép màn hình thì co thêm
             const overflowing = () => {
                 const t = panels.toolbarInner;
                 if (!t) return false;
@@ -5405,15 +6342,16 @@ if (data.vertices && Array.isArray(data.vertices)) {
         // ==========================================
         // PHÍM TẮT
         // ==========================================
-        const TOOL_SHORTCUTS = ['rotate', 'scale', 'add_vertex', 'add_edge', 'add_circle', 'add_vector', 'add_face', 'delete'];
+        const TOOL_SHORTCUTS = ['rotate', 'scale', 'add_vertex', 'add_edge', 'add_circle', 'add_vector', 'add_face', 'delete', 'section'];
         const SHORTCUT_LIST = [
-            ['1 – 8', 'Chọn công cụ (Xoay, Phóng, Đỉnh, Cạnh, Tròn, Vector, Mặt, Xóa)'],
+            ['1 – 9', 'Chọn công cụ (Xoay, Phóng, Đỉnh, Cạnh, Tròn, Vector, Mặt, Xóa, Cắt thiết diện)'],
             ['Esc', 'Hủy thao tác đang làm, quay về công cụ Xoay'],
             ['Enter', 'Hoàn tất mặt phẳng (khi đang ở công cụ Mặt)'],
             ['Ctrl + Z', 'Hoàn tác'],
             ['Ctrl + Y  /  Ctrl + Shift + Z', 'Làm lại'],
             ['H', 'Bật / tắt nét đứt cho cạnh khuất'],
             ['P', 'Xem 2D như vẽ trên giấy / quay về 3D'],
+            ['(Chế độ 2D) Esc', 'Thoát 2D, quay về 3D'],
             ['F', 'Bật / tắt tô mặt phẳng'],
             ['B', 'Thu / mở bảng bên phải'],
             ['T', 'Thu / mở thanh công cụ phía trên'],
@@ -5483,9 +6421,10 @@ if (data.vertices && Array.isArray(data.vertices)) {
             }
             if (e.altKey) return;
 
+            if (paperMode && key === 'Escape') { e.preventDefault(); exitPaperMode(); return; }   // Esc: thoát 2D, về 3D
             if (paperMode && inkHandleKey(e)) return;
 
-            if (key >= '1' && key <= '8') {
+            if (key >= '1' && key <= '9') {
                 setToolMode(TOOL_SHORTCUTS[parseInt(key, 10) - 1]);
                 return;
             }
@@ -5530,70 +6469,57 @@ if (data.vertices && Array.isArray(data.vertices)) {
             { listId: 'edges-list',    key: 'edges',    defaultOpen: true,  count: () => edgesData.length }
         ];
 
-        function setSectionOpen(sec, open) {
+        // Các danh sách giờ nằm trong <details class="sb-acc">: để chính <details> tự đóng/mở,
+        // code chỉ đồng bộ trạng thái + lưu lại + gắn số lượng (không tự ẩn danh sách nữa).
+        function getSectionDetails(sec) {
             const list = document.getElementById(sec.listId);
-            if (!list) return;
-            list.classList.toggle('hidden', !open);
-            // Danh sách đang mở được ưu tiên: chiếm toàn bộ khoảng trống còn lại của bảng
-            // (nhiều danh sách cùng mở thì chia đều chỗ)
-            if (open) {
-                list.style.flex = '1 1 0';
-                list.style.minHeight = '70px';
-                list.style.maxHeight = 'none';
-            } else {
-                list.style.flex = '';
-                list.style.minHeight = '';
-                list.style.maxHeight = '';
-            }
-            const chev = list.previousElementSibling && list.previousElementSibling.querySelector('.sec-chevron');
-            if (chev) chev.className = 'sec-chevron fa-solid text-[10px] text-slate-400 ' + (open ? 'fa-chevron-down' : 'fa-chevron-right');
-            sec._open = open;
-            try { localStorage.setItem('sec_' + sec.key, open ? '1' : '0'); } catch (e) {}
+            return list ? list.closest('details') : null;
+        }
+
+        function setSectionOpen(sec, open) {
+            const det = getSectionDetails(sec);
+            if (!det) return;
+            det.open = !!open;
+            sec._open = !!open;
         }
 
         function refreshSectionCounts() {
             COLLAPSIBLE_SECTIONS.forEach(sec => {
-                const list = document.getElementById(sec.listId);
-                const badge = list && list.previousElementSibling && list.previousElementSibling.querySelector('.sec-badge');
+                const det = getSectionDetails(sec);
+                const badge = det && det.querySelector(':scope > summary .sec-badge');
                 if (badge) badge.textContent = sec.count();
             });
         }
 
         function initCollapsibleSections() {
             COLLAPSIBLE_SECTIONS.forEach(sec => {
-                const list = document.getElementById(sec.listId);
-                const header = list && list.previousElementSibling;
-                if (!header || header.querySelector('.sec-chevron')) return;
+                const det = getSectionDetails(sec);
+                const header = det && det.querySelector(':scope > summary');
+                if (!header || header.querySelector('.sec-badge')) return;
 
-                // Gom phần ghi chú nhỏ + số lượng + mũi tên về bên phải tiêu đề
-                const right = document.createElement('div');
-                right.className = 'flex items-center gap-2';
-                const hint = header.querySelector(':scope > span');
-                if (hint) right.appendChild(hint);
                 const badge = document.createElement('span');
                 badge.className = 'sec-badge min-w-[18px] text-center text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-700/70 text-slate-200';
                 badge.textContent = '0';
-                const chev = document.createElement('i');
-                chev.className = 'sec-chevron fa-solid fa-chevron-down text-[10px] text-slate-400';
-                right.appendChild(badge);
-                right.appendChild(chev);
-                header.appendChild(right);
-
-                header.classList.add('cursor-pointer', 'select-none');
-                header.title = 'Bấm để ẩn / hiện';
-                header.addEventListener('click', () => setSectionOpen(sec, !sec._open));
+                header.appendChild(badge);
 
                 let open = sec.defaultOpen;
                 try {
                     const saved = localStorage.getItem('sec_' + sec.key);
                     if (saved !== null) open = saved === '1';
                 } catch (e) {}
-                setSectionOpen(sec, open);
+                det.open = open;
+                sec._open = open;
+
+                det.addEventListener('toggle', () => {
+                    sec._open = det.open;
+                    try { localStorage.setItem('sec_' + sec.key, det.open ? '1' : '0'); } catch (e) {}
+                });
             });
             refreshSectionCounts();
         }
 
         window.addEventListener('load', initCollapsibleSections);
+        window.addEventListener('load', () => { initSectionPanel(); });
 
         window.onload = init;
     </script>
@@ -6109,5 +7035,447 @@ if (data.vertices && Array.isArray(data.vertices)) {
         })();
     </script>
 
+<script>
+(function () {
+  const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
+  const COLS = [0x38bdf8, 0x34d399, 0xfbbf24, 0xf472b6, 0xa78bfa, 0xfb923c, 0x2dd4bf, 0xf87171];
+  let on = false, t = 0, grp = null, pieces = [], hidden = [], raf = 0, playing = false, dir = 1, last = 0, bar = null, lbls = [];
+  const st = document.createElement('style');
+  st.textContent = '#labels-container.net-on>*:not(.net-lbl){display:none!important}.net-lbl{pointer-events:none}';
+  document.head.appendChild(st);
+  const ease = x => x < .5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+  const fan = n => { const a = []; for (let i = 1; i < n - 1; i++) a.push(0, i, i + 1); return a; };
+  const seq = n => Array.from({ length: n }, (_, i) => i);
+
+  // ---------- Khối đa diện: gập/mở các mặt quanh cạnh chung ----------
+  function polyPieces() {
+    if (facesData.length < 2 && typeof autoCreateFacesFromGeometry === 'function') autoCreateFacesFromGeometry();
+    const F = facesData.map(f => f.vIds.map(id => verticesData.find(v => v.id === id)).filter(Boolean)).filter(f => f.length >= 3);
+    if (F.length < 2) return null;
+    const cen = F.map(f => f.reduce((s, v) => s.add(v.point), V3(0, 0, 0)).multiplyScalar(1 / f.length));
+    const area = F.map(f => { const s = V3(0, 0, 0); for (let i = 1; i < f.length - 1; i++) s.add(f[i].point.clone().sub(f[0].point).cross(f[i + 1].point.clone().sub(f[0].point))); return s.length() / 2; });
+    const em = new Map();
+    F.forEach((f, i) => f.forEach((v, k) => { const w = f[(k + 1) % f.length]; const key = [v.id, w.id].sort().join('|'); if (!em.has(key)) em.set(key, []); em.get(key).push(i); }));
+    const root = area.indexOf(Math.max(...area));
+    const par = {}, seen = new Set([root]), order = [root], q = [root];
+    while (q.length) {
+      const p = q.shift();
+      F[p].forEach((v, k) => {
+        const w = F[p][(k + 1) % F[p].length];
+        (em.get([v.id, w.id].sort().join('|')) || []).forEach(o => {
+          if (o === p || seen.has(o)) return;
+          seen.add(o);
+          const A = v.point.clone(), d = w.point.clone().sub(A).normalize();
+          const perp = c => { const r = c.clone().sub(A); return r.sub(d.clone().multiplyScalar(r.dot(d))).normalize(); };
+          const fF = perp(cen[o]), fP = perp(cen[p]).negate();
+          par[o] = { p, A, d, phi: Math.atan2(d.dot(fF.clone().cross(fP)), fF.dot(fP)) };
+          order.push(o); q.push(o);
+        });
+      });
+    }
+    const M = {}; let cT = -1;
+    const calc = tt => {
+      if (cT === tt) return; cT = tt;
+      order.forEach(i => {
+        if (i === root) { M[i] = new THREE.Matrix4(); return; }
+        const h = par[i];
+        M[i] = M[h.p].clone()
+          .multiply(new THREE.Matrix4().makeTranslation(h.A.x, h.A.y, h.A.z))
+          .multiply(new THREE.Matrix4().makeRotationAxis(h.d, h.phi * tt))
+          .multiply(new THREE.Matrix4().makeTranslation(-h.A.x, -h.A.y, -h.A.z));
+      });
+    };
+    return order.map((i, k) => ({
+      n: F[i].length, tris: fan(F[i].length), loop: seq(F[i].length), names: F[i].map(v => v.name),
+      color: COLS[k % COLS.length],
+      pts: tt => { calc(tt); return F[i].map(v => v.point.clone().applyMatrix4(M[i])); }
+    }));
+  }
+
+  // ---------- Hình trụ / nón / nón cụt: trải mặt xung quanh + đáy ----------
+  function curvedPieces() {
+    const cs = circlesData.map(c => ({ o: (verticesData.find(v => v.id === c.centerId) || {}).point, r: c.radius, n: c.normal.clone() })).filter(c => c.o);
+    if (!cs.length) return null;
+    let c1, c2;
+    if (cs.length === 1) {
+      c1 = cs[0]; let best = 0, apex = null;
+      verticesData.forEach(v => {
+        const d = v.point.clone().sub(c1.o), hg = d.dot(c1.n);
+        if (d.sub(c1.n.clone().multiplyScalar(hg)).length() < 1e-3 && Math.abs(hg) > Math.abs(best)) { best = hg; apex = v.point; }
+      });
+      if (!apex) return null;
+      c2 = { o: apex.clone(), r: 0 };
+    } else {
+      [c1, c2] = cs[0].r >= cs[1].r ? [cs[0], cs[1]] : [cs[1], cs[0]];
+      const ax = c2.o.clone().sub(c1.o);
+      if (ax.length() < 1e-6 || ax.clone().cross(c1.n).length() / ax.length() > 1e-2) return null;
+    }
+    const ax = c2.o.clone().sub(c1.o), h = ax.length(), n = ax.clone().normalize();
+    let u = V3(1, 0, 0).cross(n); if (u.lengthSq() < 1e-4) u = V3(0, 0, 1).cross(n);
+    u.normalize(); const v = n.clone().cross(u).normalize();
+    const R1 = c1.r, R2 = c2.r, cyl = Math.abs(R1 - R2) < 1e-6, N = 72, PI = Math.PI;
+    const th = j => -PI + 2 * PI * j / N;
+    const rp = (c, R, j) => c.clone().add(u.clone().multiplyScalar(R * Math.cos(th(j)))).add(v.clone().multiplyScalar(R * Math.sin(th(j))));
+    const T0 = c1.o.clone().add(u.clone().multiplyScalar(R1));
+    let flatB, flatT, T1flat;
+    if (cyl) {
+      flatB = j => T0.clone().add(v.clone().multiplyScalar(R1 * th(j)));
+      flatT = j => flatB(j).add(u.clone().multiplyScalar(h));
+      T1flat = flatT(N / 2);
+    } else {
+      const l = Math.hypot(R1 - R2, h), L1 = l * R1 / (R1 - R2), L2 = L1 - l, al = 2 * PI * R1 / L1;
+      const Af = T0.clone().add(u.clone().multiplyScalar(L1));
+      const dr = j => { const p = th(j) * al / (2 * PI); return u.clone().multiplyScalar(-Math.cos(p)).add(v.clone().multiplyScalar(Math.sin(p))); };
+      flatB = j => Af.clone().add(dr(j).multiplyScalar(L1));
+      flatT = j => Af.clone().add(dr(j).multiplyScalar(L2));
+      T1flat = flatT(N / 2);
+    }
+    const out = [];
+    const tri = []; for (let j = 0; j < N; j++) tri.push(j, j + 1, N + 1 + j, j + 1, N + 2 + j, N + 1 + j);
+    const loop = [...seq(N + 1), ...seq(N + 1).map(j => 2 * N + 1 - j)];
+    out.push({ n: 2 * (N + 1), tris: tri, loop, color: COLS[0],
+      pts: tt => { const a = [], b = []; for (let j = 0; j <= N; j++) { a.push(rp(c1.o, R1, j).lerp(flatB(j), tt)); b.push(rp(c2.o, R2, j).lerp(flatT(j), tt)); } return a.concat(b); } });
+    const ringIdx = seq(N).map(j => j + 1);
+    const discTris = []; for (let j = 0; j < N; j++) discTris.push(0, 1 + j, 1 + (j + 1) % N);
+    out.push({ n: N + 1, tris: discTris, loop: ringIdx, color: COLS[1],
+      pts: () => [c1.o.clone()].concat(seq(N).map(j => rp(c1.o, R1, j))) });
+    if (R2 > 1e-9) {
+      const T1f = c2.o.clone().add(u.clone().multiplyScalar(R2));
+      out.push({ n: N + 1, tris: discTris, loop: ringIdx, color: COLS[2],
+        pts: tt => {
+          const ps = Math.PI * tt, cs_ = Math.cos(ps), sn = Math.sin(ps), T1 = T1f.clone().lerp(T1flat, tt);
+          return [c2.o.clone()].concat(seq(N).map(j => rp(c2.o, R2, j))).map(p => {
+            const r = p.clone().sub(T1f), a = r.dot(u), b = r.dot(v), c = r.dot(n);
+            return T1.clone().add(u.clone().multiplyScalar(a * cs_ + c * sn)).add(v.clone().multiplyScalar(b)).add(n.clone().multiplyScalar(-a * sn + c * cs_));
+          });
+        } });
+    }
+    return out;
+  }
+
+  // ---------- Hiển thị ----------
+  function setT(x) {
+    t = x; const e = ease(x);
+    pieces.forEach(p => {
+      const pts = p.pts(e); p.cur = pts;
+      const a = p.m.geometry.attributes.position; pts.forEach((q, i) => a.setXYZ(i, q.x, q.y, q.z)); a.needsUpdate = true;
+      const b = p.l.geometry.attributes.position; p.loop.forEach((idx, i) => b.setXYZ(i, pts[idx].x, pts[idx].y, pts[idx].z)); b.needsUpdate = true;
+    });
+    if (bar) { bar.querySelector('#netRange').value = Math.round(x * 100); bar.querySelector('#netPlay').textContent = x > .5 ? 'Gập lại' : 'Mở ra'; }
+  }
+  function loop(ts) {
+    if (!on) return; raf = requestAnimationFrame(loop);
+    if (playing) {
+      const nt = Math.min(1, Math.max(0, t + dir * (ts - last) / 1800));
+      if (nt === 0 || nt === 1) playing = false;
+      setT(nt);
+    }
+    last = ts;
+    const tmp = new THREE.Vector3();
+    lbls.forEach(({ el, p, i }) => {
+      if (!p.cur) return; tmp.copy(p.cur[i]).project(camera);
+      el.style.opacity = tmp.z > 1 ? '0' : '1';
+      el.style.transform = `translate(-50%,-100%) translate(${(tmp.x * .5 + .5) * innerWidth}px,${(tmp.y * -.5 + .5) * innerHeight}px)`;
+    });
+  }
+  function setBtn(a) {
+    const b = document.getElementById('btnNet'); if (!b) return;
+    b.className = 'sb-toggle ' +
+      (a ? 'bg-amber-500/20 border-amber-500/60 text-amber-300' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700');
+  }
+  function open() {
+    pieces = curvedPieces() || polyPieces();
+    if (!pieces || !pieces.length) { appAlert('Chưa khai triển được hình này. Hãy dựng khối có các mặt phẳng (hình chóp, lăng trụ, hộp…) hoặc hình nón, nón cụt, hình trụ. Hình cầu không có lưới khai triển.'); return; }
+    const keep = o => o.isLight || (o.isMesh && infiniteGridMats.includes(o.material)) || (o.isSprite && axisLabels.some(a => a.sprite === o)) || axisLineObjs.includes(o) || o === gridPlane || o === gridHelperZ;
+    hidden = []; scene.children.forEach(o => { if (o.visible && !keep(o)) { o.visible = false; hidden.push(o); } });
+    labelsContainer.classList.add('net-on');
+    grp = new THREE.Group(); scene.add(grp);
+    pieces.forEach(p => {
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(p.n * 3), 3)); g.setIndex(p.tris);
+      p.m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: p.color, transparent: true, opacity: .55, side: THREE.DoubleSide, depthWrite: false }));
+      const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(p.loop.length * 3), 3));
+      p.l = new THREE.LineLoop(lg, new THREE.LineBasicMaterial({ color: 0xffffff }));
+      p.m.frustumCulled = p.l.frustumCulled = false; grp.add(p.m, p.l);
+      (p.names || []).forEach((nm, i) => { const el = document.createElement('div'); el.className = 'vertex-label net-lbl'; el.textContent = nm; labelsContainer.appendChild(el); lbls.push({ el, p, i }); });
+    });
+    bar = document.createElement('div');
+    bar.className = 'glass-panel fixed bottom-24 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-4 py-2 rounded-2xl border border-amber-500/40 shadow-2xl text-xs text-slate-200';
+    bar.innerHTML = '<span class="font-semibold text-amber-300 whitespace-nowrap"><i class="fa-solid fa-box-open"></i> Khai triển</span>' +
+      '<input id="netRange" type="range" min="0" max="100" value="0" class="w-40 sm:w-56 accent-amber-400">' +
+      '<button id="netPlay" class="px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 hover:bg-slate-700 whitespace-nowrap">Mở ra</button>' +
+      '<button id="netClose" title="Đóng" class="px-2 py-1.5 rounded-lg hover:bg-slate-700">✕</button>';
+    document.body.appendChild(bar);
+    bar.querySelector('#netRange').oninput = e => { playing = false; setT(e.target.value / 100); };
+    bar.querySelector('#netPlay').onclick = () => { dir = t > .5 ? -1 : 1; playing = true; };
+    bar.querySelector('#netClose').onclick = close;
+    on = true; setBtn(true); setT(0); dir = 1; playing = true; last = performance.now(); raf = requestAnimationFrame(loop);
+  }
+  function close() {
+    if (!on) return; on = false; playing = false; cancelAnimationFrame(raf);
+    if (grp) { scene.remove(grp); grp.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); grp = null; }
+    hidden.forEach(o => o.visible = true); hidden = [];
+    lbls.forEach(l => l.el.remove()); lbls = [];
+    labelsContainer.classList.remove('net-on');
+    if (bar) { bar.remove(); bar = null; }
+    setBtn(false);
+  }
+  window.toggleNet = () => on ? close() : open();
+  ['clearAllData', 'restoreState'].forEach(fn => {
+    const orig = window[fn];
+    if (typeof orig === 'function') window[fn] = function () { close(); return orig.apply(this, arguments); };
+  });
+})();
+</script>
+<script>
+// =========================================================================
+// MẶT PHẲNG THEO PHƯƠNG TRÌNH ax + by + cz + d = 0  (hệ Oxyz: z là trục đứng)
+// Ánh xạ Oxyz -> Three.js: (x, y, z) -> (x, z, -y)  (khớp với trục X, Y, Z của app)
+// =========================================================================
+const eqPlanesData = [];
+let eqPlaneIdSeq = 1;
+let eqPlaneShowNormals = false;
+const EQ_PLANE_PALETTE = ['#38bdf8', '#f472b6', '#a3e635', '#fbbf24', '#c084fc', '#fb7185'];
+
+function eqNotify(msg) {
+    if (typeof appAlert === 'function') appAlert(msg); else alert(msg);
+}
+
+// Đọc phương trình -> {a, b, c, d} sao cho ax + by + cz + d = 0
+function parsePlaneEquation(text) {
+    let t = String(text || '').toLowerCase()
+        .replace(/[−–—]/g, '-').replace(/×/g, '*').replace(/,/g, '.')
+        .replace(/\s+/g, '');
+    const colon = t.lastIndexOf(':');
+    if (colon >= 0) t = t.slice(colon + 1);
+    if (!t) throw new Error('Bạn chưa nhập phương trình.');
+    const parts = t.split('=');
+    if (parts.length > 2) throw new Error('Phương trình chỉ được có một dấu "=".');
+    if (parts.length === 1) parts.push('0');
+
+    const num = '(\\d+(?:\\.\\d+)?(?:/\\d+(?:\\.\\d+)?)?|\\.\\d+)';
+    const termRe = new RegExp('([+-]?)(?:' + num + '\\*?)?([xyz])?', 'y');
+
+    const readSide = (str) => {
+        const co = { x: 0, y: 0, z: 0, k: 0 };
+        if (!str) throw new Error('Một vế của phương trình đang trống.');
+        let pos = 0;
+        while (pos < str.length) {
+            termRe.lastIndex = pos;
+            const m = termRe.exec(str);
+            if (!m || m[0] === '') throw new Error('Không đọc được phần "' + str.slice(pos) + '". Chỉ dùng x, y, z, số và dấu + - = .');
+            const sign = m[1] === '-' ? -1 : 1;
+            let val = 1, hasNum = false;
+            if (m[2] !== undefined) {
+                hasNum = true;
+                if (m[2].includes('/')) {
+                    const [p, q] = m[2].split('/').map(Number);
+                    if (!q) throw new Error('Mẫu số bằng 0.');
+                    val = p / q;
+                } else val = parseFloat(m[2]);
+            }
+            const v = m[3];
+            if (!v && !hasNum) throw new Error('Không đọc được phần "' + str.slice(pos) + '".');
+            if (v) co[v] += sign * val; else co.k += sign * val;
+            pos = termRe.lastIndex;
+        }
+        return co;
+    };
+
+    const L = readSide(parts[0]);
+    const R = readSide(parts[1]);
+    const a = L.x - R.x, b = L.y - R.y, c = L.z - R.z, d = L.k - R.k;
+    if (Math.abs(a) < 1e-12 && Math.abs(b) < 1e-12 && Math.abs(c) < 1e-12) {
+        throw new Error('Phương trình cần có ít nhất một ẩn x, y hoặc z với hệ số khác 0.');
+    }
+    return { a, b, c, d };
+}
+
+function eqFmt(n) {
+    if (Math.abs(n) < 1e-9) return '0';
+    const r = Math.round(n * 1000) / 1000;
+    return String(r);
+}
+
+function eqPlaneText(pl) {
+    const items = [[pl.a, 'x'], [pl.b, 'y'], [pl.c, 'z']];
+    let out = '';
+    items.forEach(([co, v]) => {
+        if (Math.abs(co) < 1e-9) return;
+        const mag = Math.abs(co);
+        const body = (Math.abs(mag - 1) < 1e-9 ? '' : eqFmt(mag)) + v;
+        if (!out) out = (co < 0 ? '-' : '') + body;
+        else out += (co < 0 ? ' - ' : ' + ') + body;
+    });
+    if (Math.abs(pl.d) > 1e-9) out += (pl.d < 0 ? ' - ' : ' + ') + eqFmt(Math.abs(pl.d));
+    return out + ' = 0';
+}
+
+function eqPlaneReference() {
+    // Tâm hiển thị: trọng tâm các đỉnh hiện có (nếu có), ngược lại là gốc O
+    const ref = new THREE.Vector3(0, 0, 0);
+    if (typeof verticesData !== 'undefined' && verticesData.length) {
+        verticesData.forEach(v => ref.add(v.point));
+        ref.multiplyScalar(1 / verticesData.length);
+    }
+    return ref;
+}
+
+function buildEqPlaneObjects(pl) {
+    // Pháp tuyến trong không gian Three.js
+    const nRaw = new THREE.Vector3(pl.a, pl.c, -pl.b);
+    const n = nRaw.clone().normalize();
+    const R = eqPlaneReference();
+    const t = (nRaw.dot(R) + pl.d) / nRaw.lengthSq();
+    const C = R.clone().sub(nRaw.clone().multiplyScalar(t));
+
+    const helper = Math.abs(n.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+    const u = new THREE.Vector3().crossVectors(n, helper).normalize();
+    const v = new THREE.Vector3().crossVectors(n, u).normalize();
+    const S = pl.size;
+    const corner = (su, sv) => C.clone().add(u.clone().multiplyScalar(su * S)).add(v.clone().multiplyScalar(sv * S));
+    const c1 = corner(-1, -1), c2 = corner(1, -1), c3 = corner(1, 1), c4 = corner(-1, 1);
+
+    const geom = new THREE.BufferGeometry();
+    const pos = [c1, c2, c3, c1, c3, c4];
+    geom.setAttribute('position', new THREE.Float32BufferAttribute(pos.flatMap(p => [p.x, p.y, p.z]), 3));
+    const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(pl.color), transparent: true, opacity: pl.opacity, side: THREE.DoubleSide, depthWrite: false });
+    const mesh = new THREE.Mesh(geom, mat);
+    mesh.renderOrder = 1;
+    mesh.frustumCulled = false;
+
+    const line = makeThickLine([c1, c2, c3, c4, c1], new THREE.Color(pl.color).getHex(), 2.5);
+    line.renderOrder = 3;
+    line.frustumCulled = false;
+
+    const arrow = new THREE.ArrowHelper(n, C, Math.max(1.5, S * 0.45), new THREE.Color(pl.color).getHex(), 0.5, 0.25);
+    arrow.visible = eqPlaneShowNormals;
+
+    const group = new THREE.Group();
+    group.add(mesh); group.add(line); group.add(arrow);
+    group.userData.isEqPlane = true;
+    return { group, mesh, line, arrow };
+}
+
+function disposeEqPlaneObjects(pl) {
+    if (!pl.group) return;
+    scene.remove(pl.group);
+    pl.mesh.geometry.dispose(); pl.mesh.material.dispose();
+    disposeLine(pl.line);
+    pl.arrow.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+    pl.group = null;
+}
+
+function rebuildEqPlane(pl) {
+    const wasVisible = pl.group ? pl.group.visible : true;
+    disposeEqPlaneObjects(pl);
+    const o = buildEqPlaneObjects(pl);
+    Object.assign(pl, o);
+    pl.group.visible = wasVisible;
+    scene.add(pl.group);
+}
+
+function drawEquationPlane() {
+    const inp = document.getElementById('eqplane-input');
+    let co;
+    try { co = parsePlaneEquation(inp.value); }
+    catch (e) { eqNotify(e.message); return; }
+
+    const pl = {
+        id: eqPlaneIdSeq++,
+        a: co.a, b: co.b, c: co.c, d: co.d,
+        color: document.getElementById('eqplane-color').value || '#38bdf8',
+        opacity: (+document.getElementById('eqplane-opacity').value) / 100,
+        size: +document.getElementById('eqplane-size').value
+    };
+    rebuildEqPlane(pl);
+    eqPlanesData.push(pl);
+    // đổi màu mặc định cho mặt phẳng kế tiếp
+    document.getElementById('eqplane-color').value = EQ_PLANE_PALETTE[eqPlanesData.length % EQ_PLANE_PALETTE.length];
+    renderEqPlaneList();
+}
+
+function setEqPlaneExample(txt) {
+    const inp = document.getElementById('eqplane-input');
+    inp.value = txt; inp.focus();
+}
+
+function eqPlaneInfo(pl) {
+    const len = Math.sqrt(pl.a * pl.a + pl.b * pl.b + pl.c * pl.c);
+    const dist = Math.abs(pl.d) / len;
+    return 'n = (' + eqFmt(pl.a) + '; ' + eqFmt(pl.b) + '; ' + eqFmt(pl.c) + ')  ·  d(O,(P)) = ' + eqFmt(dist);
+}
+
+function renderEqPlaneList() {
+    const box = document.getElementById('eqplane-list');
+    if (!box) return;
+    if (!eqPlanesData.length) {
+        box.innerHTML = '<div class="text-center text-[11px] text-slate-500 py-1.5">Chưa có mặt phẳng nào.</div>';
+        return;
+    }
+    box.innerHTML = '';
+    eqPlanesData.forEach(pl => {
+        const row = document.createElement('div');
+        row.className = 'flex items-center gap-2 p-1.5 rounded-xl bg-slate-800/50 border border-slate-700/40 text-xs';
+        row.innerHTML = `
+            <input type="color" value="${pl.color}" title="Đổi màu" class="w-6 h-6 shrink-0 rounded cursor-pointer bg-transparent border border-slate-600 p-0">
+            <div class="flex-1 min-w-0">
+                <div class="font-semibold text-slate-200 truncate font-mono"></div>
+                <div class="text-[10px] text-slate-400 font-mono truncate"></div>
+            </div>
+            <button data-act="vis" title="Ẩn / hiện" class="text-slate-500 hover:text-sky-300 p-1 transition-colors"><i class="fa-solid fa-eye"></i></button>
+            <button data-act="del" title="Xóa mặt phẳng" class="text-slate-500 hover:text-rose-400 p-1 transition-colors"><i class="fa-solid fa-xmark"></i></button>`;
+        row.children[1].children[0].textContent = '(P' + pl.id + '): ' + eqPlaneText(pl);
+        row.children[1].children[1].textContent = eqPlaneInfo(pl);
+        row.children[1].children[1].title = eqPlaneInfo(pl);
+        row.querySelector('input').addEventListener('input', e => {
+            pl.color = e.target.value;
+            pl.mesh.material.color.set(pl.color);
+            pl.line.material.color.set(pl.color);
+            if (pl.arrow.setColor) pl.arrow.setColor(new THREE.Color(pl.color));
+        });
+        row.querySelector('[data-act="vis"]').addEventListener('click', e => {
+            pl.group.visible = !pl.group.visible;
+            e.currentTarget.innerHTML = pl.group.visible ? '<i class="fa-solid fa-eye"></i>' : '<i class="fa-solid fa-eye-slash"></i>';
+        });
+        row.querySelector('[data-act="del"]').addEventListener('click', () => {
+            disposeEqPlaneObjects(pl);
+            eqPlanesData.splice(eqPlanesData.indexOf(pl), 1);
+            renderEqPlaneList();
+        });
+        box.appendChild(row);
+    });
+}
+
+function setEqPlaneOpacity(v) {
+    eqPlanesData.forEach(pl => { pl.opacity = v; pl.mesh.material.opacity = v; });
+}
+
+function setEqPlaneSize(v) {
+    document.getElementById('eqplane-size-val').textContent = v;
+    eqPlanesData.forEach(pl => { pl.size = v; rebuildEqPlane(pl); });
+}
+
+function toggleEqPlaneNormals() {
+    eqPlaneShowNormals = !eqPlaneShowNormals;
+    eqPlanesData.forEach(pl => { pl.arrow.visible = eqPlaneShowNormals; });
+    const btn = document.getElementById('btnEqNormal');
+    if (btn) {
+        btn.classList.toggle('bg-sky-500/25', eqPlaneShowNormals);
+        btn.classList.toggle('border-sky-500/60', eqPlaneShowNormals);
+        btn.classList.toggle('text-sky-100', eqPlaneShowNormals);
+    }
+}
+
+function clearAllEqPlanes() {
+    eqPlanesData.forEach(disposeEqPlaneObjects);
+    eqPlanesData.length = 0;
+    renderEqPlaneList();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const inp = document.getElementById('eqplane-input');
+    if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); drawEquationPlane(); } });
+});
+</script>
 </body>
 </html>

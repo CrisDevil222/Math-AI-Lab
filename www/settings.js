@@ -1,4 +1,4 @@
-﻿// ==========================================
+// ==========================================
 // MATH AI LAB - HỆ THỐNG CÀI ĐẶT TOÀN DIỆN
 // Đồng bộ 100% giữa Trang chủ, 2D và 3D
 // ==========================================
@@ -8,7 +8,8 @@ const MATH_SETTINGS_KEY = 'mathailab_app_settings';
 const DEFAULT_SETTINGS = {
     resolution: 'high',     // 'low' (0.8x), 'medium' (1.0x), 'high' (1.8x), 'ultra' (native)
     uiScale: 'compact',     // 'compact' (1700), 'standard' (1450), 'large' (1150)
-    exportQuality: 'fhd'    // 'hd' (1.0x), 'fhd' (1.8x), '4k' (2.8x)
+    exportQuality: 'fhd',   // 'hd' (1.0x), 'fhd' (1.8x), '4k' (2.8x)
+    cameraMode: 'free'      // 'free' (Camera Tự Do - không tự lia cam), 'focus' (Tự động căn giữa hình)
 };
 
 function getAppSettings() {
@@ -232,6 +233,28 @@ function openSettingsModal() {
                 </div>
             </div>
 
+            <!-- Mục 4: Chế độ Camera 3D -->
+            <div class="flex flex-col gap-2">
+                <label class="text-xs font-bold text-slate-300 flex items-center justify-between">
+                    <span class="flex items-center gap-1.5"><i class="fa-solid fa-video text-emerald-400"></i> Chế Độ Camera 3D</span>
+                    <span class="text-[10px] text-slate-400 font-normal">Góc nhìn khi vẽ & dựng hình</span>
+                </label>
+                <div class="grid grid-cols-2 gap-2">
+                    <button type="button" data-cfg-cam="free" onclick="selectCfgOption('cam', 'free')"
+                            class="cfg-btn flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-700 bg-slate-800/50 hover:bg-slate-700/60 transition-all text-center">
+                        <i class="fa-solid fa-arrows-up-down-left-right text-emerald-400 text-sm mb-1"></i>
+                        <span class="text-xs font-bold text-emerald-300">Camera Tự Do</span>
+                        <span class="text-[10px] text-slate-400">Không tự lia góc, góc nhìn rộng không bị khuất</span>
+                    </button>
+                    <button type="button" data-cfg-cam="focus" onclick="selectCfgOption('cam', 'focus')"
+                            class="cfg-btn flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-700 bg-slate-800/50 hover:bg-slate-700/60 transition-all text-center">
+                        <i class="fa-solid fa-crosshairs text-cyan-300 text-sm mb-1"></i>
+                        <span class="text-xs font-bold text-cyan-300">Tự Động Căn Giữa</span>
+                        <span class="text-[10px] text-slate-400">Tự động lia và zoom vừa vặn khối hình</span>
+                    </button>
+                </div>
+            </div>
+
             <!-- Footer nút bấm -->
             <div class="flex items-center justify-between border-t border-slate-700/60 pt-3 mt-1">
                 <button type="button" onclick="resetToDefaultSettings()" class="text-xs text-slate-400 hover:text-rose-400 transition-colors flex items-center gap-1 font-semibold">
@@ -267,6 +290,7 @@ function selectCfgOption(type, val) {
     if (type === 'res') modal._tempSettings.resolution = val;
     else if (type === 'scale') modal._tempSettings.uiScale = val;
     else if (type === 'exp') modal._tempSettings.exportQuality = val;
+    else if (type === 'cam') modal._tempSettings.cameraMode = val;
 
     highlightSelectedOptions(modal._tempSettings);
 }
@@ -289,6 +313,12 @@ function highlightSelectedOptions(s) {
         el.classList.toggle('border-purple-400', sel);
         el.classList.toggle('bg-purple-500/20', sel);
         el.classList.toggle('text-purple-200', sel);
+    });
+    document.querySelectorAll('[data-cfg-cam]').forEach(el => {
+        const sel = el.dataset.cfgCam === (s.cameraMode || 'free');
+        el.classList.toggle('border-emerald-400', sel);
+        el.classList.toggle('bg-emerald-500/20', sel);
+        el.classList.toggle('text-emerald-200', sel);
     });
 }
 

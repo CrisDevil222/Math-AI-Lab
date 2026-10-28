@@ -202,6 +202,168 @@
     </script>
     <script src="config.js"></script>
     <script src="settings.js"></script>
+    <script>
+    (function() {
+        if (typeof window.openSettingsModal === 'function') return;
+        const MATH_SETTINGS_KEY = 'mathailab_app_settings';
+        const DEFAULT_SETTINGS = { resolution: 'high', uiScale: 'compact', exportQuality: 'fhd', cameraMode: 'free' };
+        window.getAppSettings = function() {
+            try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(MATH_SETTINGS_KEY) || '{}') }; }
+            catch (e) { return { ...DEFAULT_SETTINGS }; }
+        };
+        window.saveAppSettings = function(s) {
+            try { localStorage.setItem(MATH_SETTINGS_KEY, JSON.stringify(s)); } catch (e) {}
+            window.applyAppSettings(s);
+            window.showSettingsToast('Đã lưu và áp dụng cài đặt thành công!');
+        };
+        window.getEffectivePixelRatio = function(r) {
+            const d = window.devicePixelRatio || 1;
+            return r === 'low' ? 0.8 : (r === 'medium' ? 1.0 : (r === 'ultra' ? Math.max(d, 2.2) : Math.min(d, 1.8)));
+        };
+        window.getEffectiveViewportWidth = function(s) {
+            return s === 'standard' ? 1450 : (s === 'large' ? 1150 : 1700);
+        };
+        window.applyAppSettings = function(s) {
+            if (!s) s = window.getAppSettings();
+            const tw = window.getEffectiveViewportWidth(s.uiScale);
+            let vp = document.querySelector('meta[name="viewport"]');
+            if (vp) vp.setAttribute('content', `width=${tw}, user-scalable=no, viewport-fit=cover`);
+            if (typeof canvas !== 'undefined' && canvas && typeof resize === 'function') {
+                window._customPixelRatio = window.getEffectivePixelRatio(s.resolution);
+                resize(true);
+            }
+            if (typeof fitUI === 'function') fitUI();
+        };
+        window.showSettingsToast = function(msg) {
+            let t = document.getElementById('settingsToast');
+            if (!t) {
+                t = document.createElement('div');
+                t.id = 'settingsToast';
+                t.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:999999;background:rgba(15,23,42,0.96);color:#38bdf8;border:1px solid rgba(56,189,248,0.5);border-radius:12px;padding:8px 18px;font-size:13px;font-weight:bold;box-shadow:0 10px 30px rgba(0,0,0,0.6);display:flex;align-items:center;gap:8px;pointer-events:none;transition:opacity .3s;';
+                document.body.appendChild(t);
+            }
+            t.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400"></i> ${msg}`;
+            t.style.opacity = '1'; t.style.display = 'flex';
+            clearTimeout(t._timer);
+            t._timer = setTimeout(() => { t.style.opacity = '0'; setTimeout(() => { t.style.display = 'none'; }, 300); }, 2500);
+        };
+        window.openSettingsModal = function() {
+            let m = document.getElementById('globalSettingsModal');
+            if (m) m.remove();
+            const cur = window.getAppSettings();
+            m = document.createElement('div');
+            m.id = 'globalSettingsModal';
+            m.className = 'fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 select-none';
+            m.style.cssText = 'background:rgba(0,0,0,0.65);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);';
+            m.innerHTML = `
+                <div class="glass-panel w-full max-w-xl rounded-2xl border border-slate-700/80 shadow-2xl p-5 sm:p-6 flex flex-col gap-4 text-slate-100 max-h-[92vh] overflow-y-auto">
+                    <div class="flex items-center justify-between border-b border-slate-700/60 pb-3">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-8 h-8 rounded-lg bg-cyan-500/20 text-cyan-300 flex items-center justify-center text-sm font-bold border border-cyan-500/40">
+                                <i class="fa-solid fa-gear"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-sm sm:text-base font-bold text-white leading-tight">Cài Đặt Hệ Thống</h3>
+                                <p class="text-[11px] text-cyan-400 font-medium">Áp dụng đồng bộ cho toàn bộ ứng dụng</p>
+                            </div>
+                        </div>
+                        <button type="button" onclick="closeSettingsModal()" class="text-slate-400 hover:text-white p-1 text-lg leading-none transition-colors">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label class="text-xs font-bold text-slate-300 flex items-center justify-between">
+                            <span class="flex items-center gap-1.5"><i class="fa-solid fa-display text-cyan-400"></i> Độ Phân Giải Đồ Họa</span>
+                            <span class="text-[10px] text-slate-400 font-normal">Mật độ điểm ảnh & Khử răng cưa</span>
+                        </label>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            <button type="button" data-cfg-res="low" onclick="selectCfgOption('res', 'low')" class="cfg-btn flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-700 bg-slate-800/50 hover:bg-slate-700/60 transition-all text-center"><i class="fa-solid fa-battery-half text-amber-400 text-sm mb-1"></i><span class="text-xs font-bold">Thấp</span><span class="text-[10px] text-slate-400">Tiết kiệm pin</span></button>
+                            <button type="button" data-cfg-res="medium" onclick="selectCfgOption('res', 'medium')" class="cfg-btn flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-700 bg-slate-800/50 hover:bg-slate-700/60 transition-all text-center"><i class="fa-solid fa-gauge-simple text-blue-400 text-sm mb-1"></i><span class="text-xs font-bold">Chuẩn</span><span class="text-[10px] text-slate-400">1.0x Cân bằng</span></button>
+                            <button type="button" data-cfg-res="high" onclick="selectCfgOption('res', 'high')" class="cfg-btn flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-700 bg-slate-800/50 hover:bg-slate-700/60 transition-all text-center"><i class="fa-solid fa-wand-magic-sparkles text-cyan-300 text-sm mb-1"></i><span class="text-xs font-bold text-cyan-300">Cao</span><span class="text-[10px] text-slate-400">Mặc định</span></button>
+                            <button type="button" data-cfg-res="ultra" onclick="selectCfgOption('res', 'ultra')" class="cfg-btn flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-700 bg-slate-800/50 hover:bg-slate-700/60 transition-all text-center"><i class="fa-solid fa-gem text-purple-400 text-sm mb-1"></i><span class="text-xs font-bold text-purple-300">Cực Nét</span><span class="text-[10px] text-slate-400">Max 2K/4K</span></button>
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label class="text-xs font-bold text-slate-300 flex items-center justify-between">
+                            <span class="flex items-center gap-1.5"><i class="fa-solid fa-up-right-and-down-left-from-center text-emerald-400"></i> Kích Cỡ Giao Diện (UI Scale)</span>
+                            <span class="text-[10px] text-slate-400 font-normal">Độ lớn thanh công cụ & đồ thị</span>
+                        </label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button type="button" data-cfg-scale="compact" onclick="selectCfgOption('scale', 'compact')" class="cfg-btn flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-700 bg-slate-800/50 hover:bg-slate-700/60 transition-all text-center"><i class="fa-solid fa-compress text-cyan-300 text-sm mb-1"></i><span class="text-xs font-bold">Nhỏ Gọn</span><span class="text-[10px] text-slate-400">Đồ thị rộng</span></button>
+                            <button type="button" data-cfg-scale="standard" onclick="selectCfgOption('scale', 'standard')" class="cfg-btn flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-700 bg-slate-800/50 hover:bg-slate-700/60 transition-all text-center"><i class="fa-solid fa-desktop text-emerald-400 text-sm mb-1"></i><span class="text-xs font-bold">Vừa Vặn</span><span class="text-[10px] text-slate-400">Chuẩn tầm mắt</span></button>
+                            <button type="button" data-cfg-scale="large" onclick="selectCfgOption('scale', 'large')" class="cfg-btn flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-700 bg-slate-800/50 hover:bg-slate-700/60 transition-all text-center"><i class="fa-solid fa-expand text-amber-300 text-sm mb-1"></i><span class="text-xs font-bold">To Rõ</span><span class="text-[10px] text-slate-400">Nút & Chữ to</span></button>
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label class="text-xs font-bold text-slate-300 flex items-center justify-between">
+                            <span class="flex items-center gap-1.5"><i class="fa-solid fa-image text-amber-400"></i> Chất Lượng Xuất Ảnh (PNG)</span>
+                            <span class="text-[10px] text-slate-400 font-normal">Độ phân giải khi bấm "Lưu Ảnh"</span>
+                        </label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button type="button" data-cfg-exp="hd" onclick="selectCfgOption('exp', 'hd')" class="cfg-btn flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-700 bg-slate-800/50 hover:bg-slate-700/60 transition-all text-center"><span class="text-xs font-bold">HD 720p</span><span class="text-[10px] text-slate-400">File nhẹ</span></button>
+                            <button type="button" data-cfg-exp="fhd" onclick="selectCfgOption('exp', 'fhd')" class="cfg-btn flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-700 bg-slate-800/50 hover:bg-slate-700/60 transition-all text-center"><span class="text-xs font-bold text-cyan-300">Full HD 1080p</span><span class="text-[10px] text-slate-400">Tiêu chuẩn</span></button>
+                            <button type="button" data-cfg-exp="4k" onclick="selectCfgOption('exp', '4k')" class="cfg-btn flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-700 bg-slate-800/50 hover:bg-slate-700/60 transition-all text-center"><span class="text-xs font-bold text-purple-300">2K / 4K</span><span class="text-[10px] text-slate-400">Sắc nét</span></button>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between border-t border-slate-700/60 pt-3 mt-1">
+                        <button type="button" onclick="resetToDefaultSettings()" class="text-xs text-slate-400 hover:text-rose-400 transition-colors flex items-center gap-1 font-semibold"><i class="fa-solid fa-rotate-left"></i> Khôi phục mặc định</button>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="closeSettingsModal()" class="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-all">Hủy</button>
+                            <button type="button" onclick="applyAndCloseSettings()" class="px-4 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white text-xs font-bold shadow-md transition-all flex items-center gap-1.5"><i class="fa-solid fa-check"></i> Lưu & Áp Dụng</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(m);
+            m._tempSettings = { ...cur };
+            window.highlightSelectedOptions(m._tempSettings);
+            m.addEventListener('click', (e) => { if (e.target === m) window.closeSettingsModal(); });
+        };
+        window.selectCfgOption = function(t, v) {
+            const m = document.getElementById('globalSettingsModal');
+            if (!m || !m._tempSettings) return;
+            if (t === 'res') m._tempSettings.resolution = v;
+            else if (t === 'scale') m._tempSettings.uiScale = v;
+            else if (t === 'exp') m._tempSettings.exportQuality = v;
+            window.highlightSelectedOptions(m._tempSettings);
+        };
+        window.highlightSelectedOptions = function(s) {
+            document.querySelectorAll('[data-cfg-res]').forEach(el => {
+                const sel = el.dataset.cfgRes === s.resolution;
+                el.classList.toggle('border-cyan-400', sel); el.classList.toggle('bg-cyan-500/20', sel); el.classList.toggle('text-cyan-200', sel);
+            });
+            document.querySelectorAll('[data-cfg-scale]').forEach(el => {
+                const sel = el.dataset.cfgScale === s.uiScale;
+                el.classList.toggle('border-emerald-400', sel); el.classList.toggle('bg-emerald-500/20', sel); el.classList.toggle('text-emerald-200', sel);
+            });
+            document.querySelectorAll('[data-cfg-exp]').forEach(el => {
+                const sel = el.dataset.cfgExp === s.exportQuality;
+                el.classList.toggle('border-purple-400', sel); el.classList.toggle('bg-purple-500/20', sel); el.classList.toggle('text-purple-200', sel);
+            });
+        };
+        window.resetToDefaultSettings = function() {
+            const m = document.getElementById('globalSettingsModal');
+            if (!m) return;
+            m._tempSettings = { ...DEFAULT_SETTINGS };
+            window.highlightSelectedOptions(m._tempSettings);
+        };
+        window.applyAndCloseSettings = function() {
+            const m = document.getElementById('globalSettingsModal');
+            if (m && m._tempSettings) window.saveAppSettings(m._tempSettings);
+            window.closeSettingsModal();
+        };
+        window.closeSettingsModal = function() {
+            const m = document.getElementById('globalSettingsModal');
+            if (m) m.remove();
+        };
+        window.addEventListener('storage', (e) => {
+            if (e.key === MATH_SETTINGS_KEY && e.newValue) {
+                try { window.applyAppSettings(JSON.parse(e.newValue)); } catch (err) {}
+            }
+        });
+        window.addEventListener('DOMContentLoaded', () => { window.applyAppSettings(); });
+    })();
+    </script>
 </head>
 <body class="select-none">
 
@@ -216,7 +378,7 @@
               <div>
                   <div class="flex items-center gap-1.5">
                       <h1 class="font-bold text-xs text-slate-100 tracking-wide leading-tight">Khảo Sát Đồ Thị 2D</h1>
-                      <span class="px-1.5 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 font-mono text-[9px] font-bold border border-cyan-500/30">v1.0.4</span>
+                      <span class="px-1.5 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 font-mono text-[9px] font-bold border border-cyan-500/30">v1.0.5</span>
                   </div>
                   <p class="text-[10px] text-cyan-400 font-medium leading-none mt-0.5">Hỗ Trợ Tiệm Cận, Đạo Hàm y', y'' & Tiếp Tuyến</p>
               </div>
@@ -419,8 +581,17 @@
                     <button onclick="loadPreset('rational')" class="p-2.5 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/40 text-purple-300 text-xs font-semibold transition-all">
                         y = (2x - 1)/(x + 1)
                     </button>
+                    <button onclick="loadPreset('param_m')" class="p-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-semibold transition-all col-span-2 flex items-center justify-center gap-1.5" title="Khảo sát biến thiên tham số m">
+                        <i class="fa-solid fa-sliders text-amber-400"></i> y = x³ - 3mx + 1 (Tham số m)
+                    </button>
+                    </div> <!--
+                    </button>
+                    
+                        y = (2x - 1)/(x + 1)
+                    </button>
                 </div>
 
+                -->
                 <!-- Tọa độ con trỏ chuột -->
                 <div class="mb-4 p-2.5 rounded-xl bg-slate-800/40 border border-slate-700/50 flex items-center justify-between text-xs">
                     <span class="text-slate-400 font-medium"><i class="fa-solid fa-crosshairs text-cyan-400 mr-1"></i> Tọa độ:</span>
@@ -2408,6 +2579,8 @@ function togglePlayParam() {
                 addFunction('x^3 - 3*x + 1', '#818cf8');
             } else if (type === 'rational') {
                 addFunction('(2*x - 1)/(x + 1)', '#c084fc');
+            } else if (type === 'param_m') {
+                addFunction('x^3 - 3*m*x + 1', '#f59e0b');
             }
             autoFindKeyPoints();
         }
@@ -2627,7 +2800,7 @@ function togglePlayParam() {
             if (!text) return;
 
             const { cleanExpr, domain } = extractIntervalAndCleanExpr(text);
-            const directMath = cleanExpr.match(/^(y\s*=\s*)?([0-9x\s\+\-\*\/\^\(\)\.\b(sin|cos|tan|sqrt|abs|pi|Math\.PI)\bπ]+)$/i);
+            const directMath = cleanExpr.match(/^(y\s*=\s*)?([0-9xm\s\+\-\*\/\^\(\)\.\b(sin|cos|tan|sqrt|abs|pi|Math\.PI)\bπ]+)$/i);
             
             if (directMath) {
                 pushUndo();
@@ -2646,6 +2819,7 @@ function togglePlayParam() {
                 const systemPrompt = `Bạn là trợ lý toán học giải tích 2D.
 Nhiệm vụ: Trích xuất hàm số y=f(x), khoảng/đoạn vẽ (domain [min, max] nếu có) và các điểm/tiếp tuyến.
 Hỗ trợ chuyển đổi số Pi thành giá trị thập phân (pi = 3.14159, 2pi = 6.28318, -pi = -3.14159).
+Hỗ trợ tham số m (giữ nguyên m trong expr khi biểu thức chứa tham số m, ví dụ "x^3 - 3*m*x + 1").
 Chỉ trả về JSON thuần túy theo cấu trúc:
 {
   "functions": [
