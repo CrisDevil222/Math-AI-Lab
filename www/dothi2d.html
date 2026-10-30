@@ -73,14 +73,24 @@
     #topbar {
         display: flex;
         align-items: center;
-        justify-content: space-between;
+        justify-content: flex-start;
         gap: .5rem;
         padding: .35rem .75rem;
-        flex-wrap: nowrap;
+        flex-wrap: wrap;
+        max-width: 100%;
+        box-sizing: border-box;
     }
-    #topbar > header { order: 1; flex: none; }
-    #toolbar { order: 2; flex: none; }
-    #paramControlPanel { order: 3; flex: none; }
+    #topbar > header { order: 1; flex: none; max-width: 100%; }
+    /* Thanh công cụ co lại được và tự cuộn ngang nếu thiếu chỗ; thanh tham số m luôn nằm trọn trong màn hình */
+    #toolbar { order: 2; flex: 1 1 0; min-width: 0; max-width: 100%; }
+    #toolbar > div { overflow-x: auto; overflow-y: hidden; max-width: 100%; scrollbar-width: thin; }
+    #paramControlPanel { order: 3; flex: none; max-width: 100%; box-sizing: border-box; flex-wrap: wrap; row-gap: .25rem; margin-left: auto; }
+    /* Khi hàng không đủ rộng: toolbar xuống dòng riêng, thanh m ở dòng cuối, canh phải */
+    @media (max-width: 1500px) {
+        #toolbar { flex: 1 1 100%; order: 4; }
+        #paramControlPanel { order: 2; }
+        .tb-label { display: none; }
+    }
     .tb-group {
         display: flex; align-items: center; gap: .25rem;
         padding-right: .5rem; margin-right: .25rem;
@@ -378,7 +388,7 @@
               <div>
                   <div class="flex items-center gap-1.5">
                       <h1 class="font-bold text-xs text-slate-100 tracking-wide leading-tight">Khảo Sát Đồ Thị 2D</h1>
-                      <span class="px-1.5 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 font-mono text-[9px] font-bold border border-cyan-500/30">v1.0.6.1</span>
+                      <span class="px-1.5 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 font-mono text-[9px] font-bold border border-cyan-500/30">v1.0.7</span>
                   </div>
                   <p class="text-[10px] text-cyan-400 font-medium leading-none mt-0.5">Hỗ Trợ Tiệm Cận, Đạo Hàm y', y'' & Tiếp Tuyến</p>
               </div>
@@ -616,6 +626,15 @@
                     <button onclick="loadPreset('param_m')" class="p-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-semibold transition-all col-span-2 flex items-center justify-center gap-1.5" title="Khảo sát biến thiên tham số m">
                         <i class="fa-solid fa-sliders text-amber-400"></i> y = x³ - 3mx + 1 (Tham số m)
                     </button>
+                    <button onclick="loadPreset('ineq_quad')" class="p-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-semibold transition-all" title="Miền nghiệm của bất phương trình hai ẩn">
+                        y &gt; x² − 1
+                    </button>
+                    <button onclick="loadPreset('ineq_x')" class="p-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-semibold transition-all" title="Tập nghiệm của bất phương trình một ẩn">
+                        x² − 3x + 2 &gt; 0
+                    </button>
+                    <button onclick="loadPreset('ineq_system')" class="p-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-semibold transition-all col-span-2 flex items-center justify-center gap-1.5" title="Hệ bất phương trình bậc nhất hai ẩn: miền nghiệm là đa giác">
+                        <i class="fa-solid fa-fill-drip text-emerald-400"></i> Hệ: x,y ≥ 0; x + y ≤ 4; x ≤ 3
+                    </button>
                     </div> <!--
                     </button>
                     
@@ -649,6 +668,19 @@
                     <span id="intersectionCount" class="font-mono text-[11px]"></span>
                 </button>
 
+                <div class="flex items-center justify-between mb-2">
+                    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-fill-drip text-emerald-400"></i> Bất Phương Trình
+                    </h2>
+                    <button onclick="promptAddInequality()" class="text-xs text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1" title="Thêm bất phương trình / hệ bất phương trình (cách nhau dấu ;)">
+                        <i class="fa-solid fa-plus"></i> Thêm BPT
+                    </button>
+                </div>
+                <div id="ineqList" class="space-y-1.5 mb-2 max-h-[150px] overflow-y-auto pr-1">
+                    <div class="text-center text-xs text-slate-500 py-2">Chưa có bất phương trình nào.</div>
+                </div>
+                <div id="ineqSummary" class="hidden mb-4 p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-100 leading-relaxed"></div>
+
                 <hr class="border-slate-700/50 mb-3">
 
                 <!-- Danh sách điểm đánh dấu -->
@@ -662,6 +694,9 @@
                 </div>
                 <button onclick="findSymmetryCenter()" class="w-full mb-2 py-1.5 px-3 rounded-xl border border-orange-500/50 bg-orange-500/10 hover:bg-orange-500/20 text-orange-300 text-xs font-semibold transition-all flex items-center justify-center gap-1.5" title="Tìm tâm đối xứng của đồ thị (phím S)">
                     <i class="fa-solid fa-circle-dot"></i> Tìm tâm đối xứng
+                </button>
+                <button onclick="autoFindInflectionPoints()" class="w-full mb-2 py-1.5 px-3 rounded-xl border border-fuchsia-500/50 bg-fuchsia-500/10 hover:bg-fuchsia-500/20 text-fuchsia-300 text-xs font-semibold transition-all flex items-center justify-center gap-1.5" title="Tự động tìm điểm uốn: y'' đổi dấu (phím U)">
+                    <i class="fa-solid fa-wave-square"></i> Tìm điểm uốn
                 </button>
 
                 <div id="pointsList" class="flex-1 min-h-[90px] max-h-[130px] overflow-y-auto space-y-1.5 pr-1 mb-4">
@@ -715,10 +750,15 @@
             <button type="button" onclick="insertSymbol('sqrt(')" class="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 font-bold border border-slate-700">√x</button>
             <button type="button" onclick="insertSymbol('abs(')" class="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 font-bold border border-slate-700">|x|</button>
             <button type="button" onclick="insertSymbol('/')" class="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold border border-slate-700">/</button>
+            <button type="button" onclick="insertSymbol(' ≤ ')" class="px-2 py-0.5 rounded-lg bg-emerald-950/70 hover:bg-emerald-900 text-emerald-300 font-bold border border-emerald-700/60" title="Nhỏ hơn hoặc bằng">≤</button>
+            <button type="button" onclick="insertSymbol(' ≥ ')" class="px-2 py-0.5 rounded-lg bg-emerald-950/70 hover:bg-emerald-900 text-emerald-300 font-bold border border-emerald-700/60" title="Lớn hơn hoặc bằng">≥</button>
+            <button type="button" onclick="insertSymbol(' < ')" class="px-2 py-0.5 rounded-lg bg-emerald-950/70 hover:bg-emerald-900 text-emerald-300 font-bold border border-emerald-700/60" title="Nhỏ hơn">&lt;</button>
+            <button type="button" onclick="insertSymbol(' > ')" class="px-2 py-0.5 rounded-lg bg-emerald-950/70 hover:bg-emerald-900 text-emerald-300 font-bold border border-emerald-700/60" title="Lớn hơn">&gt;</button>
+            <button type="button" onclick="insertSymbol('; ')" class="px-2 py-0.5 rounded-lg bg-emerald-950/70 hover:bg-emerald-900 text-emerald-300 font-bold border border-emerald-700/60" title="Ngăn cách các bất phương trình trong hệ">;</button>
         </div>
 
         <div class="flex flex-wrap items-stretch gap-2">
-            <input type="text" id="aiCommandInput" placeholder="Nhập hàm số (VD: y = (2x - 1)/(x + 1), y = x^3 - 3x + 1, y = sin(x)...)" 
+            <input type="text" id="aiCommandInput" placeholder="Nhập hàm số hoặc bất phương trình (VD: y = (2x - 1)/(x + 1), y > x^2 - 1, x + y <= 4; x >= 0...)" 
                    onkeydown="if(event.key === 'Enter') handleCommandSubmit()"
                    class="flex-1 min-w-[10rem] bg-slate-900/80 border border-slate-700 text-white placeholder-slate-500 text-xs px-3 py-2 rounded-xl outline-none focus:border-cyan-500 transition-colors">
             
@@ -823,6 +863,7 @@ function togglePlayParam() {
     }
 }
         let parameters = { m: 1.0 };
+        let trackInflection = false; // true sau khi bấm "Tìm điểm uốn": điểm uốn chạy theo m
         let trackExtrema = false; // true sau khi bấm "Tự tìm cực trị": điểm cực trị chạy theo m
 
         // Đặt khoảng chạy của m: điểm đầu -> điểm cuối (tự hoán đổi nếu nhập ngược)
@@ -857,6 +898,8 @@ function togglePlayParam() {
             });
 
             if (trackExtrema && functionsData.some(f => f.hasParam)) refreshExtremaPoints();
+            if (trackInflection && functionsData.some(f => f.hasParam)) refreshInflectionPoints();
+            if (inequalitiesData.some(q => q.hasParam)) recomputeIneqAnalysis();
 
             render();
             if (variationOpen) renderVariationTable();
@@ -990,6 +1033,14 @@ function togglePlayParam() {
         let functionsData = [];
         let pointsData = [];
         let specialLines = [];
+        // Bất phương trình / miền nghiệm
+        let inequalitiesData = [];
+        let ineqXIntervals = null;   // tập nghiệm trên trục Ox (khi mọi BPT chỉ chứa x)
+        let ineqVertices = [];       // đỉnh của miền nghiệm (hệ BPT bậc nhất hai ẩn)
+        let ineqSettleTimer = null;
+        const ineqBuf = { cv: null, cx: null, img: null, u32: null, mask: null, W: 0, H: 0 };
+        const ineqColors = ['#38bdf8', '#fb7185', '#a855f7', '#facc15', '#fb923c', '#2dd4bf'];
+        const INEQ_MAX = 12;
 
         let undoStack = [];
         const MAX_UNDO = 15;
@@ -1159,7 +1210,7 @@ function togglePlayParam() {
         function mathToJs(s) {
             const FN = { sqrt: 'Math.sqrt', sin: 'Math.sin', cos: 'Math.cos', tan: 'Math.tan', abs: 'Math.abs',
                          exp: 'Math.exp', ln: 'Math.log', log: 'Math.log10' };
-            const NAMES = ['sqrt', 'sin', 'cos', 'tan', 'abs', 'exp', 'log', 'ln', 'pi', 'e', 'x', 't', 'm'];
+            const NAMES = ['sqrt', 'sin', 'cos', 'tan', 'abs', 'exp', 'log', 'ln', 'pi', 'e', 'x', 'y', 't', 'm'];
             const toks = [];
             let i = 0;
             while (i < s.length) {
@@ -1216,7 +1267,7 @@ function togglePlayParam() {
                 const k = toks[p++];
                 if (!k) throw new Error('end');
                 if (k.t === 'num') return k.v;
-                if (k.t === 'id') return k.v === 'pi' ? 'Math.PI' : k.v === 'e' ? 'Math.E' : (k.v === 'm' ? 'm' : 'x');
+                if (k.t === 'id') return k.v === 'pi' ? 'Math.PI' : k.v === 'e' ? 'Math.E' : (k.v === 'm' ? 'm' : (k.v === 'y' ? 'y' : 'x'));
                 if (k.t === 'fn') {
                     if (isOp('(')) { p++; const a = expr(); if (!isOp(')')) throw new Error(')'); p++; return FN[k.v] + '(' + a + ')'; }
                     return FN[k.v] + '(' + power() + ')';
@@ -1411,7 +1462,7 @@ function togglePlayParam() {
             const width = canvas.width;
             const height = canvas.height;
 
-            specialLines.forEach(line => {
+            specialLines.concat(getNumericAsymptoteLines()).forEach(line => {
                 if (line.type === 'hole') {
                     const hx = toCanvasX(line.x0), hy = toCanvasY(line.y0);
                     ctx.setLineDash([]);
@@ -1778,6 +1829,7 @@ function togglePlayParam() {
 
         function render() {
             drawGridAndAxes();
+            drawInequalities();
             computeIntersections();
             drawCurves();
             drawDiscussKLine();
@@ -1972,6 +2024,129 @@ function togglePlayParam() {
             return out;
         }
 
+        // ==========================================
+        // ĐIỂM UỐN TỰ ĐỘNG: điểm mà y'' đổi dấu (đồ thị đổi chiều lồi - lõm)
+        // ==========================================
+        function findInflectionList(item) {
+            const fn = item.parsedFn;
+            const MAX_POINTS = 40;
+            const N = 8000;
+            const EPS = 1e-6;           // |y''| nhỏ hơn ngưỡng này coi như 0 (hàm bậc nhất, hằng...)
+            const f2 = (x) => {
+                const h = 1e-3 * (1 + Math.abs(x));
+                const a = fn(x - h), b = fn(x), c = fn(x + h);
+                if (!isFinite(a) || !isFinite(b) || !isFinite(c)) return NaN;
+                return (a - 2 * b + c) / (h * h);
+            };
+
+            let lo = -10, hi = 10;
+            try {
+                if (typeof toMathX === 'function' && canvas && canvas.width) {
+                    const xL = toMathX(0), xR = toMathX(canvas.width);
+                    const pad = Math.max(2, Math.abs(xR - xL) * 0.05);
+                    lo = Math.min(xL, xR) - pad;
+                    hi = Math.max(xL, xR) + pad;
+                }
+            } catch (e) {}
+            lo = Math.max(-200, lo);
+            hi = Math.min(200, hi);
+            if (item.domain) {
+                if (isFinite(item.domain.min)) lo = Math.max(lo, item.domain.min);
+                if (isFinite(item.domain.max)) hi = Math.min(hi, item.domain.max);
+            }
+            if (!(hi > lo)) return [];
+
+            const sgn = (d) => (d > EPS ? 1 : (d < -EPS ? -1 : 0));
+            const out = [];
+            const dx = (hi - lo) / N;
+            let prevX = null, prevSign = 0;
+
+            for (let i = 0; i <= N; i++) {
+                const x = lo + i * dx;
+                const d = f2(x);
+                if (!isFinite(d)) { prevX = null; prevSign = 0; continue; }   // ngoài miền xác định: ngắt đoạn
+                const sg = sgn(d);
+                if (sg === 0) continue;
+                if (prevSign !== 0 && sg !== prevSign) {
+                    let a = prevX, b = x, sa = prevSign, ok = true;
+                    for (let k = 0; k < 60; k++) {
+                        const m = (a + b) / 2;
+                        const dm = f2(m);
+                        if (!isFinite(dm)) { ok = false; break; }
+                        if (dm === 0) { a = b = m; break; }
+                        if (Math.sign(dm) === sa) a = m; else b = m;
+                    }
+                    if (ok) {
+                        const xe = (a + b) / 2;
+                        const ye = fn(xe);
+                        const yA = fn(prevX), yB = fn(x);
+                        // Loại tiệm cận đứng (y'' đổi dấu qua cực điểm): tại đó hàm không xác định hoặc |y| phình to
+                        const scale = Math.max(Math.abs(yA), Math.abs(yB), 1);
+                        if (isFinite(ye) && isFinite(yA) && isFinite(yB) && Math.abs(ye) <= 10 * scale) {
+                            out.push({ name: 'U', x: xe, y: ye, color: '#e879f9' });
+                        }
+                    }
+                }
+                prevX = x;
+                prevSign = sg;
+            }
+
+            // Công thức tính y'' lấy 3 điểm quanh x nên "đổi dấu giả" xuất hiện sát tiệm cận đứng (VD tan x): loại các điểm đó
+            if (out.length) {
+                let poles = [];
+                try { poles = findFnPoles(fn, lo, hi); } catch (e) {}
+                if (poles.length) {
+                    for (let k = out.length - 1; k >= 0; k--) {
+                        const xe = out[k].x;
+                        if (poles.some(q => Math.abs(q - xe) < 4e-3 * (1 + Math.abs(xe)))) out.splice(k, 1);
+                    }
+                }
+            }
+
+            if (out.length > MAX_POINTS) {
+                out.sort((p, q) => Math.abs(p.x) - Math.abs(q.x));
+                out.length = MAX_POINTS;
+            }
+            out.sort((p, q) => p.x - q.x);
+            return out;
+        }
+
+        function isInflectionPoint(p) {
+            return p && p.autoFound && p.name === 'U';
+        }
+
+        // Tính lại điểm uốn khi m đổi: điểm dời theo, hết điểm uốn thì điểm tự mất
+        function refreshInflectionPoints() {
+            const keep = pointsData.filter(p => !isInflectionPoint(p));
+            if (functionsData.length > 0) {
+                findInflectionList(functionsData[0]).forEach(e => {
+                    keep.push({ id: 'pt_' + Math.random().toString(36).substr(2, 9), name: e.name, x: e.x, y: e.y, color: e.color, autoFound: true });
+                });
+            }
+            pointsData = keep;
+            renderPointsList();
+        }
+
+        function autoFindInflectionPoints() {
+            if (functionsData.length === 0) {
+                appAlert("Hãy nhập ít nhất một hàm số trước!");
+                return;
+            }
+            pushUndo();
+            trackInflection = true;
+            const item = functionsData[0];
+            pointsData = pointsData.filter(p => !isInflectionPoint(p));
+            const list = findInflectionList(item);
+            list.forEach(e => addPoint(e.name, e.x, e.y, e.color, true));
+            if (list.length === 0) {
+                renderPointsList();
+                render();
+                showInfoToast(`<i class="fa-solid fa-circle-info text-orange-400"></i> Hàm số <span class="font-mono text-white">y = ${escapeHtml(item.rawExpr)}</span> không có điểm uốn trong khoảng xét.`);
+            } else {
+                showInfoToast(`<i class="fa-solid fa-wave-square text-fuchsia-400"></i> Điểm uốn: ` + list.slice(0, 3).map(c => `U(${c.x.toFixed(2)}; ${c.y.toFixed(2)})`).join(', ') + (list.length > 3 ? ` và ${list.length - 3} điểm nữa` : ''));
+            }
+        }
+
         function isExtremaPoint(p) {
             return p && p.autoFound && (p.name === "CĐ" || p.name === "CT");
         }
@@ -2042,7 +2217,7 @@ function togglePlayParam() {
             if (isFinite(dmin) && isFinite(dmax)) cands.push((dmin + dmax) / 2);
             cands.push(0);
 
-            specialLines.forEach(l => { if (l.isVertical) cands.push(l.x0); });
+            getNumericAsymptoteLines().forEach(l => { if (l.isVertical && l.fnId === item.id) cands.push(l.x0); });
 
             const step = 0.04;
             let lastS = numericalSecondDerivative(fn, scanMin);
@@ -2229,7 +2404,7 @@ function togglePlayParam() {
 
             const mX = toMathX(mouseX);
             const mY = toMathY(mouseY);
-            document.getElementById('coordDisplay').textContent = `(${mX.toFixed(2)}, ${mY.toFixed(2)})`;
+            updateCoordDisplay(mX, mY);
 
             if (pointDrag) {
                 movePointDrag(mouseX, mouseY);
@@ -2340,7 +2515,7 @@ function togglePlayParam() {
 
                 const mX = toMathX(mouseX);
                 const mY = toMathY(mouseY);
-                document.getElementById('coordDisplay').textContent = `(${mX.toFixed(2)}, ${mY.toFixed(2)})`;
+                updateCoordDisplay(mX, mY);
 
                 const dx = mouseX - lastTouchPan.x;
                 const dy = mouseY - lastTouchPan.y;
@@ -2485,6 +2660,7 @@ function togglePlayParam() {
             });
 
             detectAsymptotes(exprToCompile, assignedColor);
+            specialLines = specialLines.filter(l => l.type !== 'asymptote');   // tiệm cận được tính bằng số lúc vẽ
 
             if (variationFnIdx !== -1) variationFnIdx = functionsData.length - 1;
             renderFunctionsList();
@@ -2671,7 +2847,8 @@ function togglePlayParam() {
                     showY2: f.showY2
                 })),
                 points: pointsData,
-                lines: specialLines
+                lines: specialLines,
+                ineqs: inequalitiesData.map(q => ({ raw: q.raw, color: q.color, visible: q.visible }))
             }));
             if (undoStack.length > MAX_UNDO) undoStack.shift();
             document.getElementById('btnUndo').disabled = false;
@@ -2693,7 +2870,8 @@ function togglePlayParam() {
                     item.showY2 = !!f.showY2;
                 }
             });
-            specialLines = state.lines || [];
+            specialLines = (state.lines || []).filter(l => l.type !== 'asymptote');
+            restoreInequalities(state.ineqs || []);
             renderFunctionsList();
             render();
             renderPointsList();
@@ -3072,14 +3250,18 @@ function togglePlayParam() {
         function clearAllData() {
             pushUndo();
             trackExtrema = false;
+            trackInflection = false;
             clearMinMaxPoints(true);
             toggleDiscussK(false);
             functionsData = [];
             pointsData = [];
             specialLines = [];
+            inequalitiesData = [];
             pointNameIdx = 0;
             renderFunctionsList();
             renderPointsList();
+            renderIneqList();
+            recomputeIneqAnalysis();
             render();
         }
 
@@ -3095,6 +3277,15 @@ function togglePlayParam() {
                 addFunction('(2*x - 1)/(x + 1)', '#c084fc');
             } else if (type === 'param_m') {
                 addFunction('x^3 - 3*m*x + 1', '#f59e0b');
+            } else if (type === 'ineq_quad') {
+                addInequalitiesFromText('y > x^2 - 1');
+                return;
+            } else if (type === 'ineq_system') {
+                addInequalitiesFromText('x >= 0; y >= 0; x + y <= 4; x <= 3');
+                return;
+            } else if (type === 'ineq_x') {
+                addInequalitiesFromText('x^2 - 3x + 2 > 0');
+                return;
             }
             autoFindKeyPoints();
         }
@@ -3104,7 +3295,7 @@ function togglePlayParam() {
         // ==========================================
         function saveProjectToFile() {
             const projectData = {
-                version: "1.0.6.1",
+                version: "1.0.7",
                 app: "DoThi2D",
                 timestamp: new Date().toISOString(),
                 view: {
@@ -3125,7 +3316,8 @@ function togglePlayParam() {
                     visible: f.visible
                 })),
                 points: pointsData,
-                lines: specialLines
+                lines: specialLines,
+                ineqs: inequalitiesData.map(q => ({ raw: q.raw, color: q.color, visible: q.visible }))
             };
 
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(projectData, null, 2));
@@ -3185,7 +3377,8 @@ function togglePlayParam() {
                     });
 
                     pointsData = projectData.points || [];
-                    if (Array.isArray(projectData.lines)) specialLines = projectData.lines;
+                    if (Array.isArray(projectData.lines)) specialLines = projectData.lines.filter(l => l.type !== 'asymptote');
+                    restoreInequalities(projectData.ineqs || []);
 
                     renderFunctionsList();
                     renderPointsList();
@@ -3313,6 +3506,13 @@ function togglePlayParam() {
             const text = input.value.trim();
             if (!text) return;
 
+            // Bất phương trình / hệ bất phương trình / miền nghiệm (xử lý ngay, không cần AI)
+            if (/[<>≤≥]/.test(text) && addInequalitiesFromText(text)) {
+                recordCommand(text);
+                input.value = '';
+                return;
+            }
+
             const { cleanExpr, domain } = extractIntervalAndCleanExpr(text);
             const directMath = cleanExpr.match(/^(y\s*=\s*)?([0-9xm\s\+\-\*\/\^\(\)\.\b(sin|cos|tan|sqrt|abs|pi|Math\.PI)\bπ]+)$/i);
             
@@ -3334,13 +3534,15 @@ function togglePlayParam() {
 Nhiệm vụ: Trích xuất hàm số y=f(x), khoảng/đoạn vẽ (domain [min, max] nếu có) và các điểm/tiếp tuyến.
 Hỗ trợ chuyển đổi số Pi thành giá trị thập phân (pi = 3.14159, 2pi = 6.28318, -pi = -3.14159).
 Hỗ trợ tham số m (giữ nguyên m trong expr khi biểu thức chứa tham số m, ví dụ "x^3 - 3*m*x + 1").
+Bất phương trình, hệ bất phương trình, miền nghiệm: đưa TỪNG bất phương trình vào mảng "inequalities" (chuỗi có dấu <, >, <=, >=, dùng biến x, y, viết phép nhân rõ ràng bằng *), KHÔNG đưa vào "functions".
 Chỉ trả về JSON thuần túy theo cấu trúc:
 {
   "functions": [
     { "expr": "sin(x)", "min": -3.14159, "max": 3.14159 }
   ],
   "points": [{"name": "A", "x": 1, "y": -1}],
-  "tangents": [{"x0": 1}]
+  "tangents": [{"x0": 1}],
+  "inequalities": ["y > x^2 - 1", "x + y <= 4"]
 }`;
 
                 const data = await callGroqWithRetry(GROQ_API_KEY_DRAW, [
@@ -3376,6 +3578,9 @@ Chỉ trả về JSON thuần túy theo cấu trúc:
                         }
                     });
                 }
+                if (Array.isArray(res.inequalities)) {
+                    res.inequalities.forEach(t => { if (typeof t === 'string') addInequalitiesFromText(t); });
+                }
                 if (res.points) res.points.forEach(p => addPoint(p.name || "M", p.x, p.y));
                 if (res.tangents && functionsData.length > 0) {
                     res.tangents.forEach(t => {
@@ -3391,7 +3596,7 @@ Chỉ trả về JSON thuần túy theo cấu trúc:
                 }
                 {
                     const issues = checkFunctionsEvaluable(fnCountBefore);
-                    if (!(res.functions && res.functions.length) && !(res.points && res.points.length)) issues.push('AI không trả về hàm số hay điểm nào');
+                    if (!(res.functions && res.functions.length) && !(res.points && res.points.length) && !(res.inequalities && res.inequalities.length)) issues.push('AI không trả về hàm số hay điểm nào');
                     if (issues.length) logAiIssue('Kết quả AI nghi sai: ' + issues.join('; '), text, replyText);
                 }
                 recordCommand(text);
@@ -3663,6 +3868,8 @@ Thông tin đồ thị đang mở:
 ${fList}
 - Các điểm: 
 ${pList}
+- Bất phương trình: 
+${inequalitiesData.map(q => ineqDisplay(q)).join('; ') || 'Không có'}
 
 Quy định phản hồi:
 1. Trả lời súc tích, ngắn gọn (tối đa 6-8 dòng).
@@ -4638,6 +4845,665 @@ Quy định phản hồi:
             requestAnimationFrame(() => resize(true));
         }
 
+
+        // ==========================================
+        // BẤT PHƯƠNG TRÌNH & MIỀN NGHIỆM
+        // ==========================================
+        // Hỗ trợ: y > x^2 - 1 | x^2 + y^2 <= 4 | x^2 - 3x + 2 > 0 | 1 < y <= 3 | hệ: x >= 0; y >= 0; x + y <= 4
+        function ineqDisplay(q) {
+            return q.raw.replace(/<=/g, '≤').replace(/>=/g, '≥');
+        }
+
+        function parseInequalityText(text) {
+            let s = normalizeMathInput(text).replace(/≤|⩽/g, '<=').replace(/≥|⩾/g, '>=').replace(/π/g, 'pi');
+            s = s.replace(/[{}]/g, ' ').replace(/^\s*hệ\s*/, '');
+            if (!/[<>]/.test(s)) return null;
+            const pieces = s.split(/\s*(?:;|&|\n| và )\s*/).map(p => p.trim()).filter(Boolean);
+            if (!pieces.length) return null;
+            const out = [];
+            for (const piece of pieces) {
+                if (piece.replace(/<=|>=/g, '').includes('=')) return null;     // có dấu "=" thường: không phải BPT
+                const parts = piece.split(/(<=|>=|<|>)/);
+                if (parts.length !== 3 && parts.length !== 5) return null;
+                if (parts.filter((_, i) => i % 2 === 0).some(e => !e.trim())) return null;
+                out.push([parts[0], parts[1], parts[2]]);
+                if (parts.length === 5) out.push([parts[2], parts[3], parts[4]]);   // 1 < y <= 3
+            }
+            return out;
+        }
+
+        function buildInequality(lhs, op, rhs) {
+            const L = mathToJs(lhs.trim());
+            const R = mathToJs(rhs.trim());
+            const usesY = /\by\b/.test(L + ' ' + R);
+            const usesX = /\bx\b/.test(L + ' ' + R);
+            if (!usesX && !usesY) throw new Error('no variable');
+            const hasParam = /\bm\b/.test(L + ' ' + R);
+            const g = new Function('x', 'y', 'm',
+                `try { const v = (${L}) - (${R}); return (typeof v === 'number' && isFinite(v)) ? v : NaN; } catch (e) { return NaN; }`);
+            const sgn = op[0] === '>' ? 1 : -1;
+            const q = {
+                id: 'iq_' + Math.random().toString(36).substr(2, 9),
+                raw: lhs.trim() + ' ' + op + ' ' + rhs.trim(),
+                op, strict: op.length === 1, sgn, g,
+                usesX, usesY, hasParam,
+                color: '#38bdf8', visible: true
+            };
+            q.h = (x, y) => q.sgn * q.g(x, y, parameters.m);
+            return q;
+        }
+
+        function addInequalitiesFromText(text) {
+            const parsed = parseInequalityText(text);
+            if (!parsed) return false;
+            const built = [];
+            try {
+                parsed.forEach(([l, op, r]) => built.push(buildInequality(l, op, r)));
+            } catch (e) {
+                return false;
+            }
+            if (!built.length) return false;
+            pushUndo();
+            let skipped = 0;
+            built.forEach(q => {
+                if (inequalitiesData.length >= INEQ_MAX) { skipped++; return; }
+                q.color = ineqColors[inequalitiesData.length % ineqColors.length];
+                inequalitiesData.push(q);
+            });
+            if (skipped) showInfoToast(`<i class="fa-solid fa-circle-info text-orange-400"></i> Tối đa ${INEQ_MAX} bất phương trình, đã bỏ ${skipped} bất phương trình cuối.`);
+            renderIneqList();
+            recomputeIneqAnalysis();
+            render();
+            return true;
+        }
+
+        function restoreInequalities(arr) {
+            inequalitiesData = [];
+            (arr || []).forEach(r => {
+                const p = r && typeof r.raw === 'string' ? parseInequalityText(r.raw) : null;
+                if (!p || p.length !== 1) return;
+                try {
+                    const q = buildInequality(p[0][0], p[0][1], p[0][2]);
+                    q.color = r.color || ineqColors[inequalitiesData.length % ineqColors.length];
+                    q.visible = r.visible !== false;
+                    inequalitiesData.push(q);
+                } catch (e) {}
+            });
+            renderIneqList();
+            recomputeIneqAnalysis();
+        }
+
+        async function promptAddInequality() {
+            const input = await appPrompt("Nhập bất phương trình hoặc hệ (cách nhau dấu ;). VD: 'y > x^2 - 1', 'x^2 - 3x + 2 > 0', 'x >= 0; y >= 0; x + y <= 4', '1 < y <= 3':", "y > x^2 - 1");
+            if (input && input.trim()) {
+                if (!addInequalitiesFromText(input.trim())) {
+                    appAlert("Không hiểu bất phương trình này. Hãy dùng biến x, y, các dấu <, >, <=, >= và viết phép nhân rõ ràng (VD: 2*x hoặc 2x).");
+                }
+            }
+        }
+
+        function removeInequality(id) {
+            pushUndo();
+            inequalitiesData = inequalitiesData.filter(q => q.id !== id);
+            renderIneqList();
+            recomputeIneqAnalysis();
+            render();
+        }
+
+        function toggleInequalityVisible(id) {
+            const q = inequalitiesData.find(t => t.id === id);
+            if (!q) return;
+            q.visible = !q.visible;
+            renderIneqList();
+            recomputeIneqAnalysis();
+            render();
+        }
+
+        function renderIneqList() {
+            const c = document.getElementById('ineqList');
+            if (!c) return;
+            c.innerHTML = '';
+            if (!inequalitiesData.length) {
+                c.innerHTML = '<div class="text-center text-xs text-slate-500 py-2">Chưa có bất phương trình nào.</div>';
+                return;
+            }
+            inequalitiesData.forEach(q => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between gap-1.5 p-1.5 rounded-lg bg-slate-800/60 border border-slate-700/50 text-xs' + (q.visible ? '' : ' opacity-50');
+                row.innerHTML = `
+                    <div class="flex items-center gap-1.5 overflow-hidden">
+                        <button onclick="toggleInequalityVisible('${q.id}')" class="text-slate-400 hover:text-cyan-300 shrink-0 w-4" title="Ẩn / hiện">
+                            <i class="fa-solid ${q.visible ? 'fa-eye' : 'fa-eye-slash'}"></i>
+                        </button>
+                        <span class="w-3 h-3 rounded-full shrink-0" style="background-color: ${q.color}"></span>
+                        <span class="font-mono text-slate-200 truncate" title="${escapeHtml(ineqDisplay(q))}">${escapeHtml(ineqDisplay(q))}</span>
+                    </div>
+                    <button onclick="removeInequality('${q.id}')" class="text-slate-500 hover:text-rose-400 p-1 shrink-0" title="Xóa">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>`;
+                c.appendChild(row);
+            });
+        }
+
+        function pointInIneqRegion(x, y) {
+            const list = inequalitiesData.filter(q => q.visible);
+            if (!list.length) return null;
+            return list.every(q => {
+                const h = q.h(x, y);
+                return isFinite(h) && (q.strict ? h > 0 : h >= 0);
+            });
+        }
+
+        function updateCoordDisplay(x, y) {
+            const el = document.getElementById('coordDisplay');
+            if (!el) return;
+            let t = `(${x.toFixed(2)}, ${y.toFixed(2)})`;
+            const inside = pointInIneqRegion(x, y);
+            if (inside === true) t += ' ✔';
+            else if (inside === false) t += ' ✘';
+            el.textContent = t;
+            el.title = inside === null ? '' : (inside ? 'Điểm thuộc miền nghiệm' : 'Điểm không thuộc miền nghiệm');
+        }
+
+        // ---- Tập nghiệm trên trục Ox (mọi BPT chỉ chứa x): các khoảng, đoạn, nửa khoảng ----
+        function computeXIntervals(list) {
+            const lo = -200, hi = 200, N = 20000, dx = (hi - lo) / N;
+            const sat = (x) => list.every(q => {
+                const h = q.h(x, 0);
+                return isFinite(h) && (q.strict ? h > 0 : h >= 0);
+            });
+            const closedAt = (x) => list.every(q => {
+                const h = q.h(x, 0);
+                return isFinite(h) && Math.abs(h) < 1e6 && (q.strict ? h > 1e-7 : h >= -1e-7);
+            });
+            const bisect = (a, b, sa) => {
+                for (let k = 0; k < 60; k++) {
+                    const m = (a + b) / 2;
+                    if (sat(m) === sa) a = m; else b = m;
+                }
+                return (a + b) / 2;
+            };
+            const out = [];
+            let prev = sat(lo);
+            let cur = prev ? { a: -Infinity, closedA: false } : null;
+            for (let i = 1; i <= N; i++) {
+                const x = lo + i * dx;
+                const s = sat(x);
+                if (s !== prev) {
+                    const xb = bisect(x - dx, x, prev);
+                    if (s) cur = { a: xb, closedA: closedAt(xb) };
+                    else if (cur) { cur.b = xb; cur.closedB = closedAt(xb); out.push(cur); cur = null; }
+                }
+                prev = s;
+            }
+            if (cur) { cur.b = Infinity; cur.closedB = false; out.push(cur); }
+            return out;
+        }
+
+        function ineqIntervalsText(iv) {
+            if (!iv.length) return 'Vô nghiệm (∅)';
+            if (iv.length === 1 && iv[0].a === -Infinity && iv[0].b === Infinity) return 'x ∈ ℝ';
+            const n = v => vtText(fmtNum(v));
+            return 'x ∈ ' + iv.map(t => {
+                if (isFinite(t.a) && isFinite(t.b) && Math.abs(t.b - t.a) < 1e-6) return '{' + n(t.a) + '}';
+                return (t.closedA ? '[' : '(') + n(t.a) + '; ' + n(t.b) + (t.closedB ? ']' : ')');
+            }).join(' ∪ ');
+        }
+
+        // ---- Hệ bậc nhất hai ẩn: dạng a·x + b·y + c (h = ... > 0), dùng để tìm đỉnh miền nghiệm ----
+        function ineqLinearCoeffs(q) {
+            const m = parameters.m, g = q.g;
+            const c = g(0, 0, m), a = g(1, 0, m) - c, b = g(0, 1, m) - c;
+            if (![a, b, c].every(Number.isFinite)) return null;
+            if (Math.abs(a) < 1e-12 && Math.abs(b) < 1e-12) return null;
+            for (const [x, y] of [[2, 3], [-1.5, 2.2], [4, -5], [0.37, -1.9]]) {
+                const v = g(x, y, m);
+                if (!Number.isFinite(v) || Math.abs(v - (a * x + b * y + c)) > 1e-7 * (1 + Math.abs(v))) return null;
+            }
+            return { a: q.sgn * a, b: q.sgn * b, c: q.sgn * c };
+        }
+
+        function computeIneqVertices(list) {
+            const lin = list.map(ineqLinearCoeffs);
+            if (list.length < 2 || !lin.every(Boolean)) return null;
+            const tol = 1e-7;
+            const pts = [];
+            for (let i = 0; i < lin.length; i++) {
+                for (let j = i + 1; j < lin.length; j++) {
+                    const A = lin[i], B = lin[j];
+                    const det = A.a * B.b - B.a * A.b;
+                    if (Math.abs(det) < 1e-12) continue;
+                    const x = (A.b * B.c - B.b * A.c) / det;
+                    const y = (A.c * B.a - B.c * A.a) / det;
+                    if (!isFinite(x) || !isFinite(y)) continue;
+                    if (!lin.every(l => l.a * x + l.b * y + l.c >= -tol * (1 + Math.abs(l.a) + Math.abs(l.b)))) continue;
+                    if (pts.some(p => Math.hypot(p.x - x, p.y - y) < 1e-6)) continue;
+                    const open = list.some((q, k) => q.strict && Math.abs(lin[k].a * x + lin[k].b * y + lin[k].c) < tol * (1 + Math.abs(lin[k].a) + Math.abs(lin[k].b)));
+                    pts.push({ x, y, open });
+                }
+            }
+            if (pts.length > 12) pts.length = 12;
+            const cx = pts.reduce((t, p) => t + p.x, 0) / (pts.length || 1);
+            const cy = pts.reduce((t, p) => t + p.y, 0) / (pts.length || 1);
+            pts.sort((p, q) => Math.atan2(p.y - cy, p.x - cx) - Math.atan2(q.y - cy, q.x - cx));
+            pts.forEach((p, i) => { p.name = POINT_NAMES[i % POINT_NAMES.length]; });
+            return pts;
+        }
+
+        function recomputeIneqAnalysis() {
+            ineqXIntervals = null;
+            ineqVertices = [];
+            const box = document.getElementById('ineqSummary');
+            const list = inequalitiesData.filter(q => q.visible);
+            if (!box) return;
+            if (!list.length) {
+                box.classList.add('hidden');
+                box.innerHTML = '';
+                return;
+            }
+            const title = (t) => `<div class="font-bold text-emerald-300 mb-1"><i class="fa-solid fa-circle-check mr-1"></i>${t}</div>`;
+            const fmtP = (v) => vtText(fmtNum(v));
+            let html;
+            if (list.every(q => !q.usesY)) {
+                ineqXIntervals = computeXIntervals(list);
+                html = title(list.length > 1 ? 'Tập nghiệm của hệ' : 'Tập nghiệm')
+                    + `<div class="font-mono text-white break-words">${escapeHtml(ineqIntervalsText(ineqXIntervals))}</div>`
+                    + '<div class="text-[11px] text-emerald-200/70 mt-1">Phần tô xanh trên trục Ox: đầu mút đặc (●) là lấy dấu bằng, rỗng (○) là không lấy.</div>';
+            } else {
+                html = title(list.length > 1 ? `Miền nghiệm của hệ (${list.length} BPT)` : 'Miền nghiệm')
+                    + '<div>Là phần được tô màu' + (list.length > 1 ? ' xanh lá (giao của các bất phương trình). Biên nét liền: lấy dấu bằng, nét đứt: không lấy.' : '. Biên nét liền: lấy dấu bằng, nét đứt: không lấy.') + '</div>';
+                const vs = computeIneqVertices(list);
+                if (vs) {
+                    ineqVertices = vs;
+                    html += vs.length
+                        ? '<div class="mt-1.5"><span class="text-slate-300">Các đỉnh:</span> <span class="font-mono text-white">'
+                            + vs.map(p => `${p.name}(${fmtP(p.x)}; ${fmtP(p.y)})`).join(', ') + '</span></div>'
+                        : '<div class="mt-1.5 text-amber-300">Miền nghiệm không có đỉnh (rỗng hoặc không giới hạn).</div>';
+                }
+                html += '<div class="text-[11px] text-emerald-200/70 mt-1">Rê chuột trên mặt phẳng: ✔ là điểm thuộc miền nghiệm, ✘ là không thuộc.</div>';
+            }
+            box.innerHTML = html;
+            box.classList.remove('hidden');
+        }
+
+        // ---- Nối các đoạn của đường biên (marching squares) thành đường liền để nét đứt vẽ đúng ----
+        function traceIneqBoundary(h, nx, ny, cols, cs) {
+            const pt = new Map();
+            const segs = [];
+            const ok = (u, v) => !(Math.abs(u) > 1e4 && Math.abs(v) > 1e4);   // bỏ qua nhảy qua tiệm cận đứng
+            for (let j = 0; j < ny; j++) {
+                for (let i = 0; i < nx; i++) {
+                    const a = h[j * cols + i], b = h[j * cols + i + 1], c = h[(j + 1) * cols + i], d = h[(j + 1) * cols + i + 1];
+                    if (a !== a || b !== b || c !== c || d !== d) continue;
+                    const pa = a > 0, pb = b > 0, pc = c > 0, pd = d > 0;
+                    if (pa === pb && pb === pc && pc === pd) continue;
+                    const X0 = i * cs, Y0 = j * cs;
+                    const ks = [];
+                    if (pa !== pb && ok(a, b)) { const k = (j * cols + i) * 2; pt.set(k, [X0 + cs * a / (a - b), Y0]); ks.push(k); }
+                    if (pb !== pd && ok(b, d)) { const k = (j * cols + i + 1) * 2 + 1; pt.set(k, [X0 + cs, Y0 + cs * b / (b - d)]); ks.push(k); }
+                    if (pc !== pd && ok(c, d)) { const k = ((j + 1) * cols + i) * 2; pt.set(k, [X0 + cs * c / (c - d), Y0 + cs]); ks.push(k); }
+                    if (pa !== pc && ok(a, c)) { const k = (j * cols + i) * 2 + 1; pt.set(k, [X0, Y0 + cs * a / (a - c)]); ks.push(k); }
+                    if (ks.length === 2) segs.push([ks[0], ks[1]]);
+                    else if (ks.length === 4) { segs.push([ks[0], ks[1]]); segs.push([ks[2], ks[3]]); }
+                }
+            }
+            const adj = new Map();
+            segs.forEach((sg, idx) => sg.forEach(k => { if (!adj.has(k)) adj.set(k, []); adj.get(k).push(idx); }));
+            const used = new Uint8Array(segs.length);
+            const lines = [];
+            for (let s0 = 0; s0 < segs.length; s0++) {
+                if (used[s0]) continue;
+                used[s0] = 1;
+                const chain = [segs[s0][0], segs[s0][1]];
+                for (;;) {
+                    const end = chain[chain.length - 1];
+                    const nx2 = (adj.get(end) || []).find(t => !used[t]);
+                    if (nx2 === undefined) break;
+                    used[nx2] = 1;
+                    const sg = segs[nx2];
+                    chain.push(sg[0] === end ? sg[1] : sg[0]);
+                }
+                for (;;) {
+                    const st = chain[0];
+                    const nx2 = (adj.get(st) || []).find(t => !used[t]);
+                    if (nx2 === undefined) break;
+                    used[nx2] = 1;
+                    const sg = segs[nx2];
+                    chain.unshift(sg[0] === st ? sg[1] : sg[0]);
+                }
+                lines.push(chain.map(k => pt.get(k)));
+            }
+            return lines;
+        }
+
+        function packRGBA(hex, alpha) {
+            const n = parseInt(hex.slice(1), 16);
+            return (((Math.round(alpha * 255) & 255) << 24) | ((n & 255) << 16) | (((n >> 8) & 255) << 8) | ((n >> 16) & 255)) >>> 0;
+        }
+
+        function drawInequalities() {
+            const list = inequalitiesData.filter(q => q.visible);
+            if (!list.length) return;
+            const cssW = parseFloat(canvas.style.width) || canvas.width;
+            const cssH = parseFloat(canvas.style.height) || canvas.height;
+            const interacting = isDragging || !!pointDrag || !!zoomAnim || !!inertiaId || isPlayingParam;
+            const f = interacting ? 2 : 1;                 // đang kéo/zoom: tô ở độ phân giải thấp cho mượt
+            const W = Math.max(1, Math.ceil(cssW / f)), H = Math.max(1, Math.ceil(cssH / f));
+            const S = interacting ? 3 : 4;                 // cạnh ô lưới lấy mẫu (px của lớp tô)
+            const nx = Math.ceil(W / S), ny = Math.ceil(H / S), cols = nx + 1;
+            const cs = S * f;
+
+            const B = ineqBuf;
+            if (!B.cv) { B.cv = document.createElement('canvas'); B.cx = B.cv.getContext('2d'); }
+            if (B.W !== W || B.H !== H) {
+                B.cv.width = W; B.cv.height = H;
+                B.img = B.cx.createImageData(W, H);
+                B.u32 = new Uint32Array(B.img.data.buffer);
+                B.mask = new Uint16Array(W * H);
+                B.W = W; B.H = H;
+            }
+            const mask = B.mask;
+            mask.fill(0);
+
+            const xs = new Float64Array(cols), ys = new Float64Array(ny + 1);
+            for (let i = 0; i < cols; i++) xs[i] = toMathX(i * cs);
+            for (let j = 0; j <= ny; j++) ys[j] = toMathY(j * cs);
+
+            const m = parameters.m;
+            const grids = [];
+            list.forEach((q, k) => {
+                const h = new Float64Array(cols * (ny + 1));
+                for (let j = 0; j <= ny; j++) {
+                    const y = ys[j], row = j * cols;
+                    for (let i = 0; i < cols; i++) {
+                        const v = q.g(xs[i], y, m);
+                        h[row + i] = v === v ? q.sgn * v : NaN;
+                    }
+                }
+                grids.push(h);
+                const bit = 1 << k;
+                for (let j = 0; j < ny; j++) {
+                    const y0 = j * S, y1 = Math.min(H, y0 + S);
+                    for (let i = 0; i < nx; i++) {
+                        const x0 = i * S, x1 = Math.min(W, x0 + S);
+                        const a = h[j * cols + i], b = h[j * cols + i + 1], c = h[(j + 1) * cols + i], d = h[(j + 1) * cols + i + 1];
+                        if (a !== a || b !== b || c !== c || d !== d) continue;
+                        if (a > 0 && b > 0 && c > 0 && d > 0) {
+                            for (let py = y0; py < y1; py++) {
+                                const base = py * W;
+                                for (let px = x0; px < x1; px++) mask[base + px] |= bit;
+                            }
+                        } else if (a <= 0 && b <= 0 && c <= 0 && d <= 0) {
+                            continue;
+                        } else {
+                            for (let py = y0; py < y1; py++) {
+                                const v = (py + 0.5 - y0) / S;
+                                const left = a + (c - a) * v, right = b + (d - b) * v;
+                                const base = py * W;
+                                for (let px = x0; px < x1; px++) {
+                                    const u = (px + 0.5 - x0) / S;
+                                    if (left + (right - left) * u > 0) mask[base + px] |= bit;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Tô màu: một BPT -> màu của nó; nhiều BPT -> giao (miền nghiệm) màu xanh lá đậm, phần còn lại nhạt
+            const n = list.length, all = (1 << n) - 1, single = n === 1;
+            const lut = new Uint32Array(1 << n);
+            const tint = list.map(q => packRGBA(q.color, single ? 0.30 : 0.13));
+            const solid = packRGBA('#22c55e', 0.42);
+            for (let mk = 1; mk < lut.length; mk++) {
+                if (mk === all) lut[mk] = single ? tint[0] : solid;
+                else { let k = 0; while (!((mk >> k) & 1)) k++; lut[mk] = tint[k]; }
+            }
+            const u32 = B.u32, total = W * H;
+            for (let p = 0; p < total; p++) u32[p] = lut[mask[p]];
+            B.cx.putImageData(B.img, 0, 0);
+            ctx.save();
+            ctx.imageSmoothingEnabled = f > 1;
+            ctx.drawImage(B.cv, 0, 0, W, H, 0, 0, W * f, H * f);
+            ctx.restore();
+
+            // Đường biên: nét liền nếu lấy dấu "=" (≤, ≥), nét đứt nếu không (<, >)
+            ctx.save();
+            ctx.lineJoin = 'round';
+            list.forEach((q, k) => {
+                const lines = traceIneqBoundary(grids[k], nx, ny, cols, cs);
+                ctx.beginPath();
+                lines.forEach(ln => {
+                    if (ln.length < 2) return;
+                    ctx.moveTo(ln[0][0], ln[0][1]);
+                    for (let t = 1; t < ln.length; t++) ctx.lineTo(ln[t][0], ln[t][1]);
+                });
+                ctx.lineWidth = 2.2;
+                ctx.strokeStyle = q.color;
+                ctx.setLineDash(q.strict ? [8, 6] : []);
+                ctx.stroke();
+            });
+            ctx.restore();
+
+            // Tập nghiệm một ẩn: tô đậm trên trục Ox
+            if (ineqXIntervals && ineqXIntervals.length) {
+                ctx.save();
+                ctx.lineCap = 'round';
+                ctx.strokeStyle = 'rgba(34, 197, 94, 0.95)';
+                ctx.lineWidth = 6;
+                const yAxis = view.originY;
+                ineqXIntervals.forEach(t => {
+                    const a = t.a === -Infinity ? -20 : toCanvasX(t.a);
+                    const b = t.b === Infinity ? cssW + 20 : toCanvasX(t.b);
+                    ctx.beginPath();
+                    ctx.moveTo(Math.max(-20, a), yAxis);
+                    ctx.lineTo(Math.min(cssW + 20, b), yAxis);
+                    ctx.stroke();
+                });
+                ctx.lineWidth = 2.2;
+                ineqXIntervals.forEach(t => {
+                    [[t.a, t.closedA], [t.b, t.closedB]].forEach(([v, closed]) => {
+                        if (!isFinite(v)) return;
+                        const px = toCanvasX(v);
+                        if (px < -10 || px > cssW + 10) return;
+                        ctx.beginPath();
+                        ctx.arc(px, yAxis, 5.5, 0, Math.PI * 2);
+                        ctx.fillStyle = closed ? '#22c55e' : '#0b1120';
+                        ctx.fill();
+                        ctx.strokeStyle = '#22c55e';
+                        ctx.stroke();
+                    });
+                });
+                ctx.restore();
+            }
+
+            // Đỉnh của miền nghiệm (hệ bậc nhất hai ẩn)
+            if (ineqVertices.length) {
+                ctx.save();
+                ctx.font = 'bold 11px Inter, sans-serif';
+                ineqVertices.forEach(p => {
+                    const px = toCanvasX(p.x), py = toCanvasY(p.y);
+                    if (px < -40 || px > cssW + 40 || py < -40 || py > cssH + 40) return;
+                    ctx.beginPath();
+                    ctx.arc(px, py, 5.5, 0, Math.PI * 2);
+                    ctx.fillStyle = p.open ? '#0b1120' : '#22c55e';
+                    ctx.fill();
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.stroke();
+                    const text = `${p.name}(${fmtNum(p.x)}; ${fmtNum(p.y)})`;
+                    const w = ctx.measureText(text).width + 12, hh = 18;
+                    let bx = px + 9, by = py - hh - 8;
+                    if (bx + w > cssW) bx = px - w - 9;
+                    if (by < 0) by = py + 9;
+                    ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+                    ctx.strokeStyle = '#22c55e';
+                    ctx.lineWidth = 1.2;
+                    ctx.beginPath();
+                    ctx.rect(bx, by, w, hh);
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.fillStyle = '#f1f5f9';
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(text, bx + 6, by + hh / 2);
+                });
+                ctx.restore();
+            }
+
+            // Lớp tô độ phân giải thấp chỉ dùng tạm khi đang kéo/zoom: vẽ lại nét sau khi dừng
+            clearTimeout(ineqSettleTimer);
+            if (f > 1) ineqSettleTimer = setTimeout(() => render(), 140);
+        }
+
+
+        // ==========================================
+        // TIỆM CẬN (tính bằng số, áp dụng cho mọi hàm: phân thức, tan, ln, e^x, căn thức...)
+        // ==========================================
+        // Tiệm cận đứng x = x0: |f| tăng không giới hạn khi x tiến tới x0 (từ một phía hoặc cả hai phía).
+        function growsToInfinity(fn, x0, dir) {
+            const sc = 1 + Math.abs(x0);
+            const vals = [];
+            for (let k = 1; k <= 5; k++) {
+                const v = vtSafe(fn, x0 + dir * sc * Math.pow(10, -2 * k));
+                if (isNaN(v)) {
+                    // tràn số (VD e^(1/x)): vẫn coi là tiến ra vô cực nếu trước đó đã tăng rất nhanh
+                    return k >= 3 && vals[k - 2] > 20 && vals.every((t, i) => i === 0 || t >= vals[i - 1] * 1.2);
+                }
+                vals.push(Math.abs(v));
+            }
+            for (let k = 1; k < 5; k++) if (vals[k] < vals[k - 1] * 1.2) return false;   // bão hòa: không phải tiệm cận
+            return vals[4] > 20 && vals[4] > 3 * vals[0];
+        }
+
+        function findFnPoles(fn, lo, hi) {
+            if (!(hi > lo)) return [];
+            const N = 6000, dx = (hi - lo) / N;
+            const xs = new Float64Array(N + 1), ys = new Float64Array(N + 1);
+            for (let i = 0; i <= N; i++) {
+                xs[i] = i === N ? hi : lo + i * dx;
+                ys[i] = vtSafe(fn, xs[i]);
+            }
+            const cands = [];
+            for (let i = 1; i <= N; i++) {
+                const a = ys[i - 1], b = ys[i];
+                const fa = !isNaN(a), fb = !isNaN(b);
+                if (fa && fb) {
+                    if (a * b < 0) cands.push(vtRefineSignChange(fn, xs[i - 1], xs[i]).x);   // đổi dấu qua cực điểm (hoặc nghiệm: sẽ bị loại ở bước kiểm tra)
+                } else if (fa !== fb) {
+                    let f = fa ? xs[i - 1] : xs[i], n = fa ? xs[i] : xs[i - 1];               // biên của tập xác định
+                    for (let k = 0; k < 60; k++) {
+                        const m = (f + n) / 2;
+                        if (!isNaN(vtSafe(fn, m))) f = m; else n = m;
+                    }
+                    cands.push((f + n) / 2);
+                }
+                if (cands.length > 400) break;
+            }
+            for (let i = 1; i < N && cands.length <= 400; i++) {                                // cực điểm cùng dấu hai phía: 1/x^2...
+                const a = ys[i - 1], b = ys[i], c = ys[i + 1];
+                if (isNaN(a) || isNaN(b) || isNaN(c)) continue;
+                const ab = Math.abs(b);
+                if (ab > 50 && ab >= Math.abs(a) && ab >= Math.abs(c) && a * b > 0 && b * c > 0) {
+                    cands.push(vtPeakMagnitude(fn, xs[i - 1], xs[i + 1]));
+                }
+            }
+            const poles = [];
+            cands.filter(x => isFinite(x)).sort((u, v) => u - v).forEach(x => {
+                const last = poles[poles.length - 1];
+                if (last !== undefined && Math.abs(x - last) < 1e-7 * (1 + Math.abs(x))) return;
+                if (growsToInfinity(fn, x, -1) || growsToInfinity(fn, x, 1)) poles.push(x);
+            });
+            return poles;
+        }
+
+        // Tiệm cận đứng của hàm trong khung nhìn (quét rộng gấp 3 khung nhìn, lưu tạm đến khi kéo ra ngoài hoặc hàm đổi)
+        function getFnPoles(item, xv0, xv1) {
+            const fn = item.parsedFn;
+            const c = item._avCache;
+            if (c && c.fn === fn && xv0 >= c.lo && xv1 <= c.hi) return c.poles;
+            const span = Math.max(1e-6, xv1 - xv0);
+            const lo = Math.max(-5000, xv0 - span), hi = Math.min(5000, xv1 + span);
+            let a = lo, b = hi;
+            if (item.domain) {
+                if (isFinite(item.domain.min)) a = Math.max(a, item.domain.min);
+                if (isFinite(item.domain.max)) b = Math.min(b, item.domain.max);
+            }
+            item._avCache = { fn, lo, hi, poles: findFnPoles(fn, a, b) };
+            return item._avCache.poles;
+        }
+
+        // Tiệm cận ngang / xiên y = ax + b khi x → ±∞ (a = 0: ngang)
+        function findLinearAsymptotes(item) {
+            const fn = item.parsedFn;
+            const dmin = item.domain && isFinite(item.domain.min) ? item.domain.min : -Infinity;
+            const dmax = item.domain && isFinite(item.domain.max) ? item.domain.max : Infinity;
+            const res = [];
+            [1, -1].forEach(sg => {
+                if (sg > 0 && dmax !== Infinity) return;
+                if (sg < 0 && dmin !== -Infinity) return;
+                const X1 = sg * 1e5, X2 = sg * 1e6, X3 = sg * 4e5;
+                const y1 = vtSafe(fn, X1), y2 = vtSafe(fn, X2), y3 = vtSafe(fn, X3);
+                if (isNaN(y1) || isNaN(y2) || isNaN(y3)) return;
+                let a = (y2 - y1) / (X2 - X1);
+                if (!isFinite(a)) return;
+                if (Math.abs(a) < 1e-9) a = 0;
+                const b = y2 - a * X2;
+                if (!isFinite(b)) return;
+                if (Math.abs(y3 - (a * X3 + b)) > 1e-3 * (1 + Math.abs(b))) return;      // không tiến sát một đường thẳng
+                const coincide = [3.1, 11.3, 27.9, 53.1].every(t => {                      // chính là đường thẳng đó (VD y = x + 1): không phải tiệm cận
+                    const v = vtSafe(fn, sg * t);
+                    return !isNaN(v) && Math.abs(v - (a * sg * t + b)) < 1e-9 * (1 + Math.abs(v));
+                });
+                if (coincide) return;
+                res.push({ a, b });
+            });
+            if (res.length === 2 && Math.abs(res[0].a - res[1].a) < 1e-6 * (1 + Math.abs(res[0].a)) && Math.abs(res[0].b - res[1].b) < 1e-4 * (1 + Math.abs(res[0].b))) res.pop();
+            return res;
+        }
+
+        function getFnLinearAsymptotes(item) {
+            const c = item._alCache;
+            if (c && c.fn === item.parsedFn) return c.list;
+            item._alCache = { fn: item.parsedFn, list: findLinearAsymptotes(item) };
+            return item._alCache.list;
+        }
+
+        function fmtAsymLine(a, b) {
+            const kPart = Math.abs(a - 1) < 1e-9 ? 'x' : (Math.abs(a + 1) < 1e-9 ? '-x' : Number(a.toFixed(2)) + 'x');
+            const bAbs = Number(Math.abs(b).toFixed(2));
+            return bAbs === 0 ? kPart : kPart + (b >= 0 ? ' + ' : ' - ') + bAbs;
+        }
+
+        function getNumericAsymptoteLines() {
+            const out = [];
+            if (!canvas || !functionsData.length) return out;
+            const cssW = parseFloat(canvas.style.width) || canvas.width;
+            const xv0 = toMathX(0), xv1 = toMathX(cssW);
+            if (!isFinite(xv0) || !isFinite(xv1) || !(xv1 > xv0)) return out;
+            functionsData.forEach(item => {
+                if (item.visible === false || typeof item.parsedFn !== 'function') return;
+                const usePi = /\b(sin|cos|tan)\b|π|\bpi\b/i.test(String(item.rawExpr || ''));
+                let poles = [];
+                try { poles = getFnPoles(item, xv0, xv1); } catch (e) {}
+                const vis = poles.filter(p => p >= xv0 && p <= xv1);
+                vis.forEach(p => out.push({
+                    type: 'asymptote', fnId: item.id, isVertical: true, x0: p, color: '#f43f5e',
+                    label: vis.length <= 8 ? 'TCĐ: x = ' + fmtXLabel(p, usePi) : ''
+                }));
+                let lin = [];
+                try { lin = getFnLinearAsymptotes(item); } catch (e) {}
+                lin.forEach(L => {
+                    if (L.a === 0) {
+                        out.push({ type: 'asymptote', fnId: item.id, isVertical: false, x0: 0, y0: L.b, k: 0, color: '#38bdf8', label: 'TCN: y = ' + Number(L.b.toFixed(2)) });
+                    } else {
+                        out.push({ type: 'asymptote', fnId: item.id, isVertical: false, x0: 0, y0: L.b, k: L.a, color: '#a855f7', label: 'TCX: y = ' + fmtAsymLine(L.a, L.b) });
+                    }
+                });
+            });
+            return out;
+        }
+
         applyIntersectionBtnStyle();
 
         const TOOL_SHORTCUTS = ['pan', 'add_point', 'tangent', 'delete'];
@@ -4650,6 +5516,7 @@ Quy định phản hồi:
             ['/', 'Nhảy tới ô nhập hàm số'],
             ['K', 'Tự động tìm cực trị'],
             ['S', 'Tìm tâm đối xứng của đồ thị'],
+            ['U', 'Tự động tìm điểm uốn (y\'\' đổi dấu)'],
             ['B', 'Mở / đóng Bảng biến thiên'],
             ['G', 'Hiện / ẩn giao điểm các đồ thị'],
             ['Ctrl + S', 'Lưu dự án đồ thị'],
@@ -4779,6 +5646,7 @@ Quy định phản hồi:
                 case 'KeyN': e.preventDefault(); promptAddFunction(); break;
                 case 'KeyK': e.preventDefault(); autoFindKeyPoints(); break;
                 case 'KeyS': e.preventDefault(); findSymmetryCenter(); break;
+                case 'KeyU': e.preventDefault(); autoFindInflectionPoints(); break;
                 case 'KeyB': e.preventDefault(); toggleVariationTable(); break;
                 case 'KeyG': e.preventDefault(); toggleIntersections(); break;
                 case 'KeyC': e.preventDefault(); toggleFormulaChat(); break;

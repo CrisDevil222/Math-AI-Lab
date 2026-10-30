@@ -650,6 +650,23 @@ window.addEventListener('DOMContentLoaded', () => {
     applyAppSettings();
 });
     </script>
+<style>
+/* 2D (giấy): nhãn tên điểm rõ hơn, không bị nét vẽ cắt ngang (nền trắng mờ + viền chữ trắng; ảnh chụp cũng lấy nền này) */
+body.paper-mode .vertex-label {
+    background: rgba(255, 255, 255, 0.88) !important;
+    border-radius: 5px !important;
+    padding: 0 5px !important;
+    font-size: 19px !important;
+    font-weight: 800 !important;
+    line-height: 1.25 !important;
+    margin-top: 0 !important;
+    text-shadow: 0 0 3px #fff, 0 0 3px #fff;
+    z-index: 20 !important;
+}
+body.paper-mode .vertex-label.selected { color: #b45309 !important; }
+body.paper-mode .edge-length-label,
+body.paper-mode .marker-name-label { z-index: 15 !important; padding: 0 4px !important; }
+</style>
 </head>
 <body class="w-screen relative select-none" style="height: 100vh; height: 100dvh;">
 
@@ -735,7 +752,7 @@ window.addEventListener('DOMContentLoaded', () => {
             <div>
                 <div class="flex items-center gap-2">
                     <h1 class="font-bold text-base text-slate-100 tracking-wide leading-tight">Vẽ Hình Học 3D</h1>
-                    <span class="px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-mono text-[10px] font-bold border border-cyan-500/30">v1.0.6.1</span>
+                    <span class="px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-mono text-[10px] font-bold border border-cyan-500/30">v1.0.7</span>
                 </div>
                 <p class="text-xs text-cyan-400 font-medium">Hỗ Trợ Đường Tròn, Vector & Giao Diện Tương Tác</p>
             </div>
@@ -950,6 +967,7 @@ window.addEventListener('DOMContentLoaded', () => {
                             <button onclick="loadCubePreset()" title="Hình lập phương" class="sb-tile bg-indigo-500/10 hover:bg-indigo-500/20 border-indigo-500/40 text-indigo-300"><i class="fa-solid fa-cube"></i><span>Lập phương</span></button>
                             <button onclick="loadCylinderPreset()" title="Hình trụ" class="sb-tile bg-pink-500/10 hover:bg-pink-500/20 border-pink-500/40 text-pink-300"><i class="fa-solid fa-database"></i><span>Hình trụ</span></button>
                             <button onclick="loadSpherePreset()" title="Hình cầu" class="sb-tile bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/40 text-emerald-300"><i class="fa-solid fa-globe"></i><span>Hình cầu</span></button>
+                            <button onclick="promptSolidSphere()" title="Hình cầu đặc (khối cầu tô bóng, thêm vào hình hiện tại)" class="sb-tile bg-sky-500/10 hover:bg-sky-500/20 border-sky-500/40 text-sky-300"><i class="fa-solid fa-circle"></i><span>Cầu đặc</span></button>
                             <button onclick="loadConePreset()" title="Hình nón" class="sb-tile bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/40 text-amber-300"><i class="fa-solid fa-caret-up"></i><span>Hình nón</span></button>
                             <button onclick="loadTruncatedConePreset()" title="Hình nón cụt" class="sb-tile bg-orange-500/10 hover:bg-orange-500/20 border-orange-500/40 text-orange-300"><i class="fa-solid fa-bucket"></i><span>Nón cụt</span></button>
                             <button onclick="loadPyramidFrustumPreset()" title="Hình chóp cụt đều" class="sb-tile bg-sky-500/10 hover:bg-sky-500/20 border-sky-500/40 text-sky-300"><i class="fa-solid fa-layer-group"></i><span>Chóp cụt đều</span></button>
@@ -988,6 +1006,19 @@ window.addEventListener('DOMContentLoaded', () => {
                             <button onclick="promptCreateCircleByRadius()" title="Chọn tâm và nhập bán kính R" class="sb-tile bg-pink-500/10 hover:bg-pink-500/20 border-pink-500/40 text-pink-300"><i class="fa-regular fa-circle"></i><span>Vẽ tròn (R)</span></button>
                             <button onclick="promptSetEqualEdgeMarks()" title="Đặt ký hiệu cạnh bằng nhau và đặt tên" class="sb-tile bg-cyan-500/10 hover:bg-cyan-500/20 border-cyan-500/40 text-cyan-300"><i class="fa-solid fa-equals"></i><span>Cạnh bằng</span></button>
                             <button onclick="constructPerpendicularBisector()" title="Dựng đường trung trực của đoạn thẳng" class="sb-tile bg-purple-500/10 hover:bg-purple-500/20 border-purple-500/40 text-purple-300"><i class="fa-solid fa-compass"></i><span>Trung trực</span></button>
+                            <details class="sb-acc col-span-4 mt-0.5">
+                                <summary><i class="fa-solid fa-chevron-right sb-chev"></i><i class="fa-solid fa-ruler-combined text-violet-400"></i><span class="sb-sec-title">Khoảng cách, góc, điểm đặc biệt</span></summary>
+                                <div class="grid grid-cols-4 gap-1.5 pt-1.5">
+                                <button onclick="promptConstruction('point_plane',4,'K/c điểm–mp','Nhập điểm P rồi 3 điểm của mặt phẳng (VD: S A B C):','S A B C')" title="K/c điểm–mp" class="sb-tile bg-violet-500/10 hover:bg-violet-500/20 border-violet-500/40 text-violet-300"><i class="fa-solid fa-ruler-vertical"></i><span>K/c điểm–mp</span></button>
+                                <button onclick="promptConstruction('common_perp',4,'Vuông góc chung','Nhập 2 đường chéo nhau AB và CD (VD: A B C D):','A B C D')" title="Vuông góc chung" class="sb-tile bg-violet-500/10 hover:bg-violet-500/20 border-violet-500/40 text-violet-300"><i class="fa-solid fa-arrows-left-right"></i><span>Vuông góc chung</span></button>
+                                <button onclick="promptConstruction('line_plane_angle',5,'Góc đường–mp','Nhập 2 điểm của đường thẳng rồi 3 điểm của mặt phẳng (VD: S B A C D):','S B A C D')" title="Góc đường–mp" class="sb-tile bg-violet-500/10 hover:bg-violet-500/20 border-violet-500/40 text-violet-300"><i class="fa-solid fa-drafting-compass"></i><span>Góc đường–mp</span></button>
+                                <button onclick="promptConstruction('dihedral',4,'Góc nhị diện','Nhập cạnh chung AB, điểm C ở mặt phẳng 1, điểm D ở mặt phẳng 2 (VD: A B C D):','A B C D')" title="Góc nhị diện" class="sb-tile bg-violet-500/10 hover:bg-violet-500/20 border-violet-500/40 text-violet-300"><i class="fa-solid fa-book-open"></i><span>Góc nhị diện</span></button>
+                                <button onclick="promptConstruction('centroid',3,'Trọng tâm','Nhập 3 đỉnh tam giác (VD: A B C):','A B C')" title="Trọng tâm" class="sb-tile bg-violet-500/10 hover:bg-violet-500/20 border-violet-500/40 text-violet-300"><i class="fa-solid fa-weight-hanging"></i><span>Trọng tâm</span></button>
+                                <button onclick="promptConstruction('orthocenter',3,'Trực tâm','Nhập 3 đỉnh tam giác (VD: A B C):','A B C')" title="Trực tâm" class="sb-tile bg-violet-500/10 hover:bg-violet-500/20 border-violet-500/40 text-violet-300"><i class="fa-solid fa-arrows-down-to-line"></i><span>Trực tâm</span></button>
+                                <button onclick="promptConstruction('incenter',3,'Tâm nội tiếp','Nhập 3 đỉnh tam giác (VD: A B C):','A B C')" title="Tâm nội tiếp" class="sb-tile bg-violet-500/10 hover:bg-violet-500/20 border-violet-500/40 text-violet-300"><i class="fa-solid fa-circle-dot"></i><span>Tâm nội tiếp</span></button>
+                                <button onclick="promptConstruction('circumcenter',3,'Tâm ngoại tiếp','Nhập 3 đỉnh tam giác (VD: A B C):','A B C')" title="Tâm ngoại tiếp" class="sb-tile bg-violet-500/10 hover:bg-violet-500/20 border-violet-500/40 text-violet-300"><i class="fa-solid fa-bullseye"></i><span>Tâm ngoại tiếp</span></button>
+                                </div>
+                            </details>
                             <button onclick="constructPerpendicularLine()" title="Hạ đường vuông góc từ điểm xuống đường thẳng" class="sb-tile bg-indigo-500/10 hover:bg-indigo-500/20 border-indigo-500/40 text-indigo-300"><i class="fa-solid fa-angles-down"></i><span>Vuông góc</span></button>
                             <button onclick="constructParallelLine()" title="Dựng đường thẳng song song qua một điểm" class="sb-tile bg-teal-500/10 hover:bg-teal-500/20 border-teal-500/40 text-teal-300"><i class="fa-solid fa-bars"></i><span>Song song</span></button>
                             <button onclick="promptEditRightAngleLabel()" title="Đặt tên/nhãn cho góc vuông" class="sb-tile bg-rose-500/10 hover:bg-rose-500/20 border-rose-500/40 text-rose-300"><i class="fa-solid fa-square-full"></i><span>Tên góc ⊥</span></button>
@@ -4769,7 +4800,8 @@ async function constructParallelLine() {
         }
 
         function getCurrentSceneSummary() {
-            if (verticesData.length === 0) return "Hiện tại trên màn hình chưa có hình vẽ nào.";
+            const planeTxt = window.getEqPlanesText ? window.getEqPlanesText() : '';
+            if (verticesData.length === 0) return planeTxt ? ("Trên màn hình chưa có hình vẽ nào từ các đỉnh.\n" + planeTxt) : "Hiện tại trên màn hình chưa có hình vẽ nào.";
             
             const vNames = verticesData.map(v => v.name).join(", ");
             const eList = edgesData.map(e => {
@@ -4799,7 +4831,7 @@ async function constructParallelLine() {
 - Các đường tròn: ${circList || "Không có"}.
 - Các vector: ${vecList || "Không có"}.
 - Các góc vuông: ${sqList || "Không có"}.
-- Số mặt: ${facesData.length}.`;
+- Số mặt: ${facesData.length}.${planeTxt ? '\n' + planeTxt : ''}`;
         }
 
         async function sendFormulaChat() {
@@ -5024,7 +5056,9 @@ QUY TẮC BẮT BUỘC:
                 vectors: currentVectors,
                 highlights: currentHighlights,
                 edgeLengths: currentEdgeLengths,
-                angles: currentAngles
+                angles: currentAngles,
+                spheres: (window.getSolidSpheresState ? window.getSolidSpheresState() : []),
+                planes: (window.getEqPlanesInfo ? window.getEqPlanesInfo() : [])
             });
 
             const systemPrompt = `Bạn là chuyên gia hình học không gian 3D.
@@ -5076,6 +5110,15 @@ Quy tắc toán học bắt buộc:
    - Khi người dùng yêu cầu vẽ một điểm đặc biệt phụ thuộc vào điểm khác (VD: "vẽ trung điểm M của đoạn AB", "lấy M là trung điểm của AB"):
      * AI trả về đỉnh M trong mảng "vertices" và thêm thuộc tính constraint vào JSON (hoặc cấu trúc bổ trợ) dạng: {"name": "M", "pos": [x,y,z], "constraint": {"type": "midpoint", "a": "A", "b": "B"}}
      * Các loại ràng buộc hỗ trợ: {"type": "midpoint", "a": "A", "b": "B"} hoặc {"type": "projection_on_edge", "a": "A", "b": "B", "point": "S"}
+12. DỰNG KHOẢNG CÁCH, GÓC, ĐIỂM ĐẶC BIỆT (HỆ THỐNG TỰ TÍNH TỌA ĐỘ, AI KHÔNG TỰ TÍNH): khi người dùng yêu cầu các việc dưới đây thì thêm phần tử vào "constructions" (mặc định [] rỗng) và KHÔNG tự thêm các đỉnh/cạnh kết quả vào vertices/edges (hệ thống tự thêm; nhưng nếu trạng thái hiện tại đã có chúng thì GIỮ NGUYÊN). Mọi đỉnh trong "points" phải có trong vertices. "names" là tên người dùng đặt cho điểm mới (bỏ trống [] nếu không nêu):
+    - khoảng cách / hạ đường vuông góc từ điểm P xuống mặt phẳng (ABC): {"type":"point_plane","points":["P","A","B","C"],"names":["H"]}  (names = [chân đường vuông góc])
+    - đoạn vuông góc chung của hai đường chéo nhau AB và CD: {"type":"common_perp","points":["A","B","C","D"],"names":["M","N"]}  (M thuộc AB, N thuộc CD)
+    - góc giữa đường thẳng PQ và mặt phẳng (ABC): {"type":"line_plane_angle","points":["P","Q","A","B","C"],"names":[]}  (names = [giao điểm, hình chiếu]). VD "góc giữa SC và đáy ABCD" -> points ["S","C","A","B","C"].
+    - góc nhị diện / góc giữa hai mặt phẳng có giao tuyến AB, C thuộc mặt phẳng thứ nhất, D thuộc mặt phẳng thứ hai (C, D không nằm trên AB): {"type":"dihedral","points":["A","B","C","D"],"names":[]}. VD góc giữa (SAB) và (ABCD): points ["A","B","S","D"].
+    - trọng tâm / trực tâm / tâm đường tròn nội tiếp / tâm đường tròn ngoại tiếp tam giác ABC (kèm các đường trung tuyến / đường cao / phân giác / trung trực): {"type":"centroid" hoặc "orthocenter" hoặc "incenter" hoặc "circumcenter","points":["A","B","C"],"names":["G"]}
+    Yêu cầu không thuộc các loại trên thì để "constructions": [].
+13. HÌNH CẦU ĐẶC (khối cầu tô bóng, khác với hình cầu vẽ bằng 3 đường tròn): khi người dùng yêu cầu "hình cầu đặc", "khối cầu", "quả cầu", "mặt cầu đặc" thì thêm vào "spheres": [{"center": "O", "radius": R}] và BẮT BUỘC có đỉnh tâm trong "vertices" (nếu đề không nêu vị trí thì tâm [0, 0, R] để cầu tiếp xúc mặt đáy). KHÔNG dùng "circles" thay cho hình cầu đặc. Nếu trạng thái hiện tại đã có "spheres" thì GIỮ NGUYÊN. Không yêu cầu thì để [].
+14. MẶT PHẲNG THEO PHƯƠNG TRÌNH TRÊN MÀN HÌNH: trạng thái hiện tại có thể có "planes": [{"name":"P1","eq":"x + 2y - z - 3 = 0","n":[a,b,c],"d":d}] (mặt phẳng ax + by + cz + d = 0, cùng hệ OXYZ với pos của đỉnh, z là chiều cao). Khi người dùng nhắc "mặt phẳng (P)", "(P1)", "mặt phẳng trên màn hình" thì hiểu là các mặt phẳng này và dùng chúng để tính toán/dựng (VD: giao điểm của đường thẳng với (P), điểm thuộc (P), hình chiếu lên (P), khoảng cách tới (P), thiết diện). Mặt phẳng do hệ thống quản lý riêng nên KHÔNG đưa "planes" vào JSON trả về và không cần vẽ lại chúng.
 11. Cấu trúc JSON trả về bắt buộc:
 {
   "vertices": [{"name": "O", "pos": [0, 0, 0]}],
@@ -5086,7 +5129,9 @@ Quy tắc toán học bắt buộc:
   "equalEdges": [ [["A","B"], ["A","C"], 1, "a"] ],
   "rightAngleLabels": { "S_A_B": "⊥" },
   "edgeLengths": [],
-  "angles": []
+  "angles": [],
+  "constructions": [],
+  "spheres": []
 }`;
 
 
@@ -5102,12 +5147,13 @@ Quy tắc toán học bắt buộc:
                 aiHistory.push({ role: "assistant", content: replyText });
                 const shapeData = JSON.parse(replyText);
                 const sanityIssues = checkShapeSanity(shapeData);
-                if (sanityIssues.length) logAiIssue('Kết quả AI nghi sai: ' + sanityIssues.join('; '), promptText, replyText);
+                if (sanityIssues.length) { logAiIssue('Kết quả AI nghi sai: ' + sanityIssues.join('; '), promptText, replyText); showBuildToast('Hình này có thể chưa đúng, quá tầm hiểu biết của AI. Đã lưu vào nhật ký.', 6000); }
                 lastAiAction = { prompt: promptText, reply: replyText, time: Date.now(), undoLogged: false };
                 shapeData.edgeLengths = filterAiEdgeLengths(shapeData.edgeLengths, promptText, currentEdgeLengths,
                     (shapeData.vertices || []).map(v => v.name), currentVertices.map(v => v.name));
                 shapeData.angles = filterAiAngles(shapeData.angles, promptText, currentAngles);
                 renderShapeFromJSON(shapeData);
+                try { window.runAiConstructions(shapeData.constructions); window.runAiSpheres(shapeData.spheres); } catch (e3) { console.error(e3); showBuildToast('Lỗi dựng: ' + e3.message, 6000); }
                 try {
                     const rep2 = applyGivenEdgeLengthsFromPrompt(promptText);
                     if (rep2.done.length || rep2.missing.length) {
@@ -5122,7 +5168,7 @@ Quy tắc toán học bắt buộc:
             } catch (err) {
                 console.error(err);
                 logAiIssue('Lỗi khi AI vẽ: ' + err.message, promptText, aiLastRawReply);
-                await appAlert("Lỗi AI: " + err.message);
+                await appAlert("Yêu cầu này quá tầm hiểu biết của AI rồi. Mình đã lưu vào nhật ký (nút tải nhật ký) để cải thiện.");
                 aiHistory.pop();
             } finally {
                 btn.disabled = false;
@@ -5811,7 +5857,17 @@ Quy tắc toán học bắt buộc:
                 const x = (tempV.x * .5 + .5) * window.innerWidth;
                 const y = (tempV.y * -.5 + .5) * window.innerHeight;
 
-                v.labelEl.style.transform = `translate(-50%, -100%) translate(${x}px,${y}px)`;
+                let dy = 0;
+                if (document.body.classList.contains('paper-mode')) {
+                    // 2D: đẩy nhãn lên cao hơn bán kính chấm tròn để chữ không bị chấm đen che
+                    const gp = v.mesh && v.mesh.geometry && v.mesh.geometry.parameters;
+                    const rad = (gp && gp.radius ? gp.radius : 0.1) * (v.mesh && v.mesh.scale ? v.mesh.scale.x : 1);
+                    const upV = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
+                    const t2 = v.point.clone().addScaledVector(upV, rad).project(camera);
+                    dy = Math.abs((t2.y - tempV.y) * 0.5 * window.innerHeight) + 5;
+                }
+                const lo = v.labelOff || { x: 0, y: 0 };
+                v.labelEl.style.transform = `translate(-50%, -100%) translate(${x + lo.x}px,${y - dy + lo.y}px)`;
                 v.labelEl.style.opacity = '1';
             });
 
@@ -7476,6 +7532,307 @@ document.addEventListener('DOMContentLoaded', () => {
     const inp = document.getElementById('eqplane-input');
     if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); drawEquationPlane(); } });
 });
+</script>
+<script>
+// ===== AI dựng khoảng cách, góc, điểm đặc biệt: AI chỉ chọn loại + đỉnh, hệ thống tự tính tọa độ =====
+(function(){
+const byName=n=>verticesData.find(v=>String(v.name).toUpperCase()===String(n).toUpperCase());
+function vAt(pos,nm){
+    const ex=verticesData.find(v=>v.point.distanceToSquared(pos)<1e-8); if(ex) return ex;
+    nm=nm?String(nm).toUpperCase():''; if(!nm||byName(nm)) nm=getNextVertexName();
+    return addVertex(nm,pos);
+}
+const E=(x,y,len)=>{ if(x!==y) addEdge(x.id,y.id,!!len,true); };
+const R90=(a,b,c)=>{ if(a!==b&&b!==c&&a!==c) createAngleMarkerObj(a,b,c,'90°'); };
+const deg1=d=>(Math.round(d*10)/10)+'°';
+const other=(a,b,I)=>a!==I?a:b;
+const mid=(p,q)=>p.clone().add(q).multiplyScalar(0.5);
+const planeN=(a,b,c)=>{const n=b.point.clone().sub(a.point).cross(c.point.clone().sub(a.point));if(n.lengthSq()<1e-9)throw new Error('3 điểm của mặt phẳng thẳng hàng');return n.normalize();};
+const footPl=(p,a,n)=>p.clone().sub(n.clone().multiplyScalar(p.clone().sub(a).dot(n)));
+const footLn=(p,a,b)=>{const d=b.clone().sub(a);return a.clone().add(d.multiplyScalar(p.clone().sub(a).dot(d)/d.lengthSq()));};
+function circum(a,b,c){
+    const u=b.clone().sub(a),v=c.clone().sub(a),w=u.clone().cross(v);
+    return a.clone().add(w.clone().cross(u).multiplyScalar(v.lengthSq()).add(v.clone().cross(w).multiplyScalar(u.lengthSq())).multiplyScalar(1/(2*w.lengthSq())));
+}
+function tri(t){ planeN(t[0],t[1],t[2]); }
+const each=(t,fn)=>[[t[0],t[1],t[2]],[t[1],t[2],t[0]],[t[2],t[0],t[1]]].forEach(a=>fn(...a));
+const sum3=t=>t[0].point.clone().add(t[1].point).add(t[2].point);
+
+const C={
+ point_plane:{n:4,run([P,A,B,Cc],nm){
+    const n=planeN(A,B,Cc), h=footPl(P.point,A.point,n);
+    if(P.point.distanceTo(h)<1e-6) throw new Error(P.name+' nằm trong mặt phẳng');
+    const H=vAt(h,nm[0]); E(P,H,true);
+    R90(P,H,[A,B,Cc].filter(x=>x!==H).sort((x,y)=>y.point.distanceTo(h)-x.point.distanceTo(h))[0]);
+    return `khoảng cách ${P.name}→(${A.name}${B.name}${Cc.name}) = ${P.name}${H.name}`;
+ }},
+ common_perp:{n:4,run([A,B,Cc,D],nm){
+    const u=B.point.clone().sub(A.point),v=D.point.clone().sub(Cc.point),w=A.point.clone().sub(Cc.point);
+    const a=u.dot(u),b=u.dot(v),c=v.dot(v),d=u.dot(w),e=v.dot(w),den=a*c-b*b;
+    if(den<1e-9) throw new Error('hai đường song song');
+    const s=(b*e-c*d)/den,t=(a*e-b*d)/den;
+    const P=A.point.clone().add(u.clone().multiplyScalar(s)),Q=Cc.point.clone().add(v.clone().multiplyScalar(t));
+    if(P.distanceTo(Q)<1e-6) throw new Error('hai đường cắt nhau, không chéo nhau');
+    const M=vAt(P,nm[0]),N=vAt(Q,nm[1]);
+    E(M,N,true);
+    [[s,A,B,M],[t,Cc,D,N]].forEach(([k,X,Y,F])=>{ if(F===X||F===Y)return; if(k<0)E(X,F); else if(k>1)E(Y,F); });
+    R90(N,M,other(A,B,M)); R90(M,N,other(Cc,D,N));
+    return `đoạn vuông góc chung của ${A.name}${B.name} và ${Cc.name}${D.name} là ${M.name}${N.name}`;
+ }},
+ line_plane_angle:{n:5,run([P,Q,A,B,Cc],nm){
+    const n=planeN(A,B,Cc), dP=P.point.clone().sub(A.point).dot(n), dQ=Q.point.clone().sub(A.point).dot(n);
+    if(Math.abs(dP-dQ)<1e-9) throw new Error('đường thẳng song song hoặc nằm trong mặt phẳng');
+    const far=Math.abs(dP)>=Math.abs(dQ)?P:Q;
+    const O=vAt(P.point.clone().add(Q.point.clone().sub(P.point).multiplyScalar(dP/(dP-dQ))),nm[0]);
+    const H=vAt(footPl(far.point,A.point,n),nm[1]);
+    E(far,O); E(far,H,true);
+    let deg=90;
+    if(H!==O){ E(H,O); R90(far,H,O); deg=computeAngleDeg(far.point,O.point,H.point); }
+    createAngleMarkerObj(far,O,H===O?other(A,B,O):H,deg1(deg));
+    return `góc giữa ${P.name}${Q.name} và (${A.name}${B.name}${Cc.name}) là góc ${far.name}${O.name}${H.name} ≈ ${deg1(deg)}`;
+ }},
+ dihedral:{n:4,run([A,B,Cc,D],nm){
+    const e=B.point.clone().sub(A.point).normalize();
+    const pc=Cc.point.clone().sub(A.point), pd=D.point.clone().sub(A.point);
+    const ic=A.point.clone().add(e.clone().multiplyScalar(pc.dot(e)));
+    const perpC=Cc.point.clone().sub(ic), perpD=pd.clone().sub(e.clone().multiplyScalar(pd.dot(e)));
+    if(perpC.length()<1e-6||perpD.length()<1e-6) throw new Error('C hoặc D nằm trên đường thẳng '+A.name+B.name);
+    const uC=perpC.clone().normalize(), uD=perpD.clone().normalize();
+    if(uC.dot(uD)>1-1e-9) throw new Error('hai mặt phẳng trùng nhau');
+    const I=vAt(ic,nm[0]), J=vAt(ic.clone().add(uD.multiplyScalar(perpC.length())),nm[1]), o=other(A,B,I);
+    E(I,Cc); E(I,J); R90(Cc,I,o); R90(J,I,o);
+    const deg=computeAngleDeg(Cc.point,I.point,J.point);
+    createAngleMarkerObj(Cc,I,J,deg1(deg));
+    return `góc nhị diện [${Cc.name}, ${A.name}${B.name}, ${D.name}] ≈ ${deg1(deg)}`;
+ }},
+ centroid:{n:3,run(t,nm){
+    tri(t); const G=vAt(sum3(t).multiplyScalar(1/3),nm[0]);
+    each(t,(X,Y,Z)=>E(X,vAt(mid(Y.point,Z.point))));
+    return `trọng tâm ${t.map(x=>x.name).join('')} là ${G.name}`;
+ }},
+ orthocenter:{n:3,run(t,nm){
+    tri(t); const H=vAt(sum3(t).sub(circum(t[0].point,t[1].point,t[2].point).multiplyScalar(2)),nm[0]);
+    each(t,(X,Y,Z)=>{
+        const f=footLn(X.point,Y.point,Z.point), F=vAt(f);
+        const k=f.clone().sub(Y.point).dot(Z.point.clone().sub(Y.point))/Z.point.distanceToSquared(Y.point);
+        E(X,F); E(X,H);
+        if(F!==Y&&F!==Z){ if(k<0)E(Y,F); else if(k>1)E(Z,F); R90(X,F,F!==Z?Z:Y); }
+    });
+    return `trực tâm ${t.map(x=>x.name).join('')} là ${H.name}`;
+ }},
+ incenter:{n:3,run(t,nm){
+    tri(t); const [A,B,Cc]=t, la=B.point.distanceTo(Cc.point), lb=A.point.distanceTo(Cc.point), lc=A.point.distanceTo(B.point);
+    const I=vAt(A.point.clone().multiplyScalar(la).add(B.point.clone().multiplyScalar(lb)).add(Cc.point.clone().multiplyScalar(lc)).multiplyScalar(1/(la+lb+lc)),nm[0]);
+    each(t,(X,Y,Z)=>{
+        const ly=X.point.distanceTo(Z.point), lz=X.point.distanceTo(Y.point);
+        E(X,vAt(Y.point.clone().multiplyScalar(ly).add(Z.point.clone().multiplyScalar(lz)).multiplyScalar(1/(ly+lz))));
+    });
+    return `tâm nội tiếp ${t.map(x=>x.name).join('')} là ${I.name}`;
+ }},
+ circumcenter:{n:3,run(t,nm){
+    tri(t); const O=vAt(circum(t[0].point,t[1].point,t[2].point),nm[0]);
+    each(t,(X,Y,Z)=>{ const M=vAt(mid(Y.point,Z.point)); E(O,M); E(O,X); R90(O,M,Z); });
+    return `tâm ngoại tiếp ${t.map(x=>x.name).join('')} là ${O.name}`;
+ }}
+};
+const ALIAS={point_plane_distance:'point_plane',distance_point_plane:'point_plane',common_perpendicular:'common_perp',dihedral_angle:'dihedral'};
+
+window.runAiConstructions=function(list,fromButton){
+    if(!Array.isArray(list)||!list.length) return;
+    const ok=[],bad=[]; let snap=false;
+    list.forEach(c=>{
+        try{
+            const f=C[ALIAS[c.type]||c.type]; if(!f) throw new Error('chưa hỗ trợ loại "'+c.type+'"');
+            const pts=(c.points||[]).map(byName);
+            if(pts.length!==f.n||pts.some(x=>!x)) throw new Error('thiếu hoặc sai đỉnh '+JSON.stringify(c.points));
+            if(!snap){pushUndoSnapshot();snap=true;}
+            ok.push(f.run(pts,Array.isArray(c.names)?c.names:(c.name?[c.name]:[])));
+        }catch(e){ bad.push(e.message); }
+    });
+    if(bad.length){
+        try{ logAiIssue('Dựng thất bại: '+bad.join('; '), fromButton?'(nút dựng) '+JSON.stringify(list):(typeof lastAiAction!=='undefined'&&lastAiAction?lastAiAction.prompt:''), JSON.stringify(list)); }catch(e){}
+    }
+    if(ok.length||bad.length) showBuildToast((ok.length?'Đã dựng: '+ok.join('; '):'')+(ok.length&&bad.length?'<br>':'')+(bad.length?'Quá tầm hiểu biết của AI ('+bad.join('; ')+'). Đã lưu vào nhật ký.':''),7000);
+};
+window.promptConstruction=async function(type,n,title,msg,def){
+    const str=await appPrompt(title,msg,def); if(!str) return;
+    const nm=str.trim().split(/\s+/);
+    if(nm.length!==n){await appAlert('Cần nhập đúng '+n+' tên đỉnh!');return;}
+    window.runAiConstructions([{type,points:nm}],true);
+};
+})();
+</script>
+<script>
+// ===== Hình cầu ĐẶC (khối cầu tô bóng), thêm vào hình hiện tại, không thay hình cầu 3 đường tròn có sẵn =====
+(function(){
+const spheres=[];
+const vById=id=>verticesData.find(v=>v.id===id);
+const vByName=n=>verticesData.find(v=>String(v.name).toUpperCase()===String(n).toUpperCase());
+function addSolidSphere(vC,R){
+    if(!(R>0)) throw new Error('bán kính phải là số dương');
+    if(spheres.some(sp=>sp.centerName===vC.name&&Math.abs(sp.radius-R)<1e-9)) return;
+    const mesh=new THREE.Mesh(
+        new THREE.SphereGeometry(R,48,32),
+        new THREE.MeshStandardMaterial({color:0x60a5fa,roughness:0.35,metalness:0.1,transparent:true,opacity:0.55,depthWrite:false})
+    );
+    mesh.raycast=function(){};           // không cản việc chọn đỉnh/cạnh
+    mesh.renderOrder=-1;
+    mesh.position.copy(vC.point);
+    scene.add(mesh);
+    spheres.push({centerId:vC.id,centerName:vC.name,radius:R,mesh});
+}
+// Đồng bộ vị trí theo đỉnh tâm; mất tâm thì gỡ cầu
+(function loop(){
+    requestAnimationFrame(loop);
+    for(let i=spheres.length-1;i>=0;i--){
+        const sp=spheres[i];
+        const v=vById(sp.centerId)||vByName(sp.centerName);
+        if(!v){ scene.remove(sp.mesh); sp.mesh.geometry.dispose(); sp.mesh.material.dispose(); spheres.splice(i,1); continue; }
+        sp.centerId=v.id; sp.centerName=v.name; sp.mesh.position.copy(v.point);
+    }
+})();
+window.getSolidSpheresState=()=>spheres.map(sp=>({center:sp.centerName,radius:sp.radius}));
+window.runAiSpheres=function(list){
+    if(!Array.isArray(list)||!list.length) return;
+    list.forEach(c=>{
+        try{
+            const v=vByName(c.center); if(!v) throw new Error('không thấy đỉnh tâm '+c.center);
+            addSolidSphere(v,Number(c.radius));
+        }catch(e){
+            try{ logAiIssue('Vẽ cầu đặc thất bại: '+e.message, (typeof lastAiAction!=='undefined'&&lastAiAction)?lastAiAction.prompt:'', JSON.stringify(c)); }catch(x){}
+            showBuildToast('Quá tầm hiểu biết của AI (cầu đặc: '+e.message+'). Đã lưu vào nhật ký.',6000);
+        }
+    });
+};
+window.promptSolidSphere=async function(){
+    const input=await appPrompt('Hình cầu đặc','Nhập bán kính R của khối cầu (VD: 2.5). Cầu được thêm vào hình hiện tại, tâm đặt ở độ cao R:','2.5');
+    if(input===null) return;
+    const R=parseFloat(String(input).replace(',','.'));
+    if(!(R>0)){await appAlert('Cần nhập một số dương cho bán kính R.');return;}
+    pushUndoSnapshot();
+    const name=vByName('O')?getNextVertexName():'O';
+    const vO=addVertex(name,new THREE.Vector3(0,R,0));
+    addSolidSphere(vO,R);
+    fitCameraToShape();
+};
+})();
+</script>
+<script>
+// ===== Ấn vào tên điểm rồi kéo để dời chữ (nhấp đúp để về vị trí cũ) =====
+(function(){
+let drag=null,lastTap={id:null,t:0};
+function hit(x,y){
+    for(let i=verticesData.length-1;i>=0;i--){
+        const el=verticesData[i].labelEl;
+        if(!el||el.style.opacity==='0') continue;
+        const r=el.getBoundingClientRect();
+        if(r.width&&x>=r.left-4&&x<=r.right+4&&y>=r.top-4&&y<=r.bottom+4) return verticesData[i];
+    }
+    return null;
+}
+window.addEventListener('pointerdown',e=>{
+    if(!e.isPrimary||e.button>0) return;
+    if(!e.target||e.target.tagName!=='CANVAS') return;          // chỉ khi bấm trên vùng hình (không đụng bảng nút)
+    if(typeof inkActive==='function'&&inkActive()) return;       // đang dùng bút/công cụ vẽ 2D
+    const v=hit(e.clientX,e.clientY); if(!v) return;
+    e.stopPropagation(); e.preventDefault();
+    const now=Date.now();
+    if(lastTap.id===v.id&&now-lastTap.t<350){ v.labelOff=null; v.labelEl.style.outline=''; lastTap={id:null,t:0}; return; }
+    lastTap={id:v.id,t:now};
+    const o=v.labelOff||{x:0,y:0};
+    drag={v,sx:e.clientX,sy:e.clientY,ox:o.x,oy:o.y};
+    v.labelEl.style.outline='2px dashed #0ea5e9';
+},true);
+window.addEventListener('pointermove',e=>{
+    if(!drag){
+        if(e.target&&e.target.tagName==='CANVAS'&&!(typeof inkActive==='function'&&inkActive())){
+            e.target.style.cursor=hit(e.clientX,e.clientY)?'move':'';
+        }
+        return;
+    }
+    e.stopPropagation(); e.preventDefault();
+    drag.v.labelOff={x:drag.ox+e.clientX-drag.sx,y:drag.oy+e.clientY-drag.sy};
+},true);
+function end(e){
+    if(!drag) return;
+    e.stopPropagation();
+    drag.v.labelEl.style.outline='';
+    drag=null;
+}
+window.addEventListener('pointerup',end,true);
+window.addEventListener('pointercancel',end,true);
+})();
+</script>
+<script>
+// ===== Chữ viết trên 2D (công cụ "Viết chữ"): ấn vào chữ rồi kéo để dời =====
+(function(){
+let d=null;
+const on=()=>typeof paperMode!=='undefined'&&paperMode&&(inkTool==='text'||inkTool==='pan');
+function find(x,y){
+    const pt=inkToWorld(x,y), tol=8/inkPxPerUnit();
+    for(let i=inkItems.length-1;i>=0;i--){
+        const it=inkItems[i];
+        if(it.type==='text'&&inkHit(it,pt,tol)) return {it,pt};
+    }
+    return null;
+}
+window.addEventListener('pointerdown',e=>{
+    if(!e.isPrimary||e.button>0||!e.target||e.target.tagName!=='CANVAS'||!on()) return;
+    const f=find(e.clientX,e.clientY); if(!f) return;
+    e.stopPropagation(); e.preventDefault();
+    if(inkTool==='text') inkCommitTextBox();
+    try{ e.target.setPointerCapture(e.pointerId); }catch(x){}
+    d={id:e.pointerId,start:f.pt,orig:f.it,cur:f.it,before:inkItems,moved:false};
+    e.target.style.cursor='move';
+},true);
+window.addEventListener('pointermove',e=>{
+    if(!d){
+        if(e.target&&e.target.tagName==='CANVAS'&&on()) e.target.style.cursor=find(e.clientX,e.clientY)?'move':(INK_CURSORS[inkTool]||'');
+        return;
+    }
+    if(e.pointerId!==d.id) return;
+    e.stopPropagation(); e.preventDefault();
+    const pt=inkToWorld(e.clientX,e.clientY);
+    const moved=Object.assign({},d.cur,{pts:[{x:d.orig.pts[0].x+pt.x-d.start.x,y:d.orig.pts[0].y+pt.y-d.start.y}]});
+    inkItems=inkItems.map(i=>i===d.cur?moved:i); d.cur=moved; d.moved=true; inkVersion++;
+},true);
+function end(e){
+    if(!d||e.pointerId!==d.id) return;
+    e.stopPropagation();
+    if(d.moved){
+        if(e.type==='pointercancel') inkItems=d.before;
+        else { inkHistory.push({before:d.before,after:inkItems}); inkRedoStack=[]; inkRefreshUI(); }
+        inkVersion++;
+    }
+    try{ e.target.releasePointerCapture(e.pointerId); }catch(x){}
+    renderer.domElement.style.cursor=INK_CURSORS[inkTool]||'';
+    d=null;
+}
+window.addEventListener('pointerup',end,true);
+window.addEventListener('pointercancel',end,true);
+})();
+</script>
+<script>
+// ===== Cho AI đọc được các mặt phẳng nhập bằng phương trình đang hiện trên màn hình =====
+(function(){
+const f=x=>(typeof eqFmt==='function'?eqFmt(x):String(Math.round(x*1e4)/1e4));
+window.getEqPlanesInfo=function(){
+    if(typeof eqPlanesData==='undefined') return [];
+    return eqPlanesData.map(pl=>({
+        name:'P'+pl.id,
+        eq:eqPlaneText(pl),
+        n:[pl.a,pl.b,pl.c].map(v=>Math.round(v*1e6)/1e6),
+        d:Math.round(pl.d*1e6)/1e6,
+        visible:pl.group?pl.group.visible:true
+    }));
+};
+window.getEqPlanesText=function(){
+    const arr=window.getEqPlanesInfo(); if(!arr.length) return '';
+    return '- Các mặt phẳng nhập bằng phương trình (hệ Oxyz, z là chiều cao): '+arr.map(p=>
+        '('+p.name+'): '+p.eq+', pháp vectơ n = ('+p.n.map(f).join('; ')+')'+(p.visible?'':' [đang ẩn]')
+    ).join(' | ')+'.';
+};
+})();
 </script>
 </body>
 </html>

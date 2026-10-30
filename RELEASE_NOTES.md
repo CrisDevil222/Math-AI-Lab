@@ -1,5 +1,32 @@
 # Math AI Lab - Ghi chú phát hành
 
+## Phiên bản v1.0.7 (Bất phương trình, Điểm uốn & Khối cầu đặc 3D)
+
+### 1. Phân hệ Khảo sát Đồ thị 2D (`dothi2d.html`)
+- **Hệ thống Bất Phương Trình & Miền Nghiệm (Inequalities)**:
+  - Bổ sung nút **+ Thêm BPT** cho phép nhập bất phương trình 1 ẩn hoặc 2 ẩn (x, y), nhập hệ bất phương trình ngăn cách bởi dấu chấm phẩy (;).
+  - Tự động tô màu và đánh dấu miền nghiệm trên đồ thị Canvas thời gian thực, tự động phân biệt viền nét liền (chứa dấu ≤, ≥) và nét đứt (chứa dấu <, >).
+  - Tự động tìm và hiển thị tọa độ đỉnh của miền nghiệm đa giác (phục vụ trực tiếp bài toán Quy hoạch tuyến tính trong chương trình Toán mới).
+  - Biểu diễn tập nghiệm của bất phương trình 1 ẩn dưới dạng các khoảng số học chuẩn.
+  - Bổ sung 3 bộ Preset mẫu: BPT bậc hai 2 ẩn, BPT 1 ẩn và Hệ BPT bậc nhất 2 ẩn.
+- **Tự động tìm Điểm Uốn của đồ thị (phím U)**:
+  - Nút công cụ mới trên thanh chức năng, tính đạo hàm cấp hai y'' = f''(x).
+  - Quét tìm chính xác các điểm uốn (nơi y'' = 0 và đổi dấu), tự động đánh dấu điểm uốn bằng màu tím nổi bật và bám sát đồ thị khi di chuyển.
+- **Thuật toán Tiệm Cận Nâng Cao**:
+  - Nhận diện cực điểm phân kỳ ra vô cực để vẽ tiệm cận đứng chuẩn xác.
+  - Tự động phát hiện và vẽ đường tiệm cận xiên dạng y = ax + b.
+
+### 2. Phân hệ Hình học Không gian 3D (`ungdunghinhoc3d.html`)
+- **Khối Cầu Đặc 3D (Solid Shaded Sphere)**:
+  - Bổ sung nút **Cầu đặc** dựng khối cầu đặc tô bóng chuẩn 3D màu xanh phủ mờ, đổ bóng chiều sâu không gian.
+  - Tự động bám theo tâm cầu (khi di chuyển đỉnh tâm thì khối cầu di chuyển theo, khi xóa đỉnh tâm thì khối cầu tự hủy).
+  - Tối ưu hóa tia chiếu giúp người dùng vẫn dễ dàng bấm chọn các điểm, cạnh nằm phía sau hoặc bên trong khối cầu.
+- **Bộ Dựng Điểm Đặc Biệt của Tam Giác**:
+  - Dựng **Tâm đường tròn nội tiếp** tam giác (tự động kẻ đường phân giác).
+  - Dựng **Tâm đường tròn ngoại tiếp** tam giác (tự động dựng trung trực và ký hiệu góc vuông 90°).
+- **Mở rộng Trí Tuệ Nhân Tạo (AI Geometry)**:
+  - AI nhận diện câu lệnh tiếng Việt tự nhiên (*"dựng hình cầu đặc tâm O bán kính 3"*, *"tâm nội tiếp tam giác ABC"*) để tự động vẽ ngay tức thì.
+
 ## Phiên bản v1.0.6.1 (Bản vá lỗi & Dọn dẹp hệ thống)
 
 ### 1. Khắc phục sự cố & Tối ưu hóa trải nghiệm
