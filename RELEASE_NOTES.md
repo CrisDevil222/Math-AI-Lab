@@ -1,4 +1,23 @@
-﻿# Math AI Lab - Ghi chú phát hành
+# Math AI Lab - Ghi chú phát hành
+
+## Phiên bản v1.0.6.1 (Bản vá lỗi & Dọn dẹp hệ thống)
+
+### 1. Khắc phục sự cố & Tối ưu hóa trải nghiệm
+- **Sửa triệt để lỗi kiểm tra phiên bản**:
+  - Khắc phục lỗi hiển thị thông báo yêu cầu cập nhật dù người dùng đã nâng cấp lên bản mới nhất.
+  - Sau khi cập nhật lên v1.0.6.1, khi bấm kiểm tra hệ thống sẽ hiển thị chuẩn xác thông báo xanh: *“Bạn đang ở phiên bản mới nhất!”*.
+- **Tối ưu hóa bảng thông báo cập nhật trên điện thoại**:
+  - Trình bày ghi chú phát hành theo tiếng Việt tự nhiên, trực quan, dễ hiểu.
+  - Loại bỏ hoàn toàn các ký hiệu định dạng thô (dấu hoa thị, mã toán LaTeX), chuyển đổi sang ký tự toán học tiêu chuẩn và dấu gạch đầu dòng rõ ràng.
+- **Dọn dẹp và tinh gọn dự án**:
+  - Xóa bỏ toàn bộ các tệp tin APK cũ và tệp tạm trong mã nguồn, tối ưu hóa dung lượng dự án.
+
+### 2. Tổng hợp tính năng nổi bật của chuỗi v1.0.6
+- **Biện luận số nghiệm theo tham số k (Đường thẳng y = k)**: Thanh trượt k thời gian thực, tự động giải nghiệm tương giao và đánh dấu trực quan trên đồ thị.
+- **Tìm Giá trị lớn nhất & Giá trị nhỏ nhất (GTLN - GTNN)**: Nhập đoạn [a, b] trực tiếp trong khung Bảng Biến Thiên, tự động so sánh các điểm cực trị và đầu mút, đánh dấu điểm Max / Min nổi bật.
+- **Cực trị động thời gian thực**: Các điểm Cực đại và Cực tiểu tự động di chuyển bám sát đồ thị khi kéo thanh trượt m hoặc bật chuyển động Play.
+- **Tùy chỉnh khoảng chạy tham số m**: Hai ô nhập linh hoạt [Từ; Đến] tùy ý mở rộng dải khảo sát.
+- **Tối ưu xuất ảnh PNG**: Bảng biến thiên thu nhỏ vừa vặn, bo góc sang trọng, chuẩn tỷ lệ vàng để chèn bài giảng.
 
 ## Phiên bản v1.0.6
 
