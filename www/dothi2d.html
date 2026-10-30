@@ -378,7 +378,7 @@
               <div>
                   <div class="flex items-center gap-1.5">
                       <h1 class="font-bold text-xs text-slate-100 tracking-wide leading-tight">Khảo Sát Đồ Thị 2D</h1>
-                      <span class="px-1.5 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 font-mono text-[9px] font-bold border border-cyan-500/30">v1.0.5</span>
+                      <span class="px-1.5 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 font-mono text-[9px] font-bold border border-cyan-500/30">v1.0.6</span>
                   </div>
                   <p class="text-[10px] text-cyan-400 font-medium leading-none mt-0.5">Hỗ Trợ Tiệm Cận, Đạo Hàm y', y'' & Tiếp Tuyến</p>
               </div>
@@ -447,8 +447,12 @@
                   <i class="fa-solid fa-table-list"></i>
                   <span class="tb-label">Bảng Biến Thiên</span>
               </button>
+              <button id="btnDiscussK" onclick="toggleDiscussK()" title="Biện luận số nghiệm theo đường thẳng y = k" class="tool-btn flex items-center gap-1.5 px-3 py-2 rounded-xl border border-transparent text-xs font-semibold text-orange-400 hover:bg-slate-800 transition-all whitespace-nowrap">
+                  <i class="fa-solid fa-grip-lines"></i>
+                  <span class="tb-label">Biện Luận y = k</span>
+              </button>
           </div></div></div>
-      <div id="paramControlPanel" class="shrink-0 z-20 glass-panel px-3 py-1.5 rounded-xl border border-amber-500/40 shadow-lg flex items-center gap-2">
+      <div id="paramControlPanel" class="shrink-0 z-20 glass-panel px-2.5 py-1.5 rounded-xl border border-amber-500/40 shadow-lg flex items-center gap-2">
           <button id="btnPlayParam" onclick="togglePlayParam()" title="Chạy / Dừng hoạt hình tham số m" 
                   class="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center justify-center text-xs hover:bg-amber-500/30 transition-all">
               <i class="fa-solid fa-play"></i>
@@ -456,15 +460,43 @@
           <div class="text-xs font-bold text-amber-300 font-mono whitespace-nowrap">
               m = <span id="mValDisplay">1.0</span>
           </div>
+          <label class="flex items-center gap-1 text-[11px] text-slate-400 font-medium whitespace-nowrap">Từ
+              <input type="number" id="mStart" value="-5" step="0.1" onchange="applyMRange()" title="Điểm đầu của m"
+                     class="w-14 bg-slate-900/80 border border-slate-700 text-amber-200 font-mono text-xs px-1.5 py-0.5 rounded-lg outline-none focus:border-amber-500">
+          </label>
+          <label class="flex items-center gap-1 text-[11px] text-slate-400 font-medium whitespace-nowrap">đến
+              <input type="number" id="mEnd" value="5" step="0.1" onchange="applyMRange()" title="Điểm cuối của m"
+                     class="w-14 bg-slate-900/80 border border-slate-700 text-amber-200 font-mono text-xs px-1.5 py-0.5 rounded-lg outline-none focus:border-amber-500">
+          </label>
           <input type="range" id="mSlider" min="-5" max="5" step="0.1" value="1.0" 
                  oninput="updateParamM(this.value)"
-                 class="w-24 sm:w-32 accent-amber-500 cursor-pointer">
+                 class="w-24 sm:w-28 accent-amber-500 cursor-pointer">
       </div>
     </div>
 
     <!-- Vùng làm việc: đồ thị + bảng bên phải -->
     <main id="workspace" class="relative flex flex-1 min-h-0 min-w-0">
         <section id="stage" class="relative flex flex-col flex-1 min-w-0 min-h-0">
+        <!-- Bảng điều khiển Biện luận nghiệm y = k -->
+        <div id="discussKPanel" class="hidden absolute top-3 left-1/2 -translate-x-1/2 z-40 glass-panel border border-orange-500/50 px-3.5 py-1.5 rounded-2xl shadow-2xl flex items-center gap-2.5 text-xs">
+            <div class="flex items-center gap-1.5 font-bold text-orange-400 whitespace-nowrap">
+                <i class="fa-solid fa-grip-lines"></i>
+                <span>Biện luận y = k</span>
+            </div>
+            <div class="flex items-center gap-1 font-mono text-amber-200">
+                <span>k =</span>
+                <input type="number" id="discussKVal" value="0.0" step="0.1" onchange="updateDiscussK(this.value)" class="w-16 bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-center text-xs text-orange-300 font-bold outline-none focus:border-orange-500">
+            </div>
+            <input type="range" id="discussKSlider" min="-10" max="10" step="0.05" value="0" oninput="updateDiscussK(this.value)" class="w-28 sm:w-36 accent-orange-500 cursor-pointer">
+            <button onclick="stepDiscussK(-0.5)" class="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs font-bold" title="Giảm k (-0.5)">-</button>
+            <button onclick="stepDiscussK(0.5)" class="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs font-bold" title="Tăng k (+0.5)">+</button>
+            <div id="discussKResult" class="font-bold text-cyan-300 font-mono px-2.5 py-0.5 rounded-lg bg-slate-900/90 border border-cyan-500/30 whitespace-nowrap">
+                Số nghiệm: 0
+            </div>
+            <button onclick="toggleDiscussK(false)" class="text-slate-400 hover:text-rose-400 text-xs ml-1 p-1" title="Đóng">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
         <div id="instrRow" class="absolute top-1 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
             <div id="mode-instruction" class="glass-panel px-4 py-1 rounded-2xl text-[11px] sm:text-xs text-cyan-300 font-medium shadow-md border border-cyan-500/30 text-center animate-pulse">
                 Chế độ: Di chuyển hệ trục Oxy (Ấn giữ chuột trái để kéo, cuộn chuột để phóng to/thu nhỏ)
@@ -718,6 +750,30 @@
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
+        <!-- Thanh công cụ tìm GTLN - GTNN trên đoạn [a, b] -->
+        <div class="shrink-0 flex flex-wrap items-center justify-between gap-2 px-3 sm:px-4 py-2 bg-slate-900/60 border-b border-slate-700/40 text-xs">
+            <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-amber-400 font-bold flex items-center gap-1.5">
+                    <i class="fa-solid fa-chart-line text-[11px]"></i> Tìm GTLN - GTNN trên đoạn:
+                </span>
+                <span class="text-slate-400">[</span>
+                <label class="flex items-center text-slate-300 font-mono text-[11px]">
+                    a: <input type="number" id="minMaxRangeA" value="-2" step="0.5" class="w-14 bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-amber-200 ml-1 outline-none focus:border-amber-500 text-center">
+                </label>
+                <span class="text-slate-400">;</span>
+                <label class="flex items-center text-slate-300 font-mono text-[11px]">
+                    b: <input type="number" id="minMaxRangeB" value="2" step="0.5" class="w-14 bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-amber-200 ml-1 outline-none focus:border-amber-500 text-center">
+                </label>
+                <span class="text-slate-400">]</span>
+                <button onclick="calculateMinMaxRange()" class="px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 transition-all font-semibold flex items-center gap-1.5 text-xs">
+                    <i class="fa-solid fa-calculator"></i> Tính GTLN-NN
+                </button>
+                <button onclick="clearMinMaxPoints()" id="btnClearMinMax" class="hidden px-2 py-1 rounded-lg bg-slate-800 text-slate-400 hover:text-slate-200 text-xs transition-all">
+                    <i class="fa-solid fa-xmark"></i> Bỏ đánh dấu
+                </button>
+            </div>
+            <div id="minMaxStatusBadge" class="hidden text-xs font-mono font-semibold px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/30"></div>
+        </div>
         <div id="variationBody" class="flex-1 min-h-0 overflow-auto p-3 text-xs text-slate-300"></div>
     </div>
 
@@ -735,6 +791,13 @@ function togglePlayParam() {
     isPlayingParam = !isPlayingParam;
 
     if (isPlayingParam) {
+        applyMRange(true);
+        {
+            const lo = parseFloat(slider.min), hi = parseFloat(slider.max);
+            let cur = parseFloat(slider.value);
+            if (!(cur >= lo && cur < hi)) { slider.value = lo; updateParamM(lo); }
+            playDirection = 1;
+        }
         btn.innerHTML = '<i class="fa-solid fa-pause"></i>';
         playInterval = setInterval(() => {
             let val = parseFloat(slider.value);
@@ -760,8 +823,28 @@ function togglePlayParam() {
     }
 }
         let parameters = { m: 1.0 };
+        let trackExtrema = false; // true sau khi bấm "Tự tìm cực trị": điểm cực trị chạy theo m
 
-     function updateParamM(val) {
+        // Đặt khoảng chạy của m: điểm đầu -> điểm cuối (tự hoán đổi nếu nhập ngược)
+        function applyMRange(keepValue) {
+            const slider = document.getElementById('mSlider');
+            const elA = document.getElementById('mStart');
+            const elB = document.getElementById('mEnd');
+            if (!slider || !elA || !elB) return;
+            let a = parseFloat(elA.value), b = parseFloat(elB.value);
+            if (!isFinite(a) || !isFinite(b)) return;
+            if (a > b) { const t = a; a = b; b = t; elA.value = a; elB.value = b; }
+            if (a === b) { b = a + 0.1; elB.value = Number(b.toFixed(6)); }
+            slider.min = a;
+            slider.max = b;
+            if (keepValue === true) return;
+            let cur = parseFloat(slider.value);
+            if (!(cur >= a && cur <= b)) cur = a;
+            slider.value = cur;
+            updateParamM(cur);
+        }
+
+        function updateParamM(val) {
             parameters.m = parseFloat(val);
             const disp = document.getElementById('mValDisplay');
             if (disp) disp.textContent = parameters.m.toFixed(1);
@@ -773,8 +856,11 @@ function togglePlayParam() {
                 }
             });
 
+            if (trackExtrema && functionsData.some(f => f.hasParam)) refreshExtremaPoints();
+
             render();
             if (variationOpen) renderVariationTable();
+            if (discussKOpen) computeDiscussKRoots();
         }
         let currentModal = null;
         const modalQueue = [];
@@ -1694,6 +1780,7 @@ function togglePlayParam() {
             drawGridAndAxes();
             computeIntersections();
             drawCurves();
+            drawDiscussKLine();
             updateLabels();
             drawHoverMarker();
 
@@ -1812,6 +1899,95 @@ function togglePlayParam() {
             }
         }
 
+        // Quét cực trị của hàm: quét toàn bộ vùng đang nhìn thấy (tối thiểu [-10, 10]), cắt theo miền xác định.
+        // Phát hiện đổi dấu của y' (kể cả khi y' = 0 đúng tại điểm lấy mẫu), loại nghiệm giả do tiệm cận đứng.
+        function findExtremaList(item) {
+            const fn = item.parsedFn;
+            const MAX_POINTS = 40;      // chặn hàm tuần hoàn sinh quá nhiều điểm
+            const N = 8000;             // số mẫu quét
+            const EPS = 1e-7;           // |y'| nhỏ hơn ngưỡng này coi như 0
+
+            let lo = -10, hi = 10;
+            try {
+                if (typeof toMathX === 'function' && canvas && canvas.width) {
+                    const xL = toMathX(0), xR = toMathX(canvas.width);
+                    const pad = Math.max(2, Math.abs(xR - xL) * 0.05);
+                    lo = Math.min(xL, xR) - pad;
+                    hi = Math.max(xL, xR) + pad;
+                }
+            } catch (e) {}
+            lo = Math.max(-200, lo);
+            hi = Math.min(200, hi);
+            if (item.domain) {
+                if (isFinite(item.domain.min)) lo = Math.max(lo, item.domain.min);
+                if (isFinite(item.domain.max)) hi = Math.min(hi, item.domain.max);
+            }
+            if (!(hi > lo)) return [];
+
+            const h = 1e-6;
+            const deriv = (x) => numericalDerivative(fn, x, h);
+            const sgn = (d) => (d > EPS ? 1 : (d < -EPS ? -1 : 0));
+
+            const out = [];
+            const dx = (hi - lo) / N;
+            let prevX = null, prevSign = 0;   // mẫu gần nhất có y' khác 0
+
+            for (let i = 0; i <= N; i++) {
+                const x = lo + i * dx;
+                const d = deriv(x);
+                if (!isFinite(d)) { prevX = null; prevSign = 0; continue; }  // ngoài miền xác định: ngắt đoạn
+                const sg = sgn(d);
+                if (sg === 0) continue;
+                if (prevSign !== 0 && sg !== prevSign) {
+                    // Có đổi dấu y' giữa prevX và x -> chia đôi tìm nghiệm
+                    let a = prevX, b = x, sa = prevSign, ok = true;
+                    for (let k = 0; k < 60; k++) {
+                        const m = (a + b) / 2;
+                        const dm = deriv(m);
+                        if (!isFinite(dm)) { ok = false; break; }
+                        if (dm === 0) { a = b = m; break; }
+                        if (Math.sign(dm) === sa) a = m; else b = m;
+                    }
+                    if (ok) {
+                        const xe = (a + b) / 2;
+                        const ye = fn(xe);
+                        const yA = fn(prevX), yB = fn(x);
+                        // Loại tiệm cận đứng: tại nghiệm giả, |y| phình to hơn hẳn hai đầu khoảng
+                        const scale = Math.max(Math.abs(yA), Math.abs(yB), 1);
+                        if (isFinite(ye) && isFinite(yA) && isFinite(yB) && Math.abs(ye) <= 10 * scale) {
+                            const isMax = prevSign > 0;
+                            out.push({ name: isMax ? "CĐ" : "CT", x: xe, y: ye, color: isMax ? '#fb7185' : '#34d399' });
+                        }
+                    }
+                }
+                prevX = x;
+                prevSign = sg;
+            }
+
+            if (out.length > MAX_POINTS) {
+                out.sort((p, q) => Math.abs(p.x) - Math.abs(q.x));
+                out.length = MAX_POINTS;
+            }
+            out.sort((p, q) => p.x - q.x);
+            return out;
+        }
+
+        function isExtremaPoint(p) {
+            return p && p.autoFound && (p.name === "CĐ" || p.name === "CT");
+        }
+
+        // Tính lại điểm cực trị khi m đổi: có thì dời theo, hết cực trị thì điểm tự mất
+        function refreshExtremaPoints() {
+            const keep = pointsData.filter(p => !isExtremaPoint(p));
+            if (functionsData.length > 0) {
+                findExtremaList(functionsData[0]).forEach(e => {
+                    keep.push({ id: 'pt_' + Math.random().toString(36).substr(2, 9), name: e.name, x: e.x, y: e.y, color: e.color, autoFound: true });
+                });
+            }
+            pointsData = keep;
+            renderPointsList();
+        }
+
         function autoFindKeyPoints() {
             if (functionsData.length === 0) {
                 appAlert("Hãy nhập ít nhất một hàm số trước!");
@@ -1819,49 +1995,15 @@ function togglePlayParam() {
             }
 
             pushUndo();
+            trackExtrema = true;
             const activeItem = functionsData[0];
-            const fn = activeItem.parsedFn;
-
-            let scanMin = -10;
-            let scanMax = 10;
-            if (activeItem.domain) {
-                if (isFinite(activeItem.domain.min)) scanMin = Math.max(-20, activeItem.domain.min);
-                if (isFinite(activeItem.domain.max)) scanMax = Math.min(20, activeItem.domain.max);
-            }
-
-            const step = 0.04;
-            let lastD = numericalDerivative(fn, scanMin);
-            let extremaFoundCount = 0;
-
-            for (let x = scanMin + step; x <= scanMax; x += step) {
-                const d = numericalDerivative(fn, x);
-                if (!isNaN(d) && !isNaN(lastD)) {
-                    if (lastD * d < 0 && Math.abs(d - lastD) < 400) {
-                        let low = x - step;
-                        let high = x;
-                        for (let k = 0; k < 15; k++) {
-                            let mid = (low + high) / 2;
-                            if (numericalDerivative(fn, mid) * numericalDerivative(fn, low) <= 0) {
-                                high = mid;
-                            } else {
-                                low = mid;
-                            }
-                        }
-                        const xExt = (low + high) / 2;
-                        const yExt = fn(xExt);
-                        if (isFinite(yExt) && Math.abs(yExt) < 1e3) {
-                            const isMax = lastD > 0;
-                            addPoint(isMax ? "CĐ" : "CT", xExt, yExt, isMax ? '#fb7185' : '#34d399', true);
-                            extremaFoundCount++;
-                        }
-                    }
-                }
-                lastD = d;
-            }
-
-            if (extremaFoundCount === 0) {
+            pointsData = pointsData.filter(p => !isExtremaPoint(p));
+            const list = findExtremaList(activeItem);
+            list.forEach(e => addPoint(e.name, e.x, e.y, e.color, true));
+            if (list.length === 0) {
+                renderPointsList();
+                render();
                 showNoExtremaNotification(activeItem.rawExpr);
-                return;
             }
         }
 
@@ -2558,8 +2700,380 @@ function togglePlayParam() {
             document.getElementById('btnUndo').disabled = undoStack.length === 0;
         }
 
+
+        // ==========================================
+        // TÍNH GTLN - GTNN TRÊN ĐOẠN [a, b]
+        // ==========================================
+        function clearMinMaxPoints(silent) {
+            pointsData = pointsData.filter(p => !p.isMinMax);
+            const badge = document.getElementById('minMaxStatusBadge');
+            if (badge) {
+                badge.classList.add('hidden');
+                badge.textContent = '';
+            }
+            const btnClear = document.getElementById('btnClearMinMax');
+            if (btnClear) btnClear.classList.add('hidden');
+            if (!silent) {
+                renderPointsList();
+                render();
+            }
+        }
+
+        function calculateMinMaxRange() {
+            if (functionsData.length === 0) {
+                appAlert("Hãy nhập ít nhất một hàm số trước khi tìm GTLN - GTNN!");
+                return;
+            }
+            const inputA = document.getElementById('minMaxRangeA');
+            const inputB = document.getElementById('minMaxRangeB');
+            if (!inputA || !inputB) return;
+
+            let a = parseFloat(inputA.value);
+            let b = parseFloat(inputB.value);
+            if (!isFinite(a) || !isFinite(b)) {
+                appAlert("Vui lòng nhập giá trị số hợp lệ cho a và b!");
+                return;
+            }
+            if (a === b) {
+                appAlert("Đoạn [a, b] cần có a khác b!");
+                return;
+            }
+            if (a > b) {
+                const temp = a; a = b; b = temp;
+                inputA.value = a;
+                inputB.value = b;
+            }
+
+            // Lấy hàm đang chọn trong bảng biến thiên hoặc hàm đầu tiên
+            const activeIdx = (variationFnIdx >= 0 && variationFnIdx < functionsData.length) ? variationFnIdx : 0;
+            const item = functionsData[activeIdx];
+            const fn = item.parsedFn;
+
+            // Kiểm tra miền xác định nếu có
+            if (item.domain) {
+                if (isFinite(item.domain.min) && a < item.domain.min) a = item.domain.min;
+                if (isFinite(item.domain.max) && b > item.domain.max) b = item.domain.max;
+                if (a >= b) {
+                    appAlert("Đoạn [" + inputA.value + "; " + inputB.value + "] nằm ngoài tập xác định của hàm số!");
+                    return;
+                }
+            }
+
+            // Lấy danh sách điểm ứng viên:
+            // 1. Hai đầu mút x = a và x = b
+            // 2. Các điểm cực trị x_k thuộc (a, b)
+            const candidates = [];
+            const ya = fn(a);
+            if (isFinite(ya)) candidates.push({ x: a, y: ya, type: 'endpoint' });
+            const yb = fn(b);
+            if (isFinite(yb)) candidates.push({ x: b, y: yb, type: 'endpoint' });
+
+            // Tìm cực trị trong khoảng (a, b)
+            const N = 2000;
+            const dx = (b - a) / N;
+            const h = 1e-6;
+            const deriv = (x) => numericalDerivative(fn, x, h);
+            let prevX = null, prevSign = 0;
+            let hasDiscontinuity = false;
+
+            for (let i = 0; i <= N; i++) {
+                const x = a + i * dx;
+                const y = fn(x);
+                if (!isFinite(y)) {
+                    hasDiscontinuity = true;
+                    prevX = null;
+                    prevSign = 0;
+                    continue;
+                }
+                const d = deriv(x);
+                if (!isFinite(d)) {
+                    hasDiscontinuity = true;
+                    prevX = null;
+                    prevSign = 0;
+                    continue;
+                }
+                const sg = d > 1e-7 ? 1 : (d < -1e-7 ? -1 : 0);
+                if (sg === 0) continue;
+                if (prevSign !== 0 && sg !== prevSign) {
+                    let l = prevX, r = x, sa = prevSign, ok = true;
+                    for (let k = 0; k < 40; k++) {
+                        const mid = (l + r) / 2;
+                        const dm = deriv(mid);
+                        if (!isFinite(dm)) { ok = false; break; }
+                        if (dm === 0) { l = r = mid; break; }
+                        if (Math.sign(dm) === sa) l = mid; else r = mid;
+                    }
+                    if (ok) {
+                        const xm = (l + r) / 2;
+                        const ym = fn(xm);
+                        if (isFinite(ym)) {
+                            candidates.push({ x: xm, y: ym, type: 'critical' });
+                        }
+                    }
+                }
+                prevX = x;
+                prevSign = sg;
+            }
+
+            if (candidates.length === 0) {
+                appAlert("Hàm số không xác định trên toàn bộ đoạn [" + a + "; " + b + "]!");
+                return;
+            }
+
+            // Sắp xếp tìm Max và Min
+            candidates.sort((p1, p2) => p1.y - p2.y);
+            const minPt = candidates[0];
+            const maxPt = candidates[candidates.length - 1];
+
+            // Cập nhật điểm trên đồ thị
+            pointsData = pointsData.filter(p => !p.isMinMax);
+            
+            const maxId = 'pt_max_' + Math.random().toString(36).substr(2, 7);
+            const minId = 'pt_min_' + Math.random().toString(36).substr(2, 7);
+            
+            pointsData.push({
+                id: maxId,
+                name: 'Max[' + a + ';' + b + ']',
+                x: maxPt.x,
+                y: maxPt.y,
+                color: '#f59e0b',
+                autoFound: true,
+                isMinMax: true
+            });
+
+            pointsData.push({
+                id: minId,
+                name: 'Min[' + a + ';' + b + ']',
+                x: minPt.x,
+                y: minPt.y,
+                color: '#06b6d4',
+                autoFound: true,
+                isMinMax: true
+            });
+
+            // Hiển thị badge kết quả
+            const badge = document.getElementById('minMaxStatusBadge');
+            const btnClear = document.getElementById('btnClearMinMax');
+            if (badge) {
+                const roundStr = (v) => Number(v.toFixed(3)).toString();
+                let warn = hasDiscontinuity ? ' <span class="text-rose-400 text-[10px]">(Có điểm gián đoạn)</span>' : '';
+                badge.innerHTML = '<span><b class="text-amber-400">GTLN:</b> ' + roundStr(maxPt.y) + ' (tại x = ' + roundStr(maxPt.x) + ')</span> | <span><b class="text-cyan-400">GTNN:</b> ' + roundStr(minPt.y) + ' (tại x = ' + roundStr(minPt.x) + ')</span>' + warn;
+                badge.classList.remove('hidden');
+            }
+            if (btnClear) btnClear.classList.remove('hidden');
+
+            renderPointsList();
+            render();
+            showInfoToast('<b>Kết quả GTLN - GTNN trên [' + a + '; ' + b + ']:</b><br>• GTLN (Max) = <b>' + maxPt.y.toFixed(3) + '</b> tại x = <b>' + maxPt.x.toFixed(3) + '</b><br>• GTNN (Min) = <b>' + minPt.y.toFixed(3) + '</b> tại x = <b>' + minPt.x.toFixed(3) + '</b>');
+        }
+
+        // ==========================================
+        // BIỆN LUẬN SỐ NGHIỆM THEO THAM SỐ k (y = k)
+        // ==========================================
+        let discussKOpen = false;
+        let discussKValue = 0.0;
+        let discussKRoots = [];
+
+        function toggleDiscussK(force) {
+            discussKOpen = (typeof force === 'boolean') ? force : !discussKOpen;
+            const btn = document.getElementById('btnDiscussK');
+            const panel = document.getElementById('discussKPanel');
+            if (btn) {
+                if (discussKOpen) {
+                    btn.classList.add('bg-orange-500/20', 'border-orange-500/50', 'text-orange-300');
+                    btn.classList.remove('text-orange-400', 'border-transparent');
+                } else {
+                    btn.classList.remove('bg-orange-500/20', 'border-orange-500/50', 'text-orange-300');
+                    btn.classList.add('text-orange-400', 'border-transparent');
+                }
+            }
+            if (panel) {
+                if (discussKOpen) {
+                    panel.classList.remove('hidden');
+                    updateDiscussK(discussKValue);
+                } else {
+                    panel.classList.add('hidden');
+                    discussKRoots = [];
+                    render();
+                }
+            }
+        }
+
+        function updateDiscussK(val) {
+            discussKValue = parseFloat(val);
+            if (!isFinite(discussKValue)) discussKValue = 0.0;
+            
+            const numInput = document.getElementById('discussKVal');
+            const slider = document.getElementById('discussKSlider');
+            if (numInput && Math.abs(parseFloat(numInput.value) - discussKValue) > 0.001) {
+                numInput.value = discussKValue.toFixed(2);
+            }
+            if (slider && Math.abs(parseFloat(slider.value) - discussKValue) > 0.001) {
+                slider.value = discussKValue;
+            }
+
+            computeDiscussKRoots();
+            render();
+        }
+
+        function stepDiscussK(delta) {
+            updateDiscussK(discussKValue + delta);
+        }
+
+        function computeDiscussKRoots() {
+            discussKRoots = [];
+            const resEl = document.getElementById('discussKResult');
+            if (!functionsData.length) {
+                if (resEl) resEl.innerHTML = 'Chưa có hàm số';
+                return;
+            }
+
+            const item = functionsData[0]; // Khảo sát hàm số chính
+            const fn = item.parsedFn;
+            const k = discussKValue;
+
+            // Xác định phạm vi quét hoành độ theo khung nhìn hoặc domain
+            let lo = -15, hi = 15;
+            try {
+                if (typeof toMathX === 'function' && canvas && canvas.width) {
+                    lo = Math.min(toMathX(0), toMathX(canvas.width)) - 2;
+                    hi = Math.max(toMathX(0), toMathX(canvas.width)) + 2;
+                }
+            } catch (e) {}
+            lo = Math.max(-100, lo);
+            hi = Math.min(100, hi);
+            if (item.domain) {
+                if (isFinite(item.domain.min)) lo = Math.max(lo, item.domain.min);
+                if (isFinite(item.domain.max)) hi = Math.min(hi, item.domain.max);
+            }
+
+            const N = 3000;
+            const dx = (hi - lo) / N;
+            const roots = [];
+            let prevX = null, prevG = null;
+
+            for (let i = 0; i <= N; i++) {
+                const x = lo + i * dx;
+                const y = fn(x);
+                if (!isFinite(y)) { prevX = null; prevG = null; continue; }
+                const g = y - k;
+                if (Math.abs(g) < 1e-9) {
+                    roots.push(x);
+                    prevX = x;
+                    prevG = g;
+                    continue;
+                }
+                if (prevG !== null && prevG * g < 0) {
+                    // Chia đôi tìm nghiệm f(x) - k = 0
+                    let a = prevX, b = x;
+                    for (let step = 0; step < 40; step++) {
+                        const m = (a + b) / 2;
+                        const gm = fn(m) - k;
+                        if (!isFinite(gm)) break;
+                        if (Math.abs(gm) < 1e-10) { a = b = m; break; }
+                        if (prevG * gm <= 0) b = m; else a = m;
+                    }
+                    const root = (a + b) / 2;
+                    const yRoot = fn(root);
+                    // Lọc nghiệm ảo nếu tiệm cận đứng
+                    if (isFinite(yRoot) && Math.abs(yRoot - k) < 0.1) {
+                        if (!roots.some(r => Math.abs(r - root) < 0.05)) {
+                            roots.push(root);
+                        }
+                    }
+                }
+                prevX = x;
+                prevG = g;
+            }
+
+            discussKRoots = roots;
+            if (resEl) {
+                const count = roots.length;
+                if (count === 0) {
+                    resEl.innerHTML = '<span class="text-rose-400">Vô nghiệm</span> (k = ' + k.toFixed(2) + ')';
+                } else {
+                    const rootsStr = roots.map(r => r.toFixed(2)).join(', ');
+                    resEl.innerHTML = '<span class="text-emerald-400 font-bold">' + count + ' nghiệm</span> (x ≈ ' + rootsStr + ')';
+                }
+            }
+        }
+
+        function drawDiscussKLine(targetCtx, targetW, targetH) {
+            if (!discussKOpen) return;
+            const c = targetCtx || ctx;
+            const w = targetW || canvas.width;
+            const h = targetH || canvas.height;
+
+            const yScreen = toCanvasY(discussKValue);
+            if (yScreen < -50 || yScreen > h + 50) return;
+
+            // Vẽ đường nét đứt y = k
+            c.save();
+            c.strokeStyle = '#f97316';
+            c.lineWidth = 2.5;
+            c.setLineDash([8, 6]);
+            c.beginPath();
+            c.moveTo(0, yScreen);
+            c.lineTo(w, yScreen);
+            c.stroke();
+            c.setLineDash([]);
+
+            // Nhãn đường y = k ở lề trái
+            c.fillStyle = '#ea580c';
+            c.beginPath();
+            if (c.roundRect) c.roundRect(10, yScreen - 22, 64, 20, 4);
+            else c.rect(10, yScreen - 22, 64, 20);
+            c.fill();
+            c.fillStyle = '#ffffff';
+            c.font = 'bold 11px Inter, sans-serif';
+            c.textAlign = 'center';
+            c.textBaseline = 'middle';
+            c.fillText('y = ' + discussKValue.toFixed(2), 42, yScreen - 12);
+
+            // Vẽ các điểm giao nghiệm
+            discussKRoots.forEach((rx, idx) => {
+                const px = toCanvasX(rx);
+                const py = yScreen;
+                if (px < -20 || px > w + 20) return;
+
+                // Vòng sáng đỏ/cam
+                c.beginPath();
+                c.arc(px, py, 6, 0, Math.PI * 2);
+                c.fillStyle = '#ef4444';
+                c.fill();
+                c.strokeStyle = '#fbbf24';
+                c.lineWidth = 2;
+                c.stroke();
+
+                // Nhãn tọa độ nghiệm
+                c.fillStyle = 'rgba(15, 23, 42, 0.9)';
+                c.strokeStyle = '#f97316';
+                c.lineWidth = 1;
+                const txt = 'x' + (idx + 1) + ' = ' + rx.toFixed(2);
+                c.font = 'bold 10px Inter, sans-serif';
+                const tw = c.measureText(txt).width + 8;
+                if (c.roundRect) {
+                    c.beginPath();
+                    c.roundRect(px - tw / 2, py - 24, tw, 16, 4);
+                    c.fill();
+                    c.stroke();
+                } else {
+                    c.fillRect(px - tw / 2, py - 24, tw, 16);
+                    c.strokeRect(px - tw / 2, py - 24, tw, 16);
+                }
+                c.fillStyle = '#fde047';
+                c.textAlign = 'center';
+                c.fillText(txt, px, py - 16);
+            });
+
+            c.restore();
+        }
+
         function clearAllData() {
             pushUndo();
+            trackExtrema = false;
+            clearMinMaxPoints(true);
+            toggleDiscussK(false);
             functionsData = [];
             pointsData = [];
             specialLines = [];
@@ -4040,10 +4554,16 @@ Quy định phản hồi:
                 downloadCanvasPng(graph, 'do-thi.png');
                 return;
             }
-            const gw = graph.width, gh = graph.height, pad = 24, titleH = 44, gap = 10;
+            const gw = graph.width, gh = graph.height, pad = 24, titleH = 40, gap = 12;
             const blocks = tables.map(t => {
-                const ts = Math.min(1.5, (gw - pad * 2) / t.vt.sw);
-                return { t, tw: t.vt.sw * ts, th: t.vt.sh * ts };
+                // Giới hạn tỉ lệ scale bảng biến thiên: tối đa 0.82 bề rộng đồ thị
+                let ts = Math.min(0.82, (gw - pad * 4) / t.vt.sw);
+                // Khống chế chiều cao mỗi bảng không vượt quá 36% chiều cao đồ thị gh
+                const maxTh = gh * 0.36;
+                if (t.vt.sh * ts > maxTh) {
+                    ts = maxTh / t.vt.sh;
+                }
+                return { t, tw: Math.round(t.vt.sw * ts), th: Math.round(t.vt.sh * ts) };
             });
             const totalH = blocks.reduce((sum, b) => sum + titleH + b.th + gap, 0);
             const out = document.createElement('canvas');

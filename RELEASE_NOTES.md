@@ -1,5 +1,34 @@
 ﻿# Math AI Lab - Ghi chú phát hành
 
+## Phiên bản v1.0.6
+
+### 1. Phân hệ Khảo sát Đồ thị 2D (`dothi2d.html`)
+- **Tùy chỉnh khoảng chạy tham số $m$ (`mStart` $\to$ `mEnd`)**:
+  - Bổ sung 2 ô nhập trực tiếp *Từ* và *đến* cạnh slider $m$, cho phép khảo sát với mọi khoảng biến thiên tùy ý.
+  - Thuật toán `applyMRange()` tự động hoán đổi thông minh nếu người dùng nhập ngược thứ tự.
+- **Cực trị động bám theo đồ thị theo thời gian thực (Real-time Dynamic Extrema)**:
+  - Khi bấm *Tự tìm cực trị*, các điểm Cực đại (CĐ) và Cực tiểu (CT) sẽ bám sát chuyển động uốn lượn của đồ thị khi kéo $m$ hoặc bấm Play.
+  - Thuật toán quét nghiệm Bisection cải tiến tự động nhận diện và loại bỏ nghiệm cực trị ảo do tiệm cận đứng gây ra.
+  - Tự động ẩn điểm khi hàm số mất cực trị và hiện lại khi có cực trị trở lại.
+- **Tính năng Tìm Giá trị lớn nhất & nhỏ nhất (GTLN - GTNN) trên đoạn $[a; b]$**:
+  - Tích hợp thanh công cụ chuyên dụng trực tiếp trong khung **Bảng Biến Thiên**: ô nhập $a, b$, nút *Tính GTLN-NN* và nút *Bỏ đánh dấu*.
+  - Tự động so sánh giá trị tại 2 đầu mút và tất cả các điểm đạo hàm triệt tiêu $y'=0$ trong khoảng $(a, b)$, có cảnh báo nếu đoạn chứa điểm gián đoạn.
+  - Hiển thị công thức kết quả Max/Min và vị trí $x$ tương ứng rõ ràng trên thanh trạng thái.
+  - Đồng thời đánh dấu trực quan 2 điểm nổi bật `Max[a; b]` (màu vàng) và `Min[a; b]` (màu xanh neon) trên đồ thị.
+- **Tính năng Biện luận số nghiệm theo tham số $k$ (Đường thẳng ngang $y = k$)**:
+  - Nút công cụ mới **`Biện Luận y = k`** trên thanh Topbar.
+  - Bảng điều khiển nổi linh hoạt với thanh trượt $k$, ô nhập số và các nút tăng/giảm bước nhảy $\pm 0.5$.
+  - Đường nét đứt màu cam nổi bật $y = k$ trên toàn đồ thị.
+  - Tự động giải phương trình tương giao $f(x) = k$, đánh dấu các giao điểm tròn đỏ viền vàng và hiển thị tọa độ các nghiệm $(x_1, x_2, \dots)$.
+  - Trực quan hóa số nghiệm thời gian thực: *“N nghiệm phân biệt (x ≈ ...)”* hoặc *“Vô nghiệm”*.
+- **Tối ưu hóa tính năng Lưu ảnh (PNG) Đồ thị + Bảng biến thiên**:
+  - Tinh chỉnh hệ số co giãn bảng biến thiên (khống chế tỷ lệ tối đa $\le 0.82$, chiều cao $\le 36\%$ chiều cao đồ thị).
+  - Bổ sung khung nền bo góc bán trong suốt giúp ảnh xuất ra cân đối, sắc nét, đạt tỷ lệ vàng để chèn vào Word/PowerPoint.
+
+### 2. Nâng cấp Hệ thống & Tương thích Di động
+- Đồng bộ toàn diện trên cả giao diện Web máy tính và ứng dụng Android APK.
+- Khắc phục các vấn đề tỷ lệ giao diện và tương thích kích cỡ màn hình.
+
 ## Phiên bản v1.0.4
 
 ### 1. Hệ thống Cài đặt Độ phân giải & Giao diện toàn diện (Settings ⚙️)

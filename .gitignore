@@ -10,6 +10,7 @@ www/config.js
 release/
 .idea/
 *.log
+*.apk
 .DS_Store
 
 # iOS
