@@ -127,10 +127,10 @@ mathailab-mobile/
 
 Dự án **Math AI Lab** được khởi xướng, thiết kế và phát triển bởi:
 
-- **Nguyễn Vĩnh Thiện** ([@raidenbmei](https://github.com/raidenbmei))
+- **Nguyễn Vĩnh Thiên** ([@raidenbmei](https://github.com/raidenbmei))
   - *Ý tưởng thiết kế & Phát triển nhân thuật toán lõi Hình học Không gian 3D, Khảo sát Giải tích Đồ thị 2D, Tích hợp Trợ lý Trí tuệ Nhân tạo Groq AI*.
   
-- **CrisDevil222** ([@CrisDevil222](https://github.com/CrisDevil222))
+- **Phạm Hoàng Sơn** ([@CrisDevil222](https://github.com/CrisDevil222))
   - *Kiến trúc & Tối ưu hóa nền tảng Ứng dụng Di động (Android APK / Capacitor), Hệ thống Cài đặt đa màn hình, Tự động hóa CI/CD, Đóng gói & Phát hành bản phát hành chính thức*.
 
 ---
