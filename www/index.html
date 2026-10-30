@@ -171,7 +171,7 @@
     <!-- Footer -->
     <footer class="w-full px-6 py-6 max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 border-t border-slate-800/50">
         <div>
-            <span>© 2026 Math Visual AI Lab. Phiên bản <span class="text-cyan-400 font-mono font-bold">v1.0.2</span>.</span>
+            <span>© 2026 Math Visual AI Lab. Phiên bản <span class="text-cyan-400 font-mono font-bold">v1.0.6</span>.</span>
         </div>
         <div class="flex items-center gap-4">
             <span class="hover:text-slate-400 transition-colors">HTML5 Canvas</span>
@@ -192,7 +192,7 @@
                     </div>
                     <div>
                         <h3 class="text-sm font-bold text-white leading-tight">Cập Nhật Ứng Dụng</h3>
-                        <span id="updateModalSubtitle" class="text-[11px] text-cyan-400 font-mono">Phiên bản hiện tại: v1.0.2</span>
+                        <span id="updateModalSubtitle" class="text-[11px] text-cyan-400 font-mono">Phiên bản hiện tại: v1.0.6</span>
                     </div>
                 </div>
                 <button onclick="closeUpdateModal()" class="text-slate-500 hover:text-slate-300 transition-colors p-1">
@@ -215,13 +215,61 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v1.0.4";
+        const CURRENT_APP_VERSION = "v1.0.6";
         const GITHUB_REPO = "CrisDevil222/Math-AI-Lab";
 
-        function showUpdateModal(title, subtitle, content, downloadUrl = null) {
+        function compareSemVer(v1, v2) {
+            const p1 = (v1 || '').replace(/^v/, '').split('.').map(x => parseInt(x, 10) || 0);
+            const p2 = (v2 || '').replace(/^v/, '').split('.').map(x => parseInt(x, 10) || 0);
+            const len = Math.max(p1.length, p2.length);
+            for (let i = 0; i < len; i++) {
+                const n1 = p1[i] || 0;
+                const n2 = p2[i] || 0;
+                if (n1 > n2) return 1;
+                if (n1 < n2) return -1;
+            }
+            return 0;
+        }
+
+        function formatReleaseNotes(md) {
+            if (!md) return '';
+            let s = md.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            // Chuẩn hóa ký hiệu toán học & ký tự sang tiếng Việt dễ đọc
+            s = s.replace(/\$\s*\\to\s*\$/g, '→')
+                 .replace(/\$\s*\\dots\s*\$/g, '...')
+                 .replace(/\$\s*\\pm\s*\$/g, '±')
+                 .replace(/\$\s*\\le\s*\$/g, '≤')
+                 .replace(/\$\s*\\ge\s*\$/g, '≥')
+                 .replace(/\$\s*\\approx\s*\$/g, '≈')
+                 .replace(/\$([a-zA-Z0-9_\-\+\*\/\s;]+)\$/g, '$1');
+            
+            // Định dạng tiêu đề
+            s = s.replace(/^###\s+(.*$)/gim, '<div class="font-bold text-cyan-300 mt-2.5 mb-1 text-xs">$1</div>');
+            s = s.replace(/^##\s+(.*$)/gim, '<div class="font-bold text-amber-300 mt-3 mb-1.5 text-sm">$1</div>');
+            s = s.replace(/^#\s+(.*$)/gim, '<div class="font-bold text-white mt-3 mb-1.5 text-sm">$1</div>');
+            
+            // Định dạng in đậm & in nghiêng (loại bỏ dấu sao thô)
+            s = s.replace(/\*\*(.*?)\*\*/g, '<b class="text-white font-semibold">$1</b>');
+            s = s.replace(/\*(.*?)\*/g, '<span class="italic text-slate-200">$1</span>');
+            
+            // Định dạng mã inline
+            s = s.replace(/`([^`]+)`/g, '<span class="px-1.5 py-0.5 rounded bg-slate-800 text-amber-200 font-mono text-[11px] border border-slate-700/60">$1</span>');
+            
+            // Định dạng danh sách gạch đầu dòng
+            s = s.replace(/^\s*-\s+(.*$)/gim, '<div class="flex items-start gap-1.5 ml-1 my-1 text-xs text-slate-300"><span class="text-cyan-400 mt-0.5">•</span><span>$1</span></div>');
+            
+            return s;
+        }
+
+        function showUpdateModal(title, subtitle, content, downloadUrl = null, isHtml = false) {
             const modal = document.getElementById('updateModal');
             document.getElementById('updateModalSubtitle').textContent = subtitle;
-            document.getElementById('updateModalContent').textContent = content;
+            const contentEl = document.getElementById('updateModalContent');
+            if (isHtml) {
+                contentEl.innerHTML = content;
+            } else {
+                contentEl.innerHTML = formatReleaseNotes(content);
+            }
             const dlBtn = document.getElementById('btnDownloadUpdate');
             if (downloadUrl) {
                 dlBtn.href = downloadUrl;
@@ -253,15 +301,16 @@
                 const data = await res.json();
                 const latestTag = data.tag_name || "";
                 
-                const isNewer = latestTag && latestTag !== CURRENT_APP_VERSION && latestTag > CURRENT_APP_VERSION;
+                // So sánh theo chuẩn Semantic Version
+                const isNewer = latestTag && compareSemVer(latestTag, CURRENT_APP_VERSION) > 0;
                 
                 if (isNewer) {
                     const releaseUrl = data.html_url || `https://github.com/${GITHUB_REPO}/releases/latest`;
-                    const notes = data.body || "Đã có bản cập nhật mới trên GitHub với nhiều cải tiến và sửa lỗi.";
+                    const notes = data.body || "Đã có bản cập nhật mới trên GitHub với nhiều cải tiến và tính năng mới.";
                     showUpdateModal(
                         "Đã có phiên bản mới!",
                         `Phiên bản mới: ${latestTag} (Hiện tại: ${CURRENT_APP_VERSION})`,
-                        `Thông tin cập nhật:\n\n${notes}`,
+                        notes,
                         releaseUrl
                     );
                 } else {
@@ -269,7 +318,9 @@
                         showUpdateModal(
                             "Bạn đang dùng bản mới nhất!",
                             `Phiên bản: ${CURRENT_APP_VERSION}`,
-                            `Ứng dụng Math AI Lab của bạn hiện đang là phiên bản mới nhất (${CURRENT_APP_VERSION}). Chưa có bản cập nhật mới nào.`
+                            `<div class="py-3 text-center"><i class="fa-solid fa-circle-check text-3xl text-emerald-400 mb-2"></i><div class="font-bold text-white text-sm">Bạn đang ở phiên bản mới nhất!</div><div class="text-slate-400 text-xs mt-1">Ứng dụng Math AI Lab (${CURRENT_APP_VERSION}) của bạn đã được cập nhật đầy đủ mọi tính năng mới nhất.</div></div>`,
+                            null,
+                            true
                         );
                     }
                 }
@@ -278,8 +329,9 @@
                     showUpdateModal(
                         "Kiểm tra cập nhật",
                         `Phiên bản hiện tại: ${CURRENT_APP_VERSION}`,
-                        `Không thể kết nối đến máy chủ GitHub để kiểm tra phiên bản mới.\nVui lòng kiểm tra lại kết nối Internet của thiết bị.`,
-                        `https://github.com/${GITHUB_REPO}/releases`
+                        `<div class="py-2 text-rose-300">Không thể kết nối đến máy chủ GitHub để kiểm tra phiên bản mới.<br>Vui lòng kiểm tra lại kết nối mạng của thiết bị.</div>`,
+                        `https://github.com/${GITHUB_REPO}/releases`,
+                        true
                     );
                 }
             } finally {
