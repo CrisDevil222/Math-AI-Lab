@@ -1,5 +1,15 @@
 # Math AI Lab - Ghi chú phát hành
 
+## Phiên bản v1.0.7.1 (Bản vá lỗi AI Chatbot & Tối ưu giao diện Mobile)
+
+### 1. Khắc phục sự cố AI Chatbot & AI Dựng hình 3D
+- **Cập nhật hệ thống API Key Groq**:
+  - Tích hợp bộ khóa API mới nhất cho toàn bộ hệ thống AI Chatbot và AI Dựng hình 2D/3D.
+  - Khắc phục triệt để lỗi kết nối `HTTP 401: Invalid API Key`, khôi phục 100% khả năng hỏi đáp công thức toán và dựng hình học bằng giọng nói / câu lệnh tiếng Việt.
+- **Tối ưu hóa giao diện Chatbot trên điện thoại**:
+  - Tự động co giãn kích thước khung chat phù hợp với màn hình di động, không bị tràn viền sang mép phải.
+  - Tối ưu chiều cao khung chat khi bàn phím ảo xuất hiện, đảm bảo đọc và gửi tin nhắn mượt mà, thuận tiện.
+
 ## Phiên bản v1.0.7 (Bất phương trình, Điểm uốn & Khối cầu đặc 3D)
 
 ### 1. Phân hệ Khảo sát Đồ thị 2D (`dothi2d.html`)
